@@ -32,6 +32,7 @@ export function AppHeader({
     label: p.charAt(0).toUpperCase() + p.slice(1).replace(/-/g, " "),
     href: "/" + parts.slice(0, i + 1).join("/"),
   }));
+  const disabledCrumbs = new Set<string>(["/properties"]);
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -59,7 +60,7 @@ export function AppHeader({
               <React.Fragment key={c.href}>
                 <BreadcrumbSeparator />
                 <BreadcrumbItem>
-                  {idx === crumbs.length - 1 ? (
+                  {idx === crumbs.length - 1 || disabledCrumbs.has(c.href) ? (
                     <BreadcrumbPage className="font-medium text-foreground">
                       {c.label}
                     </BreadcrumbPage>

@@ -2,6 +2,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
+import { useEffect } from "react";
 import { signOut } from "next-auth/react";
 import {
   Sidebar,
@@ -16,6 +17,7 @@ import {
   SidebarMenuSub,
   SidebarMenuSubItem,
   SidebarMenuSubButton,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import {
   LayoutDashboard,
@@ -85,7 +87,7 @@ const menuConfig: MenuItem[] = [
     label: "My Bookings",
     icon: DoorOpen,
     active: true,
-    permissions: ["booking-mine:write"],
+    permissions: ["booking-mine:read"],
   },
   {
     type: "single",
@@ -127,11 +129,11 @@ const menuConfig: MenuItem[] = [
     permissions: ["property:read"],
     items: [
       {
-        href: "/properties/locations",
-        label: "Locations",
+        href: "/properties/areas",
+        label: "Areas",
         icon: MapPinned,
         active: true,
-        permissions: ["property:read"],
+        permissions: ["area:read"],
       },
       {
         href: "/properties/buildings",
@@ -399,6 +401,7 @@ export function AppSidebar({
   userPermissions,
 }: AppSidebarProps) {
   const pathname = usePathname();
+  const { state, setOpen } = useSidebar();
   const userInitials =
     userName
       ?.split(" ")
@@ -413,6 +416,16 @@ export function AppSidebar({
 
   // Filter menu items based on user permissions
   const visibleMenuItems = filterMenuItems(menuConfig, userPermissions);
+
+  // Expand sidebar if a submenu is active on initial render
+  useEffect(() => {
+    const hasActiveSubmenu = visibleMenuItems.some(
+      (it) =>
+        it.type === "group" &&
+        it.items?.some((s) => pathname.startsWith(s.href))
+    );
+    if (hasActiveSubmenu && state === "collapsed") setOpen(true);
+  }, [pathname, visibleMenuItems, state, setOpen]);
 
   return (
     <Sidebar collapsible="icon" className="border-r">
@@ -464,12 +477,16 @@ export function AppSidebar({
                   );
                 }
 
+                const isGroupActive = item.items?.some(
+                  (sub) =>
+                    pathname === sub.href || pathname.startsWith(sub.href)
+                );
                 return (
                   <GroupMenuItem
                     key={item.label}
                     item={item}
                     pathname={pathname}
-                    defaultOpen={index <= 2}
+                    defaultOpen={Boolean(isGroupActive)}
                   />
                 );
               })}

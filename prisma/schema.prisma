@@ -1,0 +1,55 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Role {
+  id             String          @id @default(cuid())
+  name           String          @unique
+  description    String?
+  rolePermissions RolePermission[]
+  userRoles      UserRole[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+}
+
+model Permission {
+  id             String          @id @default(cuid())
+  key            String          @unique
+  description    String?
+  rolePermissions RolePermission[]
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  @@id([roleId, permissionId])
+}
+
+model Company {
+  id        String    @id @default(cuid())
+  code      String    @unique
+  name      String
+  userRoles UserRole[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+}
+
+model UserRole {
+  id        String   @id @default(cuid())
+  username  String
+  roleId    String
+  companyId String?
+  role      Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  company   Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  assignedAt DateTime @default(now())
+  @@unique([username, roleId, companyId])
+  @@index([username])
+}

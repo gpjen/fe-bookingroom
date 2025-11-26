@@ -10,8 +10,9 @@ const ROLES: Record<string, Role> = {
     permissions: [
       "dashboard:read",
       "calendar:read",
+      "area:read",
       "booking:read",
-      "booking-mine:write",
+      "booking-mine:read",
       "booking-request:read",
       "property:read",
       "reports:read",
@@ -24,8 +25,9 @@ const ROLES: Record<string, Role> = {
     permissions: [
       "dashboard:read",
       "calendar:read",
+      "area:read",
       "booking:read",
-      "booking-mine:write",
+      "booking-mine:read",
       "booking-request:read",
       "property:read",
       "reports:read",
@@ -33,7 +35,7 @@ const ROLES: Record<string, Role> = {
   },
   staff: {
     name: "staff",
-    permissions: ["dashboard:read", "calendar:read", "booking-mine:write"],
+    permissions: ["dashboard:read", "calendar:read", "booking-mine:read"],
   },
 };
 

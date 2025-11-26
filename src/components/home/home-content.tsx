@@ -29,7 +29,18 @@ export default function HomeContent({ isLoggedIn }: { isLoggedIn: boolean }) {
   const { t } = useLang();
 
   return (
-    <main className="min-h-screen bg-background">
+    <main className="relative min-h-screen">
+      <div className="absolute inset-0 -z-10">
+        <div
+          className="h-full w-full bg-cover bg-center"
+          style={{ backgroundImage: "url('/bg.webp')" }}
+          aria-hidden
+        />
+        <div
+          className="absolute inset-0 bg-white/60 dark:bg-black/60"
+          aria-hidden
+        />
+      </div>
       {/* Header Actions */}
       <div className="mx-auto max-w-6xl px-6 pt-6">
         <div className="flex items-center justify-end gap-3">
@@ -42,7 +53,7 @@ export default function HomeContent({ isLoggedIn }: { isLoggedIn: boolean }) {
       <section className="mx-auto max-w-6xl px-6 pt-24 pb-32">
         <div className="text-center space-y-8 max-w-3xl mx-auto">
           {/* Badge */}
-          <div className="inline-flex items-center gap-2 px-4 py-0 bg-[#F0F4FF]/10 border border-border rounded-full text-sm font-medium">
+          <div className="inline-flex items-center gap-2 px-4 py-0 bg-white dark:bg-[#1F2937] border border-border rounded-full text-sm font-medium">
             <Image
               src="/logo_sm.png"
               alt="Logo"
@@ -54,12 +65,12 @@ export default function HomeContent({ isLoggedIn }: { isLoggedIn: boolean }) {
           </div>
 
           {/* Headline */}
-          <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight">
+          <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight text-foreground dark:text-white">
             {t("title")}
           </h1>
 
           {/* Subheadline */}
-          <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+          <p className="text-xl max-w-2xl mx-auto text-gray dark:text-white">
             {t("desc")}
           </p>
 

@@ -13,7 +13,6 @@ import { Separator } from "@/components/ui/separator";
 import { usePathname } from "next/navigation";
 import { LangSelect } from "@/components/settings/lang-select";
 import { ThemeToggle } from "@/components/settings/theme-toggle";
-import { UserMenu } from "@/components/auth/user-menu";
 import { Search, Bell, LayoutDashboard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

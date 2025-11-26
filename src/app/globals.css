@@ -157,19 +157,27 @@
 }
 
 /* Modern minimal scrollbar for sidebar */
-.minimal-scroll::-webkit-scrollbar {
+/* GLOBAL MINIMAL SCROLLBAR */
+*::-webkit-scrollbar {
   width: 6px;
+  height: 6px;
 }
 
-.minimal-scroll::-webkit-scrollbar-track {
+*::-webkit-scrollbar-track {
   background: transparent;
 }
 
-.minimal-scroll::-webkit-scrollbar-thumb {
+*::-webkit-scrollbar-thumb {
   background: rgba(150, 150, 150, 0.25);
   border-radius: 10px;
 }
 
-.minimal-scroll:hover::-webkit-scrollbar-thumb {
+*:hover::-webkit-scrollbar-thumb {
   background: rgba(150, 150, 150, 0.45);
+}
+
+/* Firefox support */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(150, 150, 150, 0.35) transparent;
 }

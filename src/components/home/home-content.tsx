@@ -12,6 +12,7 @@ import { ThemeToggle } from "@/components/settings/theme-toggle";
 import { useLang } from "@/providers/lang-provider";
 import { Button } from "../ui/button";
 import { signIn } from "next-auth/react";
+import Image from "next/image";
 
 function Feature({ icon, title }: { icon: React.ReactNode; title: string }) {
   return (
@@ -41,8 +42,14 @@ export default function HomeContent({ isLoggedIn }: { isLoggedIn: boolean }) {
       <section className="mx-auto max-w-6xl px-6 pt-24 pb-32">
         <div className="text-center space-y-8 max-w-3xl mx-auto">
           {/* Badge */}
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-[#F0F4FF]/10 border border-border rounded-full text-sm font-medium">
-            <Sparkles className="h-4 w-4 text-primary" />
+          <div className="inline-flex items-center gap-2 px-4 py-0 bg-[#F0F4FF]/10 border border-border rounded-full text-sm font-medium">
+            <Image
+              src="/logo_sm.png"
+              alt="Logo"
+              width={50}
+              height={50}
+              priority
+            />
             <span>HARITA LYGEND</span>
           </div>
 

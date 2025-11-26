@@ -4,6 +4,7 @@ import { SidebarProvider, SidebarInset } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/layout/app-sidebar";
 import { AppHeader } from "@/components/layout/app-header";
 import { redirect } from "next/navigation";
+import { getAccessForUsername } from "@/lib/auth/rbac";
 
 export default async function Layout({
   children,
@@ -12,6 +13,7 @@ export default async function Layout({
 }) {
   const session = await getServerSession(authOptions);
   if (!session) redirect("/");
+  const access = getAccessForUsername((session.user as any)?.username);
 
   return (
     <SidebarProvider defaultOpen={true}>
@@ -19,6 +21,7 @@ export default async function Layout({
         <AppSidebar
           userName={session?.user?.name || ""}
           email={session?.user?.email || ""}
+          userPermissions={access.permissions}
         />
         <SidebarInset className="flex-1">
           <AppHeader

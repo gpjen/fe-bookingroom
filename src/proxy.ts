@@ -16,13 +16,13 @@ export async function proxy(req: NextRequest) {
 
   const token = await getToken({ req, secret: process.env.NEXTAUTH_SECRET });
 
-  // If user is not logged in and is not on the home page, redirect to home
-  if (!token && pathname !== "/") {
+  // If user is not logged in (token is null) OR token has an error, and is not on the home page, redirect to home
+  if ((!token || token.error) && pathname !== "/") {
     return NextResponse.redirect(new URL("/", req.url));
   }
 
-  // If user is logged in and tries to access home page, redirect to dashboard
-  if (token && pathname === "/") {
+  // If user is logged in (token exists and has no error) and tries to access home page, redirect to dashboard
+  if (token && !token.error && pathname === "/") {
     return NextResponse.redirect(new URL("/dashboard", req.url));
   }
 

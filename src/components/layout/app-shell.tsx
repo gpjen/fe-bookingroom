@@ -2,6 +2,8 @@
 
 import { useSession } from "next-auth/react";
 import { Spinner } from "@/components/ui/spinner";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 
 /**
  * This component provides a global loading shell for the entire application.
@@ -9,7 +11,25 @@ import { Spinner } from "@/components/ui/spinner";
  * page content, preventing UI flashes or errors related to session data.
  */
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const { status } = useSession();
+  const { data: session, status } = useSession(); // Get data: session as well
+  const router = useRouter();
+
+  console.log("AppShell: useSession status =", status);
+  console.log("AppShell: session expires =", session?.expires);
+
+  useEffect(() => {
+    // Fallback: If session exists but is expired, redirect
+    if (session?.expires && new Date(session.expires) < new Date()) {
+      console.log("AppShell: Session expired, redirecting to /");
+      router.push("/");
+      return;
+    }
+
+    if (status === "unauthenticated") {
+      console.log("AppShell: Status is unauthenticated, redirecting to /");
+      router.push("/"); // Redirect to login page if unauthenticated
+    }
+  }, [status, session?.expires, router]); // Add session.expires to dependency array
 
   if (status === "loading") {
     return (

@@ -16,16 +16,19 @@ function decodeJwtPayload(jwt?: string): any {
 
 async function refreshAccessToken(token: TokenSet): Promise<TokenSet> {
   try {
-    const response = await fetch(`${process.env.KEYCLOAK_ISSUER}/protocol/openid-connect/token`, {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        client_id: process.env.KEYCLOAK_CLIENT_ID!,
-        client_secret: process.env.KEYCLOAK_CLIENT_SECRET!,
-        grant_type: "refresh_token",
-        refresh_token: token.refreshToken as string,
-      }),
-    });
+    const response = await fetch(
+      `${process.env.KEYCLOAK_ISSUER}/protocol/openid-connect/token`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          client_id: process.env.KEYCLOAK_CLIENT_ID!,
+          client_secret: process.env.KEYCLOAK_CLIENT_SECRET!,
+          grant_type: "refresh_token",
+          refresh_token: token.refreshToken as string,
+        }),
+      }
+    );
 
     const refreshedTokens = await response.json();
     if (!response.ok) throw refreshedTokens;
@@ -76,7 +79,8 @@ export const authOptions: NextAuthOptions = {
           const issueDate = new Date((token.iat as number) * 1000);
           const currentDate = new Date();
           if (issueDate.toDateString() !== currentDate.toDateString()) {
-            return {}; // Invalidate: New day
+            console.log("JWT Callback: Daily re-login check failed. Invalidating session.");
+            return { error: "RefreshAccessTokenError" }; // Invalidate: New day
           }
         }
         
@@ -86,37 +90,66 @@ export const authOptions: NextAuthOptions = {
             headers: { "Authorization": `Bearer ${token.accessToken}` }
           });
           if (!userinfoRes.ok) {
-            return {}; // Invalidate: User logged out from IdP
+            console.log("JWT Callback: Userinfo check failed. Invalidating session.");
+            return { error: "RefreshAccessTokenError" }; // Invalidate: User logged out from IdP
           }
         }
+        console.log("JWT Callback: Token still valid and checks passed.");
         return token; // Token is valid
       }
 
       // Access token has expired, try to update it
+      console.log("JWT Callback: Access token expired. Attempting refresh.");
       const refreshedToken = await refreshAccessToken(token as TokenSet);
 
       // If refresh fails, invalidate the session completely
       if (refreshedToken.error) {
-        return {};
+        console.log("JWT Callback: Token refresh failed. Invalidating session.");
+        return { error: "RefreshAccessTokenError" };
       }
 
       return refreshedToken;
     },
     async session({ session, token }) {
-      if (token) {
-        session.accessToken = token.accessToken;
-        session.idToken = token.idToken;
-        session.error = token.error;
-        session.user.name = token.name;
-        session.user.email = token.email;
-        session.user.username = token.preferred_username;
-        session.user.given_name = token.given_name;
+      console.log("Session Callback: Token received:", {
+        accessToken: token.accessToken,
+        idToken: token.idToken,
+        error: token.error,
+        // Log other relevant token properties to see if it's empty
+        name: token.name,
+        preferred_username: token.preferred_username,
+      });
 
-        const access = getAccessForUsername(token.preferred_username);
-        session.user.appRoles = access.roles;
-        session.user.permissions = access.permissions;
-        session.user.companies = access.companies;
+      // If the token is empty or indicates an error, invalidate the session
+      if (!token || token.error) {
+        console.log(
+          "Session Callback: Token is empty or has error. Invalidating session."
+        );
+        // Return an empty DefaultSession object to invalidate and satisfy TypeScript
+        return { expires: new Date(0).toISOString() };
       }
+
+      // Otherwise, populate the session object
+      session.accessToken = token.accessToken;
+      session.idToken = token.idToken;
+      session.error = token.error; // Keep error if any
+
+      session.user.name = token.name;
+      session.user.email = token.email;
+      session.user.username = token.preferred_username;
+      session.user.given_name = token.given_name;
+
+      const access = getAccessForUsername(token.preferred_username);
+      session.user.appRoles = access.roles;
+      session.user.permissions = access.permissions;
+      session.user.companies = access.companies;
+
+      console.log(
+        "Session Callback: Final session object:",
+        session?.user?.username,
+        "-",
+        session?.user?.given_name
+      );
       return session;
     },
   },

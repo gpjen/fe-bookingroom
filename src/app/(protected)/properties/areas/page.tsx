@@ -186,7 +186,7 @@ export default function ArealMasterPage() {
           <div>
             <div className="flex items-center gap-2 text-foreground/90 dark:text-zinc-50">
               <MapPinned className="size-6" />
-              <h2 className="text-3xl font-bold tracking-tight">Areas</h2>
+              <h2 className="text-3xl font-bold tracking-tight">Areal</h2>
             </div>
             <p className="text-muted-foreground mt-1.5">
               Kelola data areal atau kawasan

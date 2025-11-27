@@ -25,14 +25,11 @@ import {
   Users2,
   ShieldCheck,
   MapPinned,
-  Hotel,
   CalendarCheck2,
   ListChecks,
   DoorOpen,
-  BedDouble,
   ClipboardList,
   BarChart3,
-  Wallet,
   Bell,
   Settings,
   User2,
@@ -43,6 +40,7 @@ import {
   Activity,
   Layers,
   LayoutGrid,
+  Folder,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -57,7 +55,11 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { MenuItem, AppSidebarProps } from "@/types/sidebar-types";
+import {
+  MenuItem,
+  AppSidebarProps,
+  GroupMenuItem as TypesGroupMenuItem,
+} from "@/types/sidebar-types";
 import { performLogout } from "@/lib/auth/logout-utils";
 
 // Menu Configuration
@@ -70,39 +72,51 @@ const menuConfig: MenuItem[] = [
     active: true,
     permissions: ["dashboard:read"],
   },
+
+  // =====================
+  // BOOKING GROUP
+  // =====================
   {
-    type: "single",
-    href: "/booking/calendar",
-    label: "Calendar View",
-    icon: CalendarCheck2,
-    active: true,
-    permissions: ["calendar:read"],
-  },
-  {
-    type: "single",
-    href: "/booking/list",
-    label: "All Bookings",
-    icon: ListChecks,
+    type: "group",
+    label: "Booking",
     active: true,
     permissions: ["booking:read"],
+    icon: CalendarCheck2,
+    items: [
+      {
+        href: "/booking/calendar",
+        label: "Calendar View",
+        icon: CalendarCheck2,
+        active: true,
+        permissions: ["calendar:read"],
+      },
+      {
+        href: "/booking/list",
+        label: "All Bookings",
+        icon: ListChecks,
+        active: true,
+        permissions: ["booking:read"],
+      },
+      {
+        href: "/booking/mine",
+        label: "Pemesanan Saya",
+        icon: DoorOpen,
+        active: true,
+        permissions: ["booking-mine:read"],
+      },
+      {
+        href: "/booking/requests",
+        label: "Permintaan Pemesanan",
+        icon: ClipboardList,
+        active: true,
+        permissions: ["booking-request:read"],
+      },
+    ],
   },
-  {
-    type: "single",
-    href: "/booking/mine",
-    label: "My Bookings",
-    icon: DoorOpen,
-    active: true,
-    permissions: ["booking-mine:read"],
-  },
-  {
-    type: "single",
-    href: "/booking/requests",
-    label: "Pending Requests",
-    icon: ClipboardList,
-    active: true,
-    permissions: ["booking-request:read"],
-    badge: "5",
-  },
+
+  // =====================
+  // REPORTS
+  // =====================
   {
     type: "single",
     href: "/reports",
@@ -111,22 +125,10 @@ const menuConfig: MenuItem[] = [
     active: true,
     permissions: ["reports:read"],
   },
-  {
-    type: "single",
-    href: "/payments",
-    label: "Payments",
-    icon: Wallet,
-    active: true,
-    permissions: ["payments:read"],
-  },
-  {
-    type: "single",
-    href: "/notifications",
-    label: "Notifications",
-    icon: Bell,
-    active: true,
-    badge: "3",
-  },
+
+  // =====================
+  // PROPERTY MANAGEMENT
+  // =====================
   {
     type: "group",
     label: "Property Management",
@@ -135,47 +137,58 @@ const menuConfig: MenuItem[] = [
     items: [
       {
         href: "/properties/companies",
-        label: "Companies",
+        label: "Perusahaan",
         icon: Building2,
         active: true,
         permissions: ["companies:read"],
       },
       {
         href: "/properties/areas",
-        label: "Areas",
+        label: "Areal",
         icon: MapPinned,
         active: true,
         permissions: ["area:read"],
       },
       {
         href: "/properties/building-types",
-        label: "Building Types",
+        label: "Tipe Bangunan",
         icon: Layers,
         active: true,
         permissions: ["building-type:read"],
       },
       {
-        href: "/properties/room-types",
-        label: "Room Types",
-        icon: LayoutGrid,
-        active: true,
-        permissions: ["room-type:read"],
-      },
-      {
         href: "/properties/buildings",
-        label: "Buildings",
+        label: "Bangunan",
         icon: Building,
         active: true,
         permissions: ["building:read"],
       },
+      {
+        href: "/properties/room-types",
+        label: "Tipe Kamar",
+        icon: LayoutGrid,
+        active: true,
+        permissions: ["room-type:read"],
+      },
     ],
   },
+
+  // =====================
+  // ADMINISTRATION
+  // =====================
   {
     type: "group",
     label: "Administration",
     active: true,
     permissions: ["admin:read"],
     items: [
+      {
+        href: "/admin/users",
+        label: "Users",
+        icon: Users2,
+        active: true,
+        permissions: ["admin-users:read"],
+      },
       {
         href: "/admin/roles",
         label: "Roles & Permissions",
@@ -189,13 +202,6 @@ const menuConfig: MenuItem[] = [
         icon: Building2,
         active: true,
         permissions: ["admin-company-access:read"],
-      },
-      {
-        href: "/admin/users",
-        label: "Users",
-        icon: Users2,
-        active: true,
-        permissions: ["admin-users:read"],
       },
       {
         href: "/admin/settings",
@@ -212,6 +218,18 @@ const menuConfig: MenuItem[] = [
         permissions: ["admin-logs:read"],
       },
     ],
+  },
+
+  // =====================
+  // NOTIFICATIONS
+  // =====================
+  {
+    type: "single",
+    href: "/notifications",
+    label: "Notifications",
+    icon: Bell,
+    active: true,
+    badge: "3",
   },
 ];
 
@@ -289,50 +307,51 @@ const GroupMenuItem = ({
   pathname,
   defaultOpen,
 }: {
-  item: MenuItem & { type: "group" };
+  item: TypesGroupMenuItem; // Use the imported GroupMenuItem type
   pathname: string;
   defaultOpen: boolean;
-}) => (
-  <Collapsible defaultOpen={defaultOpen} className="group/collapsible">
-    <SidebarMenuItem>
-      <SidebarMenuButton asChild tooltip={item.label} className="h-9">
-        <CollapsibleTrigger className="group/label flex w-full items-center gap-2 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground [&[data-state=open]>svg]:rotate-180">
-          <div className="flex size-4 items-center justify-center">
-            <div className="size-1.5 rounded-full bg-muted-foreground/50" />
-          </div>
-          <span className="text-sm font-medium flex-1 text-left">
-            {item.label}
-          </span>
-          <ChevronDown className="size-4 transition-transform duration-200" />
-        </CollapsibleTrigger>
-      </SidebarMenuButton>
-      <CollapsibleContent>
-        <SidebarMenuSub className="ml-0 border-l-0 px-0">
-          {item.items?.map((subItem) => {
-            const isActive = pathname === subItem.href;
-            return (
-              <SidebarMenuSubItem key={subItem.href}>
-                <SidebarMenuSubButton
-                  asChild
-                  isActive={isActive}
-                  className="h-8"
-                >
-                  <Link
-                    href={subItem.href}
-                    className="flex items-center gap-2 pl-8"
+}) => {
+  const IconComponent = item.icon || Folder; // Use item.icon or Folder as default
+  return (
+    <Collapsible defaultOpen={defaultOpen} className="group/collapsible">
+      <SidebarMenuItem>
+        <SidebarMenuButton asChild tooltip={item.label} className="h-9">
+          <CollapsibleTrigger className="group/label flex w-full items-center gap-2 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground [&[data-state=open]>svg]:rotate-180">
+            <IconComponent className="size-4" /> {/* Render the icon here */}
+            <span className="text-sm font-medium flex-1 text-left">
+              {item.label}
+            </span>
+            <ChevronDown className="size-4 transition-transform duration-200" />
+          </CollapsibleTrigger>
+        </SidebarMenuButton>
+        <CollapsibleContent>
+          <SidebarMenuSub className="ml-0 border-l-0 px-0">
+            {item.items?.map((subItem) => {
+              const isActive = pathname === subItem.href;
+              return (
+                <SidebarMenuSubItem key={subItem.href}>
+                  <SidebarMenuSubButton
+                    asChild
+                    isActive={isActive}
+                    className="h-8"
                   >
-                    <subItem.icon className="size-4" />
-                    <span className="text-sm">{subItem.label}</span>
-                  </Link>
-                </SidebarMenuSubButton>
-              </SidebarMenuSubItem>
-            );
-          })}
-        </SidebarMenuSub>
-      </CollapsibleContent>
-    </SidebarMenuItem>
-  </Collapsible>
-);
+                    <Link
+                      href={subItem.href}
+                      className="flex items-center gap-2 pl-8"
+                    >
+                      <subItem.icon className="size-4" />
+                      <span className="text-sm">{subItem.label}</span>
+                    </Link>
+                  </SidebarMenuSubButton>
+                </SidebarMenuSubItem>
+              );
+            })}
+          </SidebarMenuSub>
+        </CollapsibleContent>
+      </SidebarMenuItem>
+    </Collapsible>
+  );
+};
 
 // User Menu Component
 const UserMenuDropdown = ({
@@ -494,6 +513,7 @@ export function AppSidebar({
                   <GroupMenuItem
                     key={item.label}
                     item={item}
+                    // icon={(item.icon as React.ReactNode) || null}
                     pathname={pathname}
                     defaultOpen={Boolean(isGroupActive)}
                   />

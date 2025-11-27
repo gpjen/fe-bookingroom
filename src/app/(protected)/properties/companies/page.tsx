@@ -34,9 +34,7 @@ import {
   MoreVertical,
   Edit,
   Trash2,
-  MapPin,
   Calendar,
-  Layers,
   Building2,
 } from "lucide-react";
 import {
@@ -163,15 +161,15 @@ export default function CompaniesMasterPage() {
           <div>
             <div className="flex items-center gap-2 text-foreground/90 dark:text-zinc-50">
               <Building2 className="size-6" />
-              <h2 className="text-3xl font-bold tracking-tight">Companies</h2>
+              <h2 className="text-3xl font-bold tracking-tight">Perusahaan</h2>
             </div>
             <p className="text-muted-foreground mt-1.5">
-              Kelola data companies
+              Kelola data perusahaan
             </p>
           </div>
 
           <Button onClick={handleAdd} className="gap-2 shadow-sm">
-            <Plus className="h-4 w-4" /> Tambah Companies
+            <Plus className="h-4 w-4" /> Tambah Perusahaan
           </Button>
         </div>
 

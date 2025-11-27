@@ -1,18 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -21,7 +13,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -29,7 +20,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Textarea } from "@/components/ui/textarea";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import {
   Plus,
   Search,
@@ -40,50 +38,18 @@ import {
   Calendar,
   Layers,
 } from "lucide-react";
-import { useState } from "react";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { FormArea, ArealFormData, Areal } from "./_components/form-area";
+import { toast } from "sonner";
+import { formatDate } from "@/lib/utils";
 
-// Types
-interface Areal {
-  id: string;
-  kodeAreal: string;
-  namaAreal: string;
-  lokasi: string;
-  status: "active" | "inactive" | "development";
-  koordinat: {
-    type: "Polygon";
-    polygon: Array<{ latitude: number; longitude: number }>;
-  };
-  catatan?: string;
-  parentId?: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-// Mock Data
-const initialData: Areal[] = [
+// Mock Data with updated type
+const initialData: (Areal & { createdAt: string; updatedAt: string })[] = [
   {
     id: "1",
     kodeAreal: "HL-01",
     namaAreal: "MESS LQ",
     lokasi: "kawasi, Obi",
     status: "active",
-    koordinat: {
-      type: "Polygon",
-      polygon: [
-        { latitude: -7.257, longitude: 112.7515 },
-        { latitude: -7.257, longitude: 112.7527 },
-        { latitude: -7.258, longitude: 112.7527 },
-        { latitude: -7.258, longitude: 112.7515 },
-      ],
-    },
     catatan: "areal mess LQ kawasi HPAL,DCM,ONC",
     createdAt: "2024-01-15T08:00:00Z",
     updatedAt: "2024-11-20T10:30:00Z",
@@ -94,16 +60,8 @@ const initialData: Areal[] = [
     namaAreal: "MESS LQ Center",
     lokasi: "kawasi, Obi",
     status: "active",
-    koordinat: {
-      type: "Polygon",
-      polygon: [
-        { latitude: -7.2665, longitude: 112.761 },
-        { latitude: -7.2665, longitude: 112.7632 },
-        { latitude: -7.2685, longitude: 112.7632 },
-        { latitude: -7.2685, longitude: 112.761 },
-      ],
-    },
     parentId: "",
+    catatan: null,
     createdAt: "2024-02-20T09:15:00Z",
     updatedAt: "2024-11-18T14:20:00Z",
   },
@@ -113,15 +71,6 @@ const initialData: Areal[] = [
     namaAreal: "MESS P2",
     lokasi: "kawasi, Obi",
     status: "inactive",
-    koordinat: {
-      type: "Polygon",
-      polygon: [
-        { latitude: -7.247, longitude: 112.7815 },
-        { latitude: -7.247, longitude: 112.7827 },
-        { latitude: -7.248, longitude: 112.7827 },
-        { latitude: -7.248, longitude: 112.7815 },
-      ],
-    },
     catatan: "Dalam tahap persiapan lahan dan pembersihan",
     createdAt: "2024-03-10T07:45:00Z",
     updatedAt: "2024-11-25T16:00:00Z",
@@ -132,15 +81,6 @@ const initialData: Areal[] = [
     namaAreal: "Mess Tomori",
     lokasi: "kawasi, Obi",
     status: "development",
-    koordinat: {
-      type: "Polygon",
-      polygon: [
-        { latitude: -7.237, longitude: 112.7415 },
-        { latitude: -7.237, longitude: 112.7427 },
-        { latitude: -7.238, longitude: 112.7427 },
-        { latitude: -7.238, longitude: 112.7415 },
-      ],
-    },
     catatan: "mess lama DCM",
     createdAt: "2024-04-05T11:00:00Z",
     updatedAt: "2024-11-22T09:10:00Z",
@@ -174,31 +114,20 @@ const StatusBadge = ({ status }: { status: Areal["status"] }) => {
   );
 };
 
-// Format date helper
-const formatDate = (dateString: string) => {
-  const date = new Date(dateString);
-  return new Intl.DateTimeFormat("id-ID", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-  }).format(date);
-};
-
 // Main Component
 export default function ArealMasterPage() {
-  const [data, setData] = useState<Areal[]>(initialData);
+  const [data, setData] = useState(initialData);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Areal | null>(null);
-  const [formData, setFormData] = useState<Partial<Areal>>({});
 
   // Filter data based on search and status
   const filteredData = data.filter((item) => {
     const matchesSearch =
-      item.namaAreal.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.kodeAreal.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.lokasi.toLowerCase().includes(searchTerm.toLowerCase());
+      item.namaAreal?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.kodeAreal?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      item.lokasi?.toLowerCase().includes(searchTerm.toLowerCase());
 
     const matchesStatus =
       statusFilter === "all" || item.status === statusFilter;
@@ -206,59 +135,46 @@ export default function ArealMasterPage() {
     return matchesSearch && matchesStatus;
   });
 
-  // Handle form submit
-  const handleSubmit = () => {
+  // Handle form submission from FormArea component
+  const handleFormSubmit = (formData: ArealFormData, id?: string) => {
     const now = new Date().toISOString();
 
-    if (editingItem) {
+    if (id) {
+      // Update existing item
       setData(
         data.map((item) =>
-          item.id === editingItem.id
-            ? ({ ...item, ...formData, updatedAt: now } as Areal)
-            : item
+          item.id === id ? { ...item, ...formData, updatedAt: now } : item
         )
       );
     } else {
-      const newItem: Areal = {
+      // Add new item
+      const newItem: Areal & { createdAt: string; updatedAt: string } = {
         ...formData,
         id: Date.now().toString(),
-        kodeAreal: `AR-${String(data.length + 1).padStart(3, "0")}`,
+        kodeAreal: `HL-${String(data.length + 1).padStart(3, "0")}`,
         createdAt: now,
         updatedAt: now,
-      } as Areal;
+      };
       setData([...data, newItem]);
     }
-
-    setIsDialogOpen(false);
-    setEditingItem(null);
-    setFormData({});
   };
 
   // Handle delete
-  const handleDelete = (id: string) => {
-    if (confirm("Apakah Anda yakin ingin menghapus data ini?")) {
-      setData(data.filter((item) => item.id !== id));
-    }
+  const handleDelete = (id: string, namaAreal: string) => {
+    toast.success(`Areal ${namaAreal} berhasil dihapus.`);
+    setData(data.filter((item) => item.id !== id));
   };
 
-  // Open dialog for edit
+  // Open modal for editing
   const handleEdit = (item: Areal) => {
     setEditingItem(item);
-    setFormData(item);
-    setIsDialogOpen(true);
+    setIsModalOpen(true);
   };
 
-  // Open dialog for add
+  // Open modal for adding
   const handleAdd = () => {
     setEditingItem(null);
-    setFormData({
-      status: "active",
-      koordinat: {
-        type: "Polygon",
-        polygon: [],
-      },
-    });
-    setIsDialogOpen(true);
+    setIsModalOpen(true);
   };
 
   return (
@@ -273,187 +189,9 @@ export default function ArealMasterPage() {
             </p>
           </div>
 
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button onClick={handleAdd} className="gap-2 shadow-sm">
-                <Plus className="h-4 w-4" />
-                Tambah Areal
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle className="text-xl">
-                  {editingItem ? "Edit Areal" : "Tambah Areal Baru"}
-                </DialogTitle>
-                <DialogDescription>
-                  Lengkapi informasi areal di bawah ini. Field dengan tanda (*)
-                  wajib diisi.
-                </DialogDescription>
-              </DialogHeader>
-
-              <div className="grid gap-6 py-4">
-                {/* Informasi Dasar */}
-                <div className="space-y-4">
-                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                    Informasi Dasar
-                  </h3>
-
-                  <div className="grid gap-4">
-                    <div className="space-y-2">
-                      <Label
-                        htmlFor="namaAreal"
-                        className="text-sm font-medium"
-                      >
-                        Nama Areal <span className="text-destructive">*</span>
-                      </Label>
-                      <Input
-                        id="namaAreal"
-                        placeholder="Contoh: Kebun Padi Utara"
-                        value={formData.namaAreal || ""}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            namaAreal: e.target.value,
-                          })
-                        }
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="lokasi" className="text-sm font-medium">
-                        Lokasi <span className="text-destructive">*</span>
-                      </Label>
-                      <Input
-                        id="lokasi"
-                        placeholder="Desa, Kecamatan, Kabupaten"
-                        value={formData.lokasi || ""}
-                        onChange={(e) =>
-                          setFormData({ ...formData, lokasi: e.target.value })
-                        }
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="status" className="text-sm font-medium">
-                        Status <span className="text-destructive">*</span>
-                      </Label>
-                      <Select
-                        value={formData.status}
-                        onValueChange={(value) =>
-                          setFormData({
-                            ...formData,
-                            status: value as Areal["status"],
-                          })
-                        }
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Pilih status areal" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="active">Aktif</SelectItem>
-                          <SelectItem value="development">
-                            Pengembangan
-                          </SelectItem>
-                          <SelectItem value="inactive">Tidak Aktif</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Koordinat Section */}
-                <div className="space-y-4">
-                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                    Koordinat & Pemetaan
-                  </h3>
-
-                  <div className="rounded-lg border border-dashed border-muted-foreground/25 bg-muted/30 p-4">
-                    <div className="flex items-start gap-3">
-                      <MapPin className="h-5 w-5 text-muted-foreground mt-0.5" />
-                      <div className="flex-1 space-y-1">
-                        <p className="text-sm font-medium">
-                          Input Koordinat Polygon
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          Koordinat polygon akan diinput melalui peta interaktif
-                          atau import file KML/GeoJSON
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Parent Areal */}
-                <div className="space-y-4">
-                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
-                    Hubungan Areal
-                  </h3>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="parentId" className="text-sm font-medium">
-                      Parent Areal (Opsional)
-                    </Label>
-                    <Select
-                      value={formData.parentId || "none"}
-                      onValueChange={(value) =>
-                        setFormData({
-                          ...formData,
-                          parentId: value === "none" ? undefined : value,
-                        })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="Pilih parent areal" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="none">Tidak ada parent</SelectItem>
-                        {data
-                          .filter((item) => item.id !== editingItem?.id)
-                          .map((item) => (
-                            <SelectItem key={item.id} value={item.id}>
-                              {item.kodeAreal} - {item.namaAreal}
-                            </SelectItem>
-                          ))}
-                      </SelectContent>
-                    </Select>
-                    <p className="text-xs text-muted-foreground">
-                      Pilih jika areal ini merupakan bagian dari areal yang
-                      lebih besar
-                    </p>
-                  </div>
-                </div>
-
-                {/* Catatan */}
-                <div className="space-y-2">
-                  <Label htmlFor="catatan" className="text-sm font-medium">
-                    Catatan
-                  </Label>
-                  <Textarea
-                    id="catatan"
-                    placeholder="Informasi tambahan tentang areal..."
-                    value={formData.catatan || ""}
-                    onChange={(e) =>
-                      setFormData({ ...formData, catatan: e.target.value })
-                    }
-                    rows={3}
-                  />
-                </div>
-              </div>
-
-              <DialogFooter className="gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => setIsDialogOpen(false)}
-                >
-                  Batal
-                </Button>
-                <Button type="button" onClick={handleSubmit}>
-                  {editingItem ? "Simpan Perubahan" : "Tambah Areal"}
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+          <Button onClick={handleAdd} className="gap-2 shadow-sm">
+            <Plus className="h-4 w-4" /> Tambah Areal
+          </Button>
         </div>
 
         {/* Filters & Search */}
@@ -518,7 +256,7 @@ export default function ArealMasterPage() {
               <TableBody>
                 {filteredData.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="px-4 py-12 text-center">
+                    <TableCell colSpan={8} className="px-4 py-12 text-center">
                       <div className="flex flex-col items-center gap-2">
                         <Search className="h-8 w-8 text-muted-foreground/50" />
                         <p className="text-sm text-muted-foreground">
@@ -612,7 +350,9 @@ export default function ArealMasterPage() {
                               </DropdownMenuItem>
                               <DropdownMenuItem
                                 className="text-destructive focus:text-destructive"
-                                onClick={() => handleDelete(item.id)}
+                                onClick={() =>
+                                  handleDelete(item.id, item.namaAreal)
+                                }
                               >
                                 <Trash2 className="mr-2 h-4 w-4" />
                                 Hapus
@@ -636,6 +376,15 @@ export default function ArealMasterPage() {
           )}
         </div>
       </div>
+
+      {/* Render the Modal Form Component */}
+      <FormArea
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSubmit={handleFormSubmit}
+        initialData={editingItem}
+        allAreas={data}
+      />
     </Card>
   );
 }

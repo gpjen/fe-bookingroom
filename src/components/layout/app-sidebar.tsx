@@ -465,7 +465,7 @@ export function AppSidebar({
         <SidebarGroup className="py-2">
           <SidebarGroupContent>
             <SidebarMenu className="gap-1">
-              {visibleMenuItems.map((item, index) => {
+              {visibleMenuItems.map((item) => {
                 if (item.type === "single") {
                   const isActive = pathname === item.href;
                   return (

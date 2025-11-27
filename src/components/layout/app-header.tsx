@@ -16,6 +16,7 @@ import { ThemeToggle } from "@/components/settings/theme-toggle";
 import { Search, Bell, LayoutDashboard } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import Link from "next/link";
 
 export function AppHeader({
   userName,
@@ -46,7 +47,7 @@ export function AppHeader({
         <Breadcrumb className="hidden md:flex">
           <BreadcrumbList>
             <BreadcrumbItem>
-              <BreadcrumbLink
+              <Link
                 href="/dashboard"
                 className="text-muted-foreground hover:text-foreground transition-colors"
               >
@@ -54,7 +55,7 @@ export function AppHeader({
                   <LayoutDashboard className="h-4 w-4" />
                   Home
                 </div>
-              </BreadcrumbLink>
+              </Link>
             </BreadcrumbItem>
             {crumbs.map((c, idx) => (
               <React.Fragment key={c.href}>

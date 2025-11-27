@@ -79,18 +79,25 @@ export const authOptions: NextAuthOptions = {
           const issueDate = new Date((token.iat as number) * 1000);
           const currentDate = new Date();
           if (issueDate.toDateString() !== currentDate.toDateString()) {
-            console.log("JWT Callback: Daily re-login check failed. Invalidating session.");
+            console.log(
+              "JWT Callback: Daily re-login check failed. Invalidating session."
+            );
             return { error: "RefreshAccessTokenError" }; // Invalidate: New day
           }
         }
-        
+
         // Validate against userinfo endpoint
         if (token.accessToken) {
-          const userinfoRes = await fetch(`${process.env.KEYCLOAK_ISSUER}/protocol/openid-connect/userinfo`, {
-            headers: { "Authorization": `Bearer ${token.accessToken}` }
-          });
+          const userinfoRes = await fetch(
+            `${process.env.KEYCLOAK_ISSUER}/protocol/openid-connect/userinfo`,
+            {
+              headers: { Authorization: `Bearer ${token.accessToken}` },
+            }
+          );
           if (!userinfoRes.ok) {
-            console.log("JWT Callback: Userinfo check failed. Invalidating session.");
+            console.log(
+              "JWT Callback: Userinfo check failed. Invalidating session."
+            );
             return { error: "RefreshAccessTokenError" }; // Invalidate: User logged out from IdP
           }
         }
@@ -104,22 +111,15 @@ export const authOptions: NextAuthOptions = {
 
       // If refresh fails, invalidate the session completely
       if (refreshedToken.error) {
-        console.log("JWT Callback: Token refresh failed. Invalidating session.");
+        console.log(
+          "JWT Callback: Token refresh failed. Invalidating session."
+        );
         return { error: "RefreshAccessTokenError" };
       }
 
       return refreshedToken;
     },
     async session({ session, token }) {
-      console.log("Session Callback: Token received:", {
-        accessToken: token.accessToken,
-        idToken: token.idToken,
-        error: token.error,
-        // Log other relevant token properties to see if it's empty
-        name: token.name,
-        preferred_username: token.preferred_username,
-      });
-
       // If the token is empty or indicates an error, invalidate the session
       if (!token || token.error) {
         console.log(

@@ -3,7 +3,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
-import { signOut, useSession } from "next-auth/react";
+import { useSession } from "next-auth/react";
 import {
   Sidebar,
   SidebarHeader,
@@ -39,6 +39,10 @@ import {
   ChevronDown,
   LogOut,
   ChevronsUpDown,
+  Building,
+  Activity,
+  Layers,
+  LayoutGrid,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -130,6 +134,13 @@ const menuConfig: MenuItem[] = [
     permissions: ["property:read"],
     items: [
       {
+        href: "/properties/companies",
+        label: "Companies",
+        icon: Building2,
+        active: true,
+        permissions: ["companies:read"],
+      },
+      {
         href: "/properties/areas",
         label: "Areas",
         icon: MapPinned,
@@ -137,25 +148,25 @@ const menuConfig: MenuItem[] = [
         permissions: ["area:read"],
       },
       {
+        href: "/properties/building-types",
+        label: "Building Types",
+        icon: Layers,
+        active: true,
+        permissions: ["building-type:read"],
+      },
+      {
+        href: "/properties/room-types",
+        label: "Room Types",
+        icon: LayoutGrid,
+        active: true,
+        permissions: ["room-type:read"],
+      },
+      {
         href: "/properties/buildings",
         label: "Buildings",
-        icon: Building2,
+        icon: Building,
         active: true,
-        permissions: ["property:read"],
-      },
-      {
-        href: "/properties/rooms",
-        label: "Rooms",
-        icon: Hotel,
-        active: true,
-        permissions: ["property:read"],
-      },
-      {
-        href: "/properties/facilities",
-        label: "Facilities",
-        icon: BedDouble,
-        active: true,
-        permissions: ["property:read"],
+        permissions: ["building:read"],
       },
     ],
   },
@@ -166,32 +177,39 @@ const menuConfig: MenuItem[] = [
     permissions: ["admin:read"],
     items: [
       {
-        href: "/admin/users",
-        label: "Users",
-        icon: Users2,
-        active: true,
-        permissions: ["admin:read"],
-      },
-      {
         href: "/admin/roles",
         label: "Roles & Permissions",
         icon: ShieldCheck,
         active: true,
-        permissions: ["admin:read"],
+        permissions: ["admin-roles:read"],
       },
       {
         href: "/admin/company-access",
         label: "Company Access",
         icon: Building2,
         active: true,
-        permissions: ["admin:read"],
+        permissions: ["admin-company-access:read"],
+      },
+      {
+        href: "/admin/users",
+        label: "Users",
+        icon: Users2,
+        active: true,
+        permissions: ["admin-users:read"],
       },
       {
         href: "/admin/settings",
         label: "System Settings",
         icon: Settings,
         active: true,
-        permissions: ["admin:read"],
+        permissions: ["admin-settings:read"],
+      },
+      {
+        href: "/admin/logs",
+        label: "System Logs",
+        icon: Activity,
+        active: true,
+        permissions: ["admin-logs:read"],
       },
     ],
   },
@@ -373,10 +391,6 @@ const UserMenuDropdown = ({
       <DropdownMenuItem className="cursor-pointer gap-2 py-2">
         <User2 className="size-4 text-muted-foreground" />
         <span>Profile Settings</span>
-      </DropdownMenuItem>
-      <DropdownMenuItem className="cursor-pointer gap-2 py-2">
-        <Settings className="size-4 text-muted-foreground" />
-        <span>Preferences</span>
       </DropdownMenuItem>
       <DropdownMenuSeparator />
       <DropdownMenuItem

@@ -10,14 +10,22 @@ const ROLES: Record<string, Role> = {
     permissions: [
       "dashboard:read",
       "calendar:read",
-      "area:read",
       "booking:read",
       "booking-mine:read",
       "booking-request:read",
-      "property:read",
       "reports:read",
       "payments:read",
+      "property:read",
+      "companies:read",
+      "area:read",
+      "property:read",
+      "property:read",
+      "property:read",
       "admin:read",
+      "admin-roles",
+      "admin-company",
+      "admin-users",
+      "admin-settings",
     ],
   },
   manager: {
@@ -25,23 +33,31 @@ const ROLES: Record<string, Role> = {
     permissions: [
       "dashboard:read",
       "calendar:read",
-      "area:read",
       "booking:read",
-      "booking-mine:read",
       "booking-request:read",
-      "property:read",
       "reports:read",
+      "payments:read",
+      "property:read",
+      "companies:read",
+      "area:read",
+      "property:read",
+      "property:read",
+      "property:read",
     ],
   },
   staff: {
     name: "staff",
     permissions: ["dashboard:read", "calendar:read", "booking-mine:read"],
   },
+  viewer: {
+    name: "viewer",
+    permissions: ["dashboard:read", "calendar:read"],
+  },
 };
 
 export const COMPANIES: Company[] = [
-  { id: "cmp-harita", name: "Harita Lygend" },
-  { id: "cmp-obicom", name: "OBICOM" },
+  { id: "dcm", name: "PT. Dharma Cipta Mulia" },
+  { id: "hpal", name: "PT. Halmahera Persada Lygend" },
 ];
 
 const MOCK_ACCESS: (UserAccess & { username?: string })[] = [
@@ -49,31 +65,13 @@ const MOCK_ACCESS: (UserAccess & { username?: string })[] = [
     userId: "superadmin@obalab.local",
     username: "D0525000109",
     roles: ["super-admin"],
-    companies: ["cmp-harita", "cmp-obicom"],
-  },
-  {
-    userId: "superadmin2@obalab.local",
-    username: "DD052500",
-    roles: ["super-admin"],
-    companies: ["cmp-harita", "cmp-obicom"],
-  },
-  {
-    userId: "admin@obalab.local",
-    username: "ADMIN",
-    roles: ["admin"],
-    companies: ["cmp-harita", "cmp-obicom"],
-  },
-  {
-    userId: "manager@obalab.local",
-    username: "MANAGER",
-    roles: ["manager"],
-    companies: ["cmp-harita"],
+    companies: ["dcm", "hpal"],
   },
   {
     userId: "staff@obalab.local",
-    username: "STAFF",
+    username: "d12345",
     roles: ["staff"],
-    companies: ["cmp-obicom"],
+    companies: ["hpal"],
   },
 ];
 
@@ -102,9 +100,9 @@ export function getMockAccessForUser(email?: string, name?: string) {
   }
   // default staff access
   return {
-    permissions: resolvePermissions(["staff"]),
-    companies: ["cmp-obicom"],
-    roles: ["staff"],
+    permissions: resolvePermissions(["viewer"]),
+    companies: ["hpal", "dcm"],
+    roles: ["viewer"],
   };
 }
 
@@ -119,8 +117,8 @@ export function getAccessForUsername(username?: string) {
     };
   }
   return {
-    permissions: resolvePermissions(["staff"]),
-    companies: ["cmp-obicom"],
-    roles: ["staff"],
+    permissions: resolvePermissions(["viewer"]),
+    companies: ["hpal", "dcm"],
+    roles: ["viewer"],
   };
 }

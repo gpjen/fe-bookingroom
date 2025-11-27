@@ -9,12 +9,21 @@ async function main() {
     "dashboard:read",
     "calendar:read",
     "booking:read",
-    "booking-mine:write",
+    "booking-mine:read",
     "booking-request:read",
-    "property:read",
     "reports:read",
     "payments:read",
+    "property:read",
+    "companies:read",
+    "area:read",
+    "property:read",
+    "property:read",
+    "property:read",
     "admin:read",
+    "admin-roles",
+    "admin-company",
+    "admin-users",
+    "admin-settings",
   ];
 
   for (const key of permissionKeys) {
@@ -48,12 +57,19 @@ async function main() {
           "dashboard:read",
           "calendar:read",
           "booking:read",
-          "booking-mine:write",
+          "booking-mine:read",
           "booking-request:read",
-          "property:read",
           "reports:read",
           "payments:read",
+          "property:read",
+          "companies:read",
+          "area:read",
+          "property:read",
+          "property:read",
+          "property:read",
           "admin:read",
+          "admin-users",
+          "admin-settings",
         ],
       },
     },
@@ -66,10 +82,15 @@ async function main() {
           "dashboard:read",
           "calendar:read",
           "booking:read",
-          "booking-mine:write",
           "booking-request:read",
-          "property:read",
           "reports:read",
+          "payments:read",
+          "property:read",
+          "companies:read",
+          "area:read",
+          "property:read",
+          "property:read",
+          "property:read",
         ],
       },
     },
@@ -77,7 +98,7 @@ async function main() {
   });
   const staffPerms = await prisma.permission.findMany({
     where: {
-      key: { in: ["dashboard:read", "calendar:read", "booking-mine:write"] },
+      key: { in: ["dashboard:read", "calendar:read", "booking-mine:read"] },
     },
     select: { id: true },
   });
@@ -116,19 +137,19 @@ async function main() {
 
   // Seed companies
   const cmpHarita = await prisma.company.upsert({
-    where: { code: "cmp-harita" },
+    where: { code: "dcm" },
     update: {},
-    create: { code: "cmp-harita", name: "Harita Lygend" },
+    create: { code: "dcm", name: "PT. Dharma Cipta Mulia" },
   });
   const cmpObicom = await prisma.company.upsert({
-    where: { code: "cmp-obicom" },
+    where: { code: "hpal" },
     update: {},
-    create: { code: "cmp-obicom", name: "OBICOM" },
+    create: { code: "hpal", name: "PT. Halmahera Persada Lygend" },
   });
 
   // Assign super-admin for requested usernames
   const superAdminRoleId = idOf("super-admin");
-  const superAdmins = ["D0525000109", "DD052500"];
+  const superAdmins = ["D0525000109"];
   for (const username of superAdmins) {
     await prisma.userRole.upsert({
       where: {

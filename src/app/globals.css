@@ -181,3 +181,44 @@
   scrollbar-width: thin;
   scrollbar-color: rgba(150, 150, 150, 0.35) transparent;
 }
+
+@layer utilities {
+  /* Loading bar animation */
+  .animate-loading-bar {
+    animation: loading-bar 1.5s ease-in-out infinite;
+  }
+
+  /* Delay utilities untuk staggered animations */
+  .delay-100 {
+    animation-delay: 100ms;
+  }
+
+  .delay-200 {
+    animation-delay: 200ms;
+  }
+
+  .delay-300 {
+    animation-delay: 300ms;
+  }
+
+  .delay-700 {
+    animation-delay: 700ms;
+  }
+}
+
+@keyframes loading-bar {
+  0% {
+    transform: translateX(-100%);
+  }
+  50% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Smooth transitions untuk semua elemen */
+* {
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}

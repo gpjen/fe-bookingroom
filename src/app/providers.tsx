@@ -18,7 +18,7 @@ export default function Providers({
   session?: Session | null;
 }) {
   return (
-    <SessionProvider session={session}>
+    <SessionProvider session={session} refetchInterval={60}>
       <ThemeProvider initialTheme={initialTheme}>
         <LangProvider
           initialLang={initialLang}

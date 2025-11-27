@@ -4,8 +4,7 @@ import "./globals.css";
 import Providers from "./providers";
 import { cookies } from "next/headers";
 import { getMessages } from "@/i18n/server";
-import { getServerSession } from "next-auth";
-import { authOptions } from "@/auth";
+import { Toaster } from "@/components/ui/sonner";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -27,6 +26,8 @@ export const metadata: Metadata = {
   },
 };
 
+import { AppShell } from "@/components/layout/app-shell";
+
 export default async function RootLayout({
   children,
 }: Readonly<{
@@ -41,7 +42,6 @@ export default async function RootLayout({
     | "system";
   const lang = (store.get("app:lang")?.value || "id") as "id" | "en" | "zh";
   const messages = getMessages(lang);
-  const session = await getServerSession(authOptions);
   return (
     <html lang={lang} className={themeFinal === "dark" ? "dark" : undefined}>
       <body
@@ -51,10 +51,10 @@ export default async function RootLayout({
           initialTheme={themeMode}
           initialLang={lang}
           initialMessages={messages}
-          session={session}
         >
-          {children}
+          <AppShell>{children}</AppShell>
         </Providers>
+        <Toaster duration={3000} />
       </body>
     </html>
   );

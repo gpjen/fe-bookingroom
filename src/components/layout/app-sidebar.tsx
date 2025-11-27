@@ -3,7 +3,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
-import { signOut } from "next-auth/react";
+import { signOut, useSession } from "next-auth/react";
 import {
   Sidebar,
   SidebarHeader,
@@ -54,6 +54,7 @@ import {
 } from "@/components/ui/collapsible";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { MenuItem, AppSidebarProps } from "@/types/sidebar-types";
+import { performLogout } from "@/lib/auth/logout-utils";
 
 // Menu Configuration
 const menuConfig: MenuItem[] = [
@@ -334,16 +335,13 @@ const UserMenuDropdown = ({
         className="h-12 hover:bg-sidebar-accent data-[state=open]:bg-sidebar-accent"
       >
         <Avatar className="h-8 w-8 rounded-lg border-2 border-background shadow-sm">
-          <AvatarImage
-            src={`https://avatar.vercel.sh/${userName}`}
-            alt={userName}
-          />
+          <AvatarImage alt={userName} />
           <AvatarFallback className="rounded-lg bg-primary/10 text-primary font-medium text-xs">
             {userInitials}
           </AvatarFallback>
         </Avatar>
         <div className="grid flex-1 text-left text-sm leading-tight">
-          <span className="truncate font-semibold">
+          <span className="truncate text-xs font-semibold uppercase">
             {userName || "User Account"}
           </span>
           <span className="truncate text-xs text-muted-foreground">
@@ -361,10 +359,7 @@ const UserMenuDropdown = ({
     >
       <div className="flex items-center gap-2 p-2">
         <Avatar className="h-10 w-10 rounded-lg">
-          <AvatarImage
-            src={`https://avatar.vercel.sh/${userName}`}
-            alt={userName}
-          />
+          <AvatarImage alt={userName} />
           <AvatarFallback className="rounded-lg bg-primary/10 text-primary">
             {userInitials}
           </AvatarFallback>
@@ -409,11 +404,6 @@ export function AppSidebar({
       .join("")
       .toUpperCase() || "U";
 
-  const handleLogout = async () => {
-    await fetch("/api/auth/logout");
-    await signOut({ callbackUrl: "/" });
-  };
-
   // Filter menu items based on user permissions
   const visibleMenuItems = filterMenuItems(menuConfig, userPermissions);
 
@@ -426,6 +416,11 @@ export function AppSidebar({
     );
     if (hasActiveSubmenu && state === "collapsed") setOpen(true);
   }, [pathname, visibleMenuItems, state, setOpen]);
+
+  const { data: session } = useSession();
+  const handleLogout = async () => {
+    await performLogout(session);
+  };
 
   return (
     <Sidebar collapsible="icon" className="border-r">

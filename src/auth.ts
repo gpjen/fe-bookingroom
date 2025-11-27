@@ -1,4 +1,4 @@
-import type { NextAuthOptions } from "next-auth";
+import type { NextAuthOptions, Account, TokenSet } from "next-auth";
 import Keycloak from "next-auth/providers/keycloak";
 import { getAccessForUsername } from "@/lib/auth/rbac";
 
@@ -6,11 +6,40 @@ function decodeJwtPayload(jwt?: string): any {
   if (!jwt) return undefined;
   const parts = jwt.split(".");
   if (parts.length < 2) return undefined;
-  const payload = parts[1].replace(/-/g, "+").replace(/_/g, "/");
   try {
-    return JSON.parse(Buffer.from(payload, "base64").toString("utf8"));
+    const payload = Buffer.from(parts[1], "base64").toString("utf8");
+    return JSON.parse(payload);
   } catch {
     return undefined;
+  }
+}
+
+async function refreshAccessToken(token: TokenSet): Promise<TokenSet> {
+  try {
+    const response = await fetch(`${process.env.KEYCLOAK_ISSUER}/protocol/openid-connect/token`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        client_id: process.env.KEYCLOAK_CLIENT_ID!,
+        client_secret: process.env.KEYCLOAK_CLIENT_SECRET!,
+        grant_type: "refresh_token",
+        refresh_token: token.refreshToken as string,
+      }),
+    });
+
+    const refreshedTokens = await response.json();
+    if (!response.ok) throw refreshedTokens;
+
+    return {
+      ...token,
+      accessToken: refreshedTokens.access_token,
+      expiresAt: Math.floor(Date.now() / 1000 + refreshedTokens.expires_in),
+      refreshToken: refreshedTokens.refresh_token ?? token.refreshToken,
+      error: undefined,
+    };
+  } catch (error) {
+    console.error("Error refreshing access token", error);
+    return { ...token, error: "RefreshAccessTokenError" };
   }
 }
 
@@ -20,42 +49,74 @@ export const authOptions: NextAuthOptions = {
       clientId: process.env.KEYCLOAK_CLIENT_ID!,
       clientSecret: process.env.KEYCLOAK_CLIENT_SECRET!,
       issuer: process.env.KEYCLOAK_ISSUER!,
-      authorization: { params: { prompt: "login" } },
     }),
   ],
   callbacks: {
     async jwt({ token, account }) {
+      // Initial sign-in
       if (account) {
-        (token as any).accessToken = account.access_token;
-        (token as any).refreshToken = account.refresh_token;
-        (token as any).expiresAt = account.expires_at;
-        (token as any).idToken = account.id_token;
-        const claims = decodeJwtPayload(
-          account.id_token || account.access_token
-        );
-        if (claims) {
-          (token as any).preferred_username = claims.preferred_username;
-          (token as any).given_name = claims.given_name;
-          (token as any).email = claims.email;
-          (token as any).realm_roles = claims.realm_access?.roles || [];
-          (token as any).resource_access = claims.resource_access || {};
-        }
+        const claims = decodeJwtPayload(account.id_token);
+        return {
+          accessToken: account.access_token,
+          refreshToken: account.refresh_token,
+          expiresAt: account.expires_at,
+          idToken: account.id_token,
+          iat: claims?.iat,
+          name: claims?.name,
+          email: claims?.email,
+          preferred_username: claims?.preferred_username,
+          given_name: claims?.given_name,
+        };
       }
-      return token;
+
+      // If token is still valid, perform checks
+      if (Date.now() < (token.expiresAt as number) * 1000) {
+        // Daily re-login logic
+        if (token.iat) {
+          const issueDate = new Date((token.iat as number) * 1000);
+          const currentDate = new Date();
+          if (issueDate.toDateString() !== currentDate.toDateString()) {
+            return {}; // Invalidate: New day
+          }
+        }
+        
+        // Validate against userinfo endpoint
+        if (token.accessToken) {
+          const userinfoRes = await fetch(`${process.env.KEYCLOAK_ISSUER}/protocol/openid-connect/userinfo`, {
+            headers: { "Authorization": `Bearer ${token.accessToken}` }
+          });
+          if (!userinfoRes.ok) {
+            return {}; // Invalidate: User logged out from IdP
+          }
+        }
+        return token; // Token is valid
+      }
+
+      // Access token has expired, try to update it
+      const refreshedToken = await refreshAccessToken(token as TokenSet);
+
+      // If refresh fails, invalidate the session completely
+      if (refreshedToken.error) {
+        return {};
+      }
+
+      return refreshedToken;
     },
     async session({ session, token }) {
-      (session as any).accessToken = (token as any).accessToken;
-      (session as any).idToken = (token as any).idToken;
-      (session as any).refreshToken = (token as any).refreshToken;
-      session.user = { ...(session.user || {}) } as any;
-      (session.user as any).username = (token as any).preferred_username;
-      (session.user as any).given_name = (token as any).given_name;
-      (session.user as any).email =
-        (token as any).email || (session.user as any).email;
-      const access = getAccessForUsername((token as any).preferred_username);
-      (session.user as any).appRoles = access.roles;
-      (session.user as any).permissions = access.permissions;
-      (session.user as any).companies = access.companies;
+      if (token) {
+        session.accessToken = token.accessToken;
+        session.idToken = token.idToken;
+        session.error = token.error;
+        session.user.name = token.name;
+        session.user.email = token.email;
+        session.user.username = token.preferred_username;
+        session.user.given_name = token.given_name;
+
+        const access = getAccessForUsername(token.preferred_username);
+        session.user.appRoles = access.roles;
+        session.user.permissions = access.permissions;
+        session.user.companies = access.companies;
+      }
       return session;
     },
   },

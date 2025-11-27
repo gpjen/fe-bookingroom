@@ -13,7 +13,7 @@ import { Separator } from "@/components/ui/separator";
 import { usePathname } from "next/navigation";
 import { LangSelect } from "@/components/settings/lang-select";
 import { ThemeToggle } from "@/components/settings/theme-toggle";
-import { Search, Bell, LayoutDashboard } from "lucide-react";
+import { Search, Bell, Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
@@ -52,7 +52,7 @@ export function AppHeader({
                 className="text-muted-foreground hover:text-foreground transition-colors"
               >
                 <div className="flex items-center gap-1">
-                  <LayoutDashboard className="h-4 w-4" />
+                  <Home className="h-3 w-3" />
                   Home
                 </div>
               </Link>

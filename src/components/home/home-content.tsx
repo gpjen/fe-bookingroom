@@ -1,12 +1,6 @@
 "use client";
 import Link from "next/link";
-import {
-  Building2,
-  Calendar,
-  Shield,
-  ArrowRight,
-  Sparkles,
-} from "lucide-react";
+import { Building2, Calendar, Shield, ArrowRight } from "lucide-react";
 import { LangSelect } from "@/components/settings/lang-select";
 import { ThemeToggle } from "@/components/settings/theme-toggle";
 import { useLang } from "@/providers/lang-provider";
@@ -25,7 +19,7 @@ function Feature({ icon, title }: { icon: React.ReactNode; title: string }) {
   );
 }
 
-export default function HomeContent({ isLoggedIn }: { isLoggedIn: boolean }) {
+export default function HomeContent() {
   const { t } = useLang();
 
   return (
@@ -76,23 +70,13 @@ export default function HomeContent({ isLoggedIn }: { isLoggedIn: boolean }) {
 
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
-            {isLoggedIn ? (
-              <Link
-                href="/dashboard"
-                className={`h-14 w-full md:w-[250px] px-8 inline-flex items-center justify-center gap-2 text-lg font-semibold rounded-xl transition-all shadow-lg bg-primary text-primary-foreground hover:opacity-90 group`}
-              >
-                <span>{t("openDashboard")}</span>
-                <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
-              </Link>
-            ) : (
-              <Button
-                onClick={() => signIn("keycloak")}
-                className={`h-14 w-full md:w-[250px] cursor-pointer px-8 inline-flex items-center justify-center gap-2 text-lg font-semibold rounded-xl transition-all shadow-lg bg-primary text-primary-foreground hover:opacity-90 group`}
-              >
-                <span>{t("login")}</span>
-                <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
-              </Button>
-            )}
+            <Button
+              onClick={() => signIn("keycloak")}
+              className={`h-14 w-full md:w-[250px] cursor-pointer px-8 inline-flex items-center justify-center gap-2 text-lg font-semibold rounded-xl transition-all shadow-lg bg-primary text-primary-foreground hover:opacity-90 group`}
+            >
+              <span>{t("login")}</span>
+              <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
+            </Button>
 
             <Link
               href="/bookings"

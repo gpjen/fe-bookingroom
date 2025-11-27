@@ -9,19 +9,18 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { signIn, signOut, useSession } from "next-auth/react";
+import { signIn, useSession } from "next-auth/react";
 import { Settings, LogOut, User } from "lucide-react";
+import { performLogout } from "@/lib/auth/logout-utils"; // Import the new utility function
 
-export function UserMenu({
-  isLoggedIn,
-  userName,
-  email,
-}: {
-  isLoggedIn: boolean;
-  userName?: string;
-  email?: string;
-}) {
-  if (!isLoggedIn) {
+export function UserMenu() {
+  const { data: session, status } = useSession();
+
+  const handleLogout = async () => {
+    await performLogout(session);
+  };
+
+  if (status !== "authenticated") {
     return (
       <Button onClick={() => signIn("keycloak")} size="sm" className="h-9">
         Login
@@ -29,25 +28,22 @@ export function UserMenu({
     );
   }
 
+  const { user } = session;
   const userInitials =
-    userName
+    user?.name
       ?.split(" ")
       .map((n) => n[0])
       .join("")
       .toUpperCase() || "U";
 
-  const handleLogout = async () => {
-    await fetch("/api/auth/logout");
-    await signOut({ callbackUrl: "/" });
-  };
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button variant="ghost" className="relative h-9 w-9 rounded-full">
           <Avatar className="h-9 w-9">
             <AvatarImage
-              src={`https://avatar.vercel.sh/${userName}`}
-              alt={userName}
+              src={`https://avatar.vercel.sh/${user.name}`}
+              alt={user.name || ""}
             />
             <AvatarFallback className="bg-primary/10 text-primary font-medium text-xs">
               {userInitials}
@@ -59,10 +55,10 @@ export function UserMenu({
         <DropdownMenuLabel className="font-normal">
           <div className="flex flex-col space-y-1">
             <p className="text-sm font-medium leading-none">
-              {userName || "User"}
+              {user.name || "User"}
             </p>
             <p className="text-xs leading-none text-muted-foreground">
-              {email || ""}
+              {user.email || ""}
             </p>
           </div>
         </DropdownMenuLabel>

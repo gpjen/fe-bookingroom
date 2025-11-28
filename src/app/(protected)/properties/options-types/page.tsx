@@ -285,13 +285,6 @@ export default function OptionsTypesPage() {
     setIsModalOpen(true);
   };
 
-  // Category stats
-  const stats = {
-    building: data.filter((item) => item.category === "building").length,
-    floor: data.filter((item) => item.category === "floor").length,
-    room: data.filter((item) => item.category === "room").length,
-  };
-
   // Define columns
   const columns: ColumnDef<OptionTypeWithDates>[] = [
     {
@@ -423,28 +416,6 @@ export default function OptionsTypesPage() {
             <p className="text-muted-foreground mt-1.5">
               Kelola pilihan tipe untuk data bangunan, lantai, dan kamar
             </p>
-
-            {/* Stats Cards */}
-            <div className="flex flex-wrap gap-3 mt-4">
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-800">
-                <Building2 className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                <span className="text-sm font-medium text-blue-700 dark:text-blue-300">
-                  {stats.building} Bangunan
-                </span>
-              </div>
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-purple-50 dark:bg-purple-950 border border-purple-200 dark:border-purple-800">
-                <LayoutGrid className="h-4 w-4 text-purple-600 dark:text-purple-400" />
-                <span className="text-sm font-medium text-purple-700 dark:text-purple-300">
-                  {stats.floor} Lantai
-                </span>
-              </div>
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-green-50 dark:bg-green-950 border border-green-200 dark:border-green-800">
-                <DoorOpen className="h-4 w-4 text-green-600 dark:text-green-400" />
-                <span className="text-sm font-medium text-green-700 dark:text-green-300">
-                  {stats.room} Kamar
-                </span>
-              </div>
-            </div>
           </div>
 
           <Button onClick={handleAdd} className="gap-2 shadow-sm">

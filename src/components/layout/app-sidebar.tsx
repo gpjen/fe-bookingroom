@@ -114,6 +114,15 @@ const menuConfig: MenuItem[] = [
     ],
   },
 
+  {
+    type: "single",
+    href: "/properties/buildings",
+    label: "Bangunan",
+    icon: Building,
+    active: true,
+    permissions: ["building:read"],
+  },
+
   // =====================
   // REPORTS
   // =====================
@@ -147,7 +156,7 @@ const menuConfig: MenuItem[] = [
         label: "Areal",
         icon: MapPinned,
         active: true,
-        permissions: ["area:read"],
+        permissions: ["area:read"], 
       },
       {
         href: "/properties/options-types",
@@ -155,13 +164,6 @@ const menuConfig: MenuItem[] = [
         icon: Layers,
         active: true,
         permissions: ["options-type:read"],
-      },
-      {
-        href: "/properties/buildings",
-        label: "Bangunan",
-        icon: Building,
-        active: true,
-        permissions: ["building:read"],
       },
     ],
   },

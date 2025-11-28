@@ -28,30 +28,32 @@ import { MapInput } from "@/components/maps/map-input";
 // Definisikan tipe data Areal yang digunakan di form
 export interface Areal {
   id: string;
-  kodeAreal: string;
-  namaAreal: string;
-  lokasi: string;
+  code: string;
+  name: string;
+  location: string;
   status: "active" | "inactive" | "development";
-  catatan?: string | null;
-  parentId?: string;
+  descriptions?: string | null;
+  parent_id?: string;
   polygon?: string | null; // GeoJSON string
+  created_at?: string;
+  updated_at?: string;
 }
 
 // Skema validasi menggunakan Zod dengan sintaks yang benar
 const arealSchema = z.object({
-  namaAreal: z
+  name: z
     .string()
     .min(3, { message: "Nama areal minimal 3 karakter." })
     .max(100, { message: "Nama areal tidak boleh lebih dari 100 karakter." }),
-  lokasi: z
+  location: z
     .string()
-    .min(3, { message: "Lokasi wajib diisi." })
-    .max(100, { message: "Lokasi tidak boleh lebih dari 100 karakter." }),
+    .min(3, { message: "location wajib diisi." })
+    .max(100, { message: "location tidak boleh lebih dari 100 karakter." }),
   status: z.enum(["active", "inactive", "development"]),
-  parentId: z.string().optional(),
-  catatan: z
+  parent_id: z.string().optional(),
+  descriptions: z
     .string()
-    .max(300, { message: "Catatan tidak boleh lebih dari 300 karakter." })
+    .max(300, { message: "deskripsi tidak boleh lebih dari 300 karakter." })
     .optional()
     .nullable(),
   polygon: z.string().optional().nullable(),
@@ -84,11 +86,11 @@ export function FormArea({
         setFormData(initialData);
       } else {
         setFormData({
-          namaAreal: "",
-          lokasi: "",
+          name: "",
+          location: "",
           status: "active",
-          parentId: undefined,
-          catatan: "",
+          parent_id: undefined,
+          descriptions: "",
           polygon: "",
         });
       }
@@ -168,35 +170,35 @@ export function FormArea({
         <div className="space-y-6 py-0 md:py-4">
           {/* NAMA AREAL */}
           <div className="space-y-1">
-            <Label htmlFor="namaAreal">
+            <Label htmlFor="name">
               Nama Areal <span className="text-destructive">*</span>
             </Label>
             <Input
-              id="namaAreal"
-              name="namaAreal"
+              id="name"
+              name="name"
               placeholder="Contoh: Mess LQ"
-              value={formData.namaAreal || ""}
+              value={formData.name || ""}
               onChange={handleChange}
             />
-            {errors.namaAreal && (
-              <p className="text-sm text-destructive">{errors.namaAreal}</p>
+            {errors.name && (
+              <p className="text-sm text-destructive">{errors.name}</p>
             )}
           </div>
 
-          {/* LOKASI */}
+          {/* location */}
           <div className="space-y-1">
-            <Label htmlFor="lokasi">
+            <Label htmlFor="location">
               Lokasi <span className="text-destructive">*</span>
             </Label>
             <Input
-              id="lokasi"
-              name="lokasi"
+              id="location"
+              name="location"
               placeholder="Desa, Kecamatan, Kabupaten"
-              value={formData.lokasi || ""}
+              value={formData.location || ""}
               onChange={handleChange}
             />
-            {errors.lokasi && (
-              <p className="text-sm text-destructive">{errors.lokasi}</p>
+            {errors.location && (
+              <p className="text-sm text-destructive">{errors.location}</p>
             )}
           </div>
 
@@ -247,9 +249,9 @@ export function FormArea({
           <div className="space-y-1">
             <Label>Parent Areal (Opsional)</Label>
             <Select
-              name="parentId"
-              value={formData.parentId || "none"}
-              onValueChange={(value) => handleSelectChange("parentId", value)}
+              name="parent_id"
+              value={formData.parent_id || "none"}
+              onValueChange={(value) => handleSelectChange("parent_id", value)}
             >
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Pilih parent areal" />
@@ -260,26 +262,26 @@ export function FormArea({
                   .filter((area) => area.id !== initialData?.id)
                   .map((area) => (
                     <SelectItem key={area.id} value={area.id}>
-                      {area.kodeAreal} - {area.namaAreal}
+                      {area.code} - {area.name}
                     </SelectItem>
                   ))}
               </SelectContent>
             </Select>
           </div>
 
-          {/* CATATAN */}
+          {/* descriptions */}
           <div className="space-y-1">
-            <Label htmlFor="catatan">Catatan</Label>
+            <Label htmlFor="descriptions">Deskripsi</Label>
             <Textarea
-              id="catatan"
-              name="catatan"
-              placeholder="Informasi tambahan tentang areal..."
+              id="descriptions"
+              name="descriptions"
+              placeholder="Deskripsi tambahan tentang areal..."
               rows={3}
-              value={formData.catatan || ""}
+              value={formData.descriptions || ""}
               onChange={handleChange}
             />
-            {errors.catatan && (
-              <p className="text-sm text-destructive">{errors.catatan}</p>
+            {errors.descriptions && (
+              <p className="text-sm text-destructive">{errors.descriptions}</p>
             )}
           </div>
         </div>

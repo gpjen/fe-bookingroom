@@ -150,11 +150,11 @@ const menuConfig: MenuItem[] = [
         permissions: ["area:read"],
       },
       {
-        href: "/properties/building-types",
-        label: "Tipe Bangunan",
+        href: "/properties/options-types",
+        label: "Pilihan Tipe",
         icon: Layers,
         active: true,
-        permissions: ["building-type:read"],
+        permissions: ["options-type:read"],
       },
       {
         href: "/properties/buildings",
@@ -162,13 +162,6 @@ const menuConfig: MenuItem[] = [
         icon: Building,
         active: true,
         permissions: ["building:read"],
-      },
-      {
-        href: "/properties/room-types",
-        label: "Tipe Kamar",
-        icon: LayoutGrid,
-        active: true,
-        permissions: ["room-type:read"],
       },
     ],
   },

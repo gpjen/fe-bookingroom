@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { ColumnDef } from "@tanstack/react-table";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
@@ -21,16 +21,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import {
   Plus,
-  Search,
   MoreVertical,
   Edit,
   Trash2,
@@ -39,6 +30,8 @@ import {
   Layers,
   MapPinned,
 } from "lucide-react";
+import { DataTable } from "@/components/ui/data-table";
+import { DataTableColumnHeader } from "@/components/ui/data-table-column-header";
 import { FormArea, ArealFormData, Areal } from "./_components/form-area";
 import { toast } from "sonner";
 import { formatDate } from "@/lib/utils";
@@ -47,11 +40,11 @@ import { formatDate } from "@/lib/utils";
 const initialData: (Areal & { createdAt: string; updatedAt: string })[] = [
   {
     id: "1",
-    kodeAreal: "HL-01",
-    namaAreal: "MESS LQ",
-    lokasi: "kawasi, Obi",
+    code: "HL-01",
+    name: "MESS LQ",
+    location: "kawasi, Obi",
     status: "active",
-    catatan: "areal mess LQ kawasi HPAL,DCM,ONC",
+    descriptions: "areal mess LQ kawasi HPAL,DCM,ONC",
     createdAt: "2024-01-15T08:00:00Z",
     updatedAt: "2024-11-20T10:30:00Z",
     polygon:
@@ -59,12 +52,12 @@ const initialData: (Areal & { createdAt: string; updatedAt: string })[] = [
   },
   {
     id: "2",
-    kodeAreal: "HL-02",
-    namaAreal: "MESS LQ Center",
-    lokasi: "kawasi, Obi",
+    code: "HL-02",
+    name: "MESS LQ Center",
+    location: "kawasi, Obi",
     status: "active",
-    parentId: "",
-    catatan: null,
+    parent_id: "",
+    descriptions: null,
     createdAt: "2024-02-20T09:15:00Z",
     updatedAt: "2024-11-18T14:20:00Z",
     polygon:
@@ -72,22 +65,22 @@ const initialData: (Areal & { createdAt: string; updatedAt: string })[] = [
   },
   {
     id: "3",
-    kodeAreal: "HL-03",
-    namaAreal: "MESS P2",
-    lokasi: "kawasi, Obi",
+    code: "HL-03",
+    name: "MESS P2",
+    location: "kawasi, Obi",
     status: "inactive",
-    catatan: "Dalam tahap persiapan lahan dan pembersihan",
+    descriptions: "Dalam tahap persiapan lahan dan pembersihan",
     createdAt: "2024-03-10T07:45:00Z",
     updatedAt: "2024-11-25T16:00:00Z",
     polygon: '{"type":"Feature","properties":{},"geometry":{"type":"Polygon","coordinates":[[[127.427931,-1.541702],[127.461576,-1.547536],[127.469988,-1.542045],[127.45677,-1.536726],[127.433424,-1.536382],[127.427931,-1.541702]]]}}',
   },
   {
     id: "4",
-    kodeAreal: "HL-04",
-    namaAreal: "Mess Tomori",
-    lokasi: "kawasi, Obi",
+    code: "HL-04",
+    name: "Mess Tomori",
+    location: "kawasi, Obi",
     status: "development",
-    catatan: "mess lama DCM",
+    descriptions: "mess lama DCM",
     createdAt: "2024-04-05T11:00:00Z",
     updatedAt: "2024-11-22T09:10:00Z",
     polygon: '{"type":"Feature","properties":{},"geometry":{"type":"Polygon","coordinates":[[[127.429905,-1.529029],[127.470417,-1.534177],[127.464237,-1.514958],[127.429905,-1.529029]]]}}',
@@ -124,23 +117,8 @@ const StatusBadge = ({ status }: { status: Areal["status"] }) => {
 // Main Component
 export default function ArealMasterPage() {
   const [data, setData] = useState(initialData);
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<Areal | null>(null);
-
-  // Filter data based on search and status
-  const filteredData = data.filter((item) => {
-    const matchesSearch =
-      item.namaAreal?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.kodeAreal?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      item.lokasi?.toLowerCase().includes(searchTerm.toLowerCase());
-
-    const matchesStatus =
-      statusFilter === "all" || item.status === statusFilter;
-
-    return matchesSearch && matchesStatus;
-  });
 
   // Handle form submission from FormArea component
   const handleFormSubmit = (formData: ArealFormData, id?: string) => {
@@ -153,23 +131,25 @@ export default function ArealMasterPage() {
           item.id === id ? { ...item, ...formData, updatedAt: now } : item
         )
       );
+      toast.success("Areal berhasil diperbarui");
     } else {
       // Add new item
       const newItem: Areal & { createdAt: string; updatedAt: string } = {
         ...formData,
         id: Date.now().toString(),
-        kodeAreal: `HL-${String(data.length + 1).padStart(3, "0")}`,
+        code: `HL-${String(data.length + 1).padStart(3, "0")}`,
         createdAt: now,
         updatedAt: now,
       };
-      setData([...data, newItem]);
+      setData([newItem, ...data]);
+      toast.success("Areal berhasil ditambahkan");
     }
   };
 
   // Handle delete
-  const handleDelete = (id: string, namaAreal: string) => {
-    toast.success(`Areal ${namaAreal} berhasil dihapus.`);
+  const handleDelete = (id: string, name: string) => {
     setData(data.filter((item) => item.id !== id));
+    toast.success(`Areal ${name} berhasil dihapus.`);
   };
 
   // Open modal for editing
@@ -183,6 +163,146 @@ export default function ArealMasterPage() {
     setEditingItem(null);
     setIsModalOpen(true);
   };
+
+  // Define columns
+  const columns: ColumnDef<Areal & { createdAt: string; updatedAt: string }>[] = [
+    {
+      id: "no",
+      header: () => <div className="text-center font-semibold">NO</div>,
+      cell: ({ row, table }) => {
+        const paginatedRows = table.getPaginationRowModel().rows;
+        const indexInPage = paginatedRows.findIndex(r => r.id === row.id);
+        const { pageIndex, pageSize } = table.getState().pagination;
+        const number = pageIndex * pageSize + indexInPage + 1;
+        return (
+          <div className="text-center font-medium text-muted-foreground w-12">
+            {number}
+          </div>
+        );
+      },
+      enableSorting: false,
+      enableHiding: false,
+    },
+    {
+      accessorKey: "code",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Kode" />
+      ),
+      cell: ({ row }) => (
+        <span className="font-mono text-sm font-medium">
+          {row.getValue("code")}
+        </span>
+      ),
+    },
+    {
+      accessorKey: "name",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Nama Areal" />
+      ),
+      cell: ({ row }) => (
+        <div className="flex flex-col gap-1">
+          <span className="font-medium">{row.getValue("name")}</span>
+          {row.original.descriptions && (
+            <span className="text-xs text-muted-foreground line-clamp-1">
+              {row.original.descriptions}
+            </span>
+          )}
+        </div>
+      ),
+    },
+    {
+      accessorKey: "location",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Lokasi" />
+      ),
+      cell: ({ row }) => (
+        <div className="flex items-start gap-2 max-w-[200px]">
+          <MapPin className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+          <span className="text-sm truncate">{row.getValue("location")}</span>
+        </div>
+      ),
+    },
+    {
+      accessorKey: "status",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Status" />
+      ),
+      cell: ({ row }) => <StatusBadge status={row.getValue("status")} />,
+      filterFn: (row, id, value) => {
+        return value.includes(row.getValue(id));
+      },
+    },
+    {
+      accessorKey: "parent_id",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Parent" />
+      ),
+      cell: ({ row }) => {
+        const parentId = row.getValue("parent_id");
+        const parentArea = data.find((d) => d.id === parentId);
+        
+        return parentArea ? (
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Layers className="h-3.5 w-3.5" />
+            <span>{parentArea.code}</span>
+          </div>
+        ) : (
+          <span className="text-xs text-muted-foreground">-</span>
+        );
+      },
+    },
+    {
+      accessorKey: "updatedAt",
+      header: ({ column }) => (
+        <DataTableColumnHeader column={column} title="Terakhir Update" />
+      ),
+      cell: ({ row }) => {
+        return (
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground whitespace-nowrap">
+            <Calendar className="h-3.5 w-3.5" />
+            {formatDate(row.getValue("updatedAt"))}
+          </div>
+        );
+      },
+    },
+    {
+      id: "actions",
+      header: () => <div className="text-center">Aksi</div>,
+      cell: ({ row }) => {
+        const item = row.original;
+
+        return (
+          <div className="text-center">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-8 w-8">
+                  <MoreVertical className="h-4 w-4" />
+                  <span className="sr-only">Open menu</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-[160px]">
+                <DropdownMenuLabel>Aksi</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={() => handleEdit(item)}>
+                  <Edit className="mr-2 h-4 w-4" />
+                  Edit
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  className="text-destructive focus:text-destructive"
+                  onClick={() => handleDelete(item.id, item.name)}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  Hapus
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        );
+      },
+      enableSorting: false,
+      enableHiding: false,
+    },
+  ];
 
   return (
     <Card className="p-3 md:p-6 lg:p-8">
@@ -204,21 +324,26 @@ export default function ArealMasterPage() {
           </Button>
         </div>
 
-        {/* Filters & Search */}
-        <div className="p-4">
-          <div className="flex flex-col gap-4 md:flex-row md:items-center">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Cari nama areal, kode, atau lokasi..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-
-            <Select value={statusFilter} onValueChange={setStatusFilter}>
-              <SelectTrigger className="w-full md:w-[200px]">
+        {/* Data Table */}
+        <DataTable
+          columns={columns}
+          data={data}
+          searchKey="name"
+          searchPlaceholder="Cari nama areal, kode, atau lokasi..."
+          pageSizeOptions={[10, 20, 50, 100]}
+          emptyMessage="Belum ada data areal."
+          renderToolbar={(table) => (
+            <Select
+              value={
+                (table.getColumn("status")?.getFilterValue() as string) || "all"
+              }
+              onValueChange={(value) =>
+                table
+                  .getColumn("status")
+                  ?.setFilterValue(value === "all" ? "" : value)
+              }
+            >
+              <SelectTrigger className="w-[180px]">
                 <SelectValue placeholder="Filter Status" />
               </SelectTrigger>
               <SelectContent>
@@ -228,163 +353,8 @@ export default function ArealMasterPage() {
                 <SelectItem value="inactive">Tidak Aktif</SelectItem>
               </SelectContent>
             </Select>
-          </div>
-        </div>
-
-        {/* Table */}
-        <div>
-          <div className="overflow-x-auto">
-            <Table className="w-full">
-              <TableHeader>
-                <TableRow className="border-b bg-muted/50">
-                  <TableHead className="px-4 py-3 w-8 text-left text-sm font-semibold">
-                    NO
-                  </TableHead>
-                  <TableHead className="px-4 py-3 text-left text-sm font-semibold">
-                    Kode
-                  </TableHead>
-                  <TableHead className="px-4 py-3 text-left text-sm font-semibold">
-                    Nama Areal
-                  </TableHead>
-                  <TableHead className="px-4 py-3 text-left text-sm font-semibold">
-                    Lokasi
-                  </TableHead>
-                  <TableHead className="px-4 py-3 text-left text-sm font-semibold">
-                    Status
-                  </TableHead>
-                  <TableHead className="px-4 py-3 text-left text-sm font-semibold">
-                    Parent
-                  </TableHead>
-                  <TableHead className="px-4 py-3 text-left text-sm font-semibold">
-                    Terakhir Update
-                  </TableHead>
-                  <TableHead className="px-4 py-3 text-right text-sm font-semibold">
-                    Aksi
-                  </TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredData.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={8} className="px-4 py-12 text-center">
-                      <div className="flex flex-col items-center gap-2">
-                        <Search className="h-8 w-8 text-muted-foreground/50" />
-                        <p className="text-sm text-muted-foreground">
-                          {searchTerm || statusFilter !== "all"
-                            ? "Tidak ada data yang sesuai dengan filter"
-                            : "Belum ada data areal"}
-                        </p>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  filteredData.map((item, index) => {
-                    const parentArea = item.parentId
-                      ? data.find((d) => d.id === item.parentId)
-                      : null;
-
-                    return (
-                      <TableRow
-                        key={item.id}
-                        className="border-b hover:bg-muted/30 transition-colors"
-                      >
-                        <TableCell className="px-4 py-4 w-8 text-center">
-                          {index + 1}
-                        </TableCell>
-                        <TableCell className="px-4 py-4">
-                          <span className="font-mono text-sm font-medium">
-                            {item.kodeAreal}
-                          </span>
-                        </TableCell>
-                        <TableCell className="px-4 py-4">
-                          <div className="flex flex-col gap-1">
-                            <span className="font-medium">
-                              {item.namaAreal}
-                            </span>
-                            {item.catatan && (
-                              <span className="text-xs text-muted-foreground line-clamp-1">
-                                {item.catatan}
-                              </span>
-                            )}
-                          </div>
-                        </TableCell>
-                        <TableCell className="px-4 py-4 max-w-[250px]">
-                          <div className="flex items-start gap-2">
-                            <MapPin className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-                            <span className="text-sm">{item.lokasi}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell className="px-4 py-4">
-                          <StatusBadge status={item.status} />
-                        </TableCell>
-                        <TableCell className="px-4 py-4">
-                          {parentArea ? (
-                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                              <Layers className="h-3.5 w-3.5" />
-                              <span>{parentArea.kodeAreal}</span>
-                            </div>
-                          ) : (
-                            <span className="text-xs text-muted-foreground">
-                              -
-                            </span>
-                          )}
-                        </TableCell>
-                        <TableCell className="px-4 py-4">
-                          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-                            <Calendar className="h-3.5 w-3.5" />
-                            {formatDate(item.updatedAt)}
-                          </div>
-                        </TableCell>
-                        <TableCell className="px-4 py-4 text-right">
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="h-8 w-8"
-                              >
-                                <MoreVertical className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent
-                              align="end"
-                              className="w-[160px]"
-                            >
-                              <DropdownMenuLabel>Aksi</DropdownMenuLabel>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                onClick={() => handleEdit(item)}
-                              >
-                                <Edit className="mr-2 h-4 w-4" />
-                                Edit
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                className="text-destructive focus:text-destructive"
-                                onClick={() =>
-                                  handleDelete(item.id, item.namaAreal)
-                                }
-                              >
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Hapus
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
-          </div>
-
-          {/* Footer Info */}
-          {filteredData.length > 0 && (
-            <div className="border-t px-4 py-3 text-xs text-muted-foreground">
-              Menampilkan {filteredData.length} dari {data.length} areal
-            </div>
           )}
-        </div>
+        />
       </div>
 
       {/* Render the Modal Form Component */}

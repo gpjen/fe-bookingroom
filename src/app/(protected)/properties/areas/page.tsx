@@ -54,6 +54,8 @@ const initialData: (Areal & { createdAt: string; updatedAt: string })[] = [
     catatan: "areal mess LQ kawasi HPAL,DCM,ONC",
     createdAt: "2024-01-15T08:00:00Z",
     updatedAt: "2024-11-20T10:30:00Z",
+    polygon:
+      '{"type":"Feature","properties":{},"geometry":{"type":"Polygon","coordinates":[[[127.41194,-1.566721],[127.399063,-1.598118],[127.389276,-1.618878],[127.408849,-1.621623],[127.459499,-1.585079],[127.426877,-1.572211],[127.41194,-1.566721]]]}}',
   },
   {
     id: "2",
@@ -65,6 +67,8 @@ const initialData: (Areal & { createdAt: string; updatedAt: string })[] = [
     catatan: null,
     createdAt: "2024-02-20T09:15:00Z",
     updatedAt: "2024-11-18T14:20:00Z",
+    polygon:
+      '{"type":"Feature","properties":{},"geometry":{"type":"Polygon","coordinates":[[[127.412395,-1.565408],[127.459431,-1.583597],[127.465267,-1.56129],[127.460117,-1.547562],[127.416859,-1.540698],[127.404499,-1.545503],[127.412395,-1.565408]]]}}',
   },
   {
     id: "3",
@@ -75,6 +79,7 @@ const initialData: (Areal & { createdAt: string; updatedAt: string })[] = [
     catatan: "Dalam tahap persiapan lahan dan pembersihan",
     createdAt: "2024-03-10T07:45:00Z",
     updatedAt: "2024-11-25T16:00:00Z",
+    polygon: '{"type":"Feature","properties":{},"geometry":{"type":"Polygon","coordinates":[[[127.427931,-1.541702],[127.461576,-1.547536],[127.469988,-1.542045],[127.45677,-1.536726],[127.433424,-1.536382],[127.427931,-1.541702]]]}}',
   },
   {
     id: "4",
@@ -85,6 +90,7 @@ const initialData: (Areal & { createdAt: string; updatedAt: string })[] = [
     catatan: "mess lama DCM",
     createdAt: "2024-04-05T11:00:00Z",
     updatedAt: "2024-11-22T09:10:00Z",
+    polygon: '{"type":"Feature","properties":{},"geometry":{"type":"Polygon","coordinates":[[[127.429905,-1.529029],[127.470417,-1.534177],[127.464237,-1.514958],[127.429905,-1.529029]]]}}',
   },
 ];
 

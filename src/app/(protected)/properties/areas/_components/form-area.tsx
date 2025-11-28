@@ -22,7 +22,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
-import { MapPin } from "lucide-react";
+
+import { MapInput } from "@/components/maps/map-input";
 
 // Definisikan tipe data Areal yang digunakan di form
 export interface Areal {
@@ -33,6 +34,7 @@ export interface Areal {
   status: "active" | "inactive" | "development";
   catatan?: string | null;
   parentId?: string;
+  polygon?: string | null; // GeoJSON string
 }
 
 // Skema validasi menggunakan Zod dengan sintaks yang benar
@@ -52,6 +54,7 @@ const arealSchema = z.object({
     .max(300, { message: "Catatan tidak boleh lebih dari 300 karakter." })
     .optional()
     .nullable(),
+  polygon: z.string().optional().nullable(),
 });
 
 export type ArealFormData = z.infer<typeof arealSchema>;
@@ -86,6 +89,7 @@ export function FormArea({
           status: "active",
           parentId: undefined,
           catatan: "",
+          polygon: "",
         });
       }
       setErrors({}); // Selalu reset error saat modal dibuka
@@ -110,6 +114,11 @@ export function FormArea({
       toast.error("Validasi gagal. Periksa kembali isian form Anda.");
       return;
     }
+
+    // LOG DATA SUBMISSION
+    console.log("=== FORM SUBMISSION DATA ===");
+    console.log(result.data);
+    console.log("============================");
 
     try {
       onSubmit(result.data, initialData?.id);
@@ -137,9 +146,16 @@ export function FormArea({
     }));
   };
 
+  const handleMapChange = (value: string) => {
+    setFormData((prev) => ({ ...prev, polygon: value }));
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent
+        className="w-full md:max-w-[650px] max-h-[90vh] overflow-y-auto"
+        onInteractOutside={(e) => e.preventDefault()}
+      >
         <DialogHeader>
           <DialogTitle className="text-xl font-semibold">
             {initialData ? "Edit Areal" : "Tambah Areal Baru"}
@@ -149,7 +165,7 @@ export function FormArea({
             diisi.
           </DialogDescription>
         </DialogHeader>
-        <div className="space-y-6 py-4">
+        <div className="space-y-6 py-0 md:py-4">
           {/* NAMA AREAL */}
           <div className="space-y-1">
             <Label htmlFor="namaAreal">
@@ -216,18 +232,15 @@ export function FormArea({
               Koordinat & Pemetaan
             </h3>
 
-            <div className="rounded-lg border border-dashed border-muted-foreground/30 bg-muted/20 p-4 h-[300px]">
-              <div className="flex items-start gap-3">
-                <MapPin className="h-5 w-5 text-muted-foreground mt-0.5" />
-                <div className="space-y-1">
-                  <p className="text-sm font-medium">Input Koordinat Polygon</p>
-                  <p className="text-xs text-muted-foreground">
-                    Koordinat polygon dapat diinput melalui peta interaktif atau
-                    upload file KML/GeoJSON.
-                  </p>
-                </div>
-              </div>
+            <div className="rounded-lg border border-muted-foreground/30 bg-muted/20 p-1">
+               <MapInput 
+                  value={formData.polygon || ""} 
+                  onChange={handleMapChange} 
+               />
             </div>
+            <p className="text-xs text-muted-foreground">
+              Gunakan tools di pojok kanan atas peta untuk menggambar area (polygon).
+            </p>
           </section>
 
           {/* PARENT AREAL */}

@@ -76,19 +76,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { data: session, status } = useSession();
   const router = useRouter();
 
-  console.log("AppShell: useSession status =", status);
-  console.log("AppShell: session expires =", session?.expires);
-
   useEffect(() => {
     // Fallback: If session exists but is expired, redirect
     if (session?.expires && new Date(session.expires) < new Date()) {
-      console.log("AppShell: Session expired, redirecting to /");
       router.push("/");
       return;
     }
 
     if (status === "unauthenticated") {
-      console.log("AppShell: Status is unauthenticated, redirecting to /");
       router.push("/");
     }
   }, [status, session?.expires, router]);

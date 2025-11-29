@@ -39,7 +39,6 @@ import {
   Building,
   Activity,
   Layers,
-  LayoutGrid,
   Folder,
 } from "lucide-react";
 import {
@@ -88,14 +87,14 @@ const menuConfig: MenuItem[] = [
         label: "Calendar View",
         icon: CalendarCheck2,
         active: true,
-        permissions: ["calendar:read"],
+        permissions: ["booking-calendar:read"],
       },
       {
         href: "/booking/list",
         label: "All Bookings",
         icon: ListChecks,
         active: true,
-        permissions: ["booking:read"],
+        permissions: ["booking-all:read"],
       },
       {
         href: "/booking/mine",

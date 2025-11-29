@@ -28,7 +28,6 @@ export default function BuildingDetailPage({
       <Tabs
         value={activeTab}
         onValueChange={setActiveTab}
-        className="space-y-4"
       >
         <TabsList>
           <TabsTrigger value="floors">Lantai & Kamar</TabsTrigger>

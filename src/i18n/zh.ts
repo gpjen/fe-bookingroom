@@ -10,5 +10,8 @@ const messages = {
   cardRules: "预订规则",
   cardAudit: "审计与通知",
   login: "登录 SSO",
+  notFoundTitle: "页面未找到",
+  notFoundDesc: "抱歉，您查找的页面不存在。",
+  backToHome: "返回首页",
 };
 export default messages;

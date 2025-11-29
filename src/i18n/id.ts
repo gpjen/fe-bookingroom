@@ -10,5 +10,8 @@ const messages = {
   cardRules: "Aturan Booking",
   cardAudit: "Audit & Notifikasi",
   login: "Login SSO",
+  notFoundTitle: "Halaman Tidak Ditemukan",
+  notFoundDesc: "Maaf, halaman yang Anda cari tidak dapat ditemukan.",
+  backToHome: "Kembali ke Beranda",
 };
 export default messages;

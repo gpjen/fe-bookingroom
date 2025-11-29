@@ -10,5 +10,8 @@ const messages = {
   cardRules: "Booking Rules",
   cardAudit: "Audit & Notifications",
   login: "Login SSO",
+  notFoundTitle: "Page Not Found",
+  notFoundDesc: "Sorry, the page you are looking for could not be found.",
+  backToHome: "Back to Home",
 };
 export default messages;

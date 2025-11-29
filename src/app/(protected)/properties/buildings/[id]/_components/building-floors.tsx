@@ -13,6 +13,9 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { cn } from "@/lib/utils";
+import { RoomDetailSheet } from "./room-detail-sheet";
+import { FormRoom, RoomFormData } from "./form-room";
+import { toast } from "sonner";
 
 // Types
 type RoomStatus = "available" | "occupied" | "maintenance";
@@ -26,6 +29,10 @@ interface Room {
   occupied: number;
   status: RoomStatus;
   facilities: string[];
+  price: number;
+  isMixGender: boolean;
+  isBookable: boolean;
+  description: string;
 }
 
 interface Floor {
@@ -53,6 +60,10 @@ const fetchFloorsData = async (id: string): Promise<Floor[]> => {
             occupied: i % 3 === 0 ? 2 : i % 2 === 0 ? 1 : 0,
             status: i === 5 ? "maintenance" : "available",
             facilities: ["AC", "WiFi"],
+            price: 0,
+            isMixGender: false,
+            isBookable: true,
+            description: "Kamar standar dengan fasilitas dasar.",
           })),
         },
         {
@@ -68,6 +79,10 @@ const fetchFloorsData = async (id: string): Promise<Floor[]> => {
             occupied: i < 5 ? 1 : 0,
             status: "available",
             facilities: ["AC", "WiFi", "TV", "Kulkas"],
+            price: 500000,
+            isMixGender: false,
+            isBookable: true,
+            description: "Kamar VIP dengan fasilitas lengkap dan pemandangan.",
           })),
         },
         {
@@ -83,6 +98,10 @@ const fetchFloorsData = async (id: string): Promise<Floor[]> => {
             occupied: 0,
             status: "available",
             facilities: ["AC", "WiFi"],
+            price: 0,
+            isMixGender: true,
+            isBookable: true,
+            description: "Kamar standar mix gender.",
           })),
         },
       ]);
@@ -90,74 +109,76 @@ const fetchFloorsData = async (id: string): Promise<Floor[]> => {
   });
 };
 
-import { RoomDetailSheet } from "./room-detail-sheet";
-
-// ... (previous imports and types remain the same)
-
 const RoomCard = ({ room, onClick }: { room: Room; onClick: () => void }) => {
   const statusColors = {
     available:
-      "bg-white border-slate-200 hover:border-blue-400 dark:bg-zinc-900 dark:border-zinc-800 dark:hover:border-blue-700",
+      "bg-white dark:bg-gray-800 border-slate-200 dark:border-zinc-700 hover:border-blue-400 dark:hover:border-blue-600",
     occupied:
-      "bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800",
+      "bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-800",
     maintenance:
-      "bg-orange-50 border-orange-200 dark:bg-orange-900/20 dark:border-orange-800",
+      "bg-orange-50 dark:bg-orange-900/20 border-orange-300 dark:border-orange-800",
   };
 
   return (
     <div
       onClick={onClick}
       className={cn(
-        "p-3 rounded-lg border transition-all cursor-pointer group relative overflow-hidden",
+        "p-4 rounded-lg border shadow-sm transition-all cursor-pointer group relative",
+        "hover:shadow-md hover:-translate-y-0.5",
         statusColors[room.status]
       )}
     >
-      <div className="flex justify-between items-start mb-2">
+      {/* Header */}
+      <div className="flex justify-between mb-3">
         <div>
           <div className="font-semibold text-sm">{room.code}</div>
-          <div className="text-xs text-muted-foreground">{room.type}</div>
+          <div className="text-xs text-muted-foreground truncate">{room.type}</div>
         </div>
         {room.status === "maintenance" && (
           <Construction className="h-4 w-4 text-orange-500" />
         )}
       </div>
 
-      <div className="flex items-center gap-3 text-xs text-muted-foreground">
-        <div className="flex items-center gap-1">
+      {/* Occupancy + Status */}
+      <div className="flex items-center justify-between text-xs">
+        <div className="flex items-center gap-1 text-muted-foreground">
           <Users className="h-3 w-3" />
           <span>
             {room.occupied}/{room.capacity}
           </span>
         </div>
-        <div className="flex items-center gap-1">
-          <Badge
-            variant="secondary"
-            className={cn(
-              "h-5 px-1.5 text-[10px] font-normal",
-              room.status === "available"
-                ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-                : room.status === "occupied"
-                ? "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400"
-                : "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400"
-            )}
-          >
-            {room.status === "available"
-              ? "Tersedia"
-              : room.status === "occupied"
-              ? "Terisi"
-              : "Perbaikan"}
-          </Badge>
-        </div>
+
+        <Badge
+          variant="outline"
+          className={cn(
+            "h-5 text-[10px] px-1.5",
+            room.status === "available" &&
+              "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
+            room.status === "occupied" &&
+              "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
+            room.status === "maintenance" &&
+              "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400"
+          )}
+        >
+          {room.status === "available"
+            ? "Tersedia"
+            : room.status === "occupied"
+            ? "Terisi"
+            : "Perbaikan"}
+        </Badge>
       </div>
     </div>
   );
 };
+
 
 export function BuildingFloors({ id }: { id: string }) {
   const [floors, setFloors] = useState<Floor[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [selectedFloorId, setSelectedFloorId] = useState<string | undefined>(undefined);
 
   useEffect(() => {
     fetchFloorsData(id).then((res) => {
@@ -169,6 +190,33 @@ export function BuildingFloors({ id }: { id: string }) {
   const handleRoomClick = (room: Room) => {
     setSelectedRoom(room);
     setIsSheetOpen(true);
+  };
+
+  const handleAddFloor = () => {
+    console.log("Add Floor");
+    setFloors((prevFloors) => [
+      ...prevFloors,
+      {
+        id: `f${prevFloors.length + 1}`,
+        name: `Lantai ${prevFloors.length + 1}`,
+        level: prevFloors.length + 1,
+        rooms: [],
+      },
+    ]);
+  };
+
+  const handleAddRoom = (floorId?: string) => {
+    setSelectedFloorId(floorId);
+    setIsFormOpen(true);
+  };
+
+  const handleFormSubmit = (data: RoomFormData) => {
+    console.log("Form Data:", data);
+    toast.success("Kamar berhasil ditambahkan", {
+      description: `${data.code} telah ditambahkan ke lantai terpilih.`,
+    });
+    // Here you would typically call an API to save the data
+    // and then refresh the floors data
   };
 
   if (loading) {
@@ -215,7 +263,7 @@ export function BuildingFloors({ id }: { id: string }) {
                 Kelola struktur lantai dan ruangan dalam gedung ini
               </p>
             </div>
-            <Button size="sm" className="gap-2">
+            <Button size="sm" className="gap-2" onClick={() => handleAddFloor()}>
               <Layers className="h-4 w-4" />
               Tambah Lantai
             </Button>
@@ -250,7 +298,7 @@ export function BuildingFloors({ id }: { id: string }) {
                   </div>
                 </AccordionTrigger>
                 <AccordionContent className="pt-2 pb-4">
-                  <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
+                  <div className="grid gap-3 grid-cols-[repeat(auto-fit,minmax(130px,1fr))]">
                     {floor.rooms.map((room) => (
                       <RoomCard
                         key={room.id}
@@ -260,7 +308,8 @@ export function BuildingFloors({ id }: { id: string }) {
                     ))}
                     <Button
                       variant="outline"
-                      className="h-full min-h-[80px] border-dashed flex flex-col gap-2 hover:border-blue-400 hover:text-blue-600 dark:hover:border-blue-700 dark:hover:text-blue-400"
+                      className="h-full min-h-[90px] border-dashed flex flex-col items-center justify-center gap-2 hover:border-blue-400 hover:text-blue-600 dark:hover:border-blue-700 dark:hover:text-blue-400"
+                      onClick={() => handleAddRoom(floor.id)}
                     >
                       <DoorOpen className="h-5 w-5" />
                       <span className="text-xs">Tambah Kamar</span>
@@ -277,8 +326,16 @@ export function BuildingFloors({ id }: { id: string }) {
         isOpen={isSheetOpen}
         onClose={() => setIsSheetOpen(false)}
         room={selectedRoom}
+        floors={floors.map((f) => ({ id: f.id, name: f.name }))}
+      />
+
+      <FormRoom
+        isOpen={isFormOpen}
+        onClose={() => setIsFormOpen(false)}
+        onSubmit={handleFormSubmit}
+        floors={floors.map((f) => ({ id: f.id, name: f.name }))}
+        initialFloorId={selectedFloorId}
       />
     </>
   );
 }
-

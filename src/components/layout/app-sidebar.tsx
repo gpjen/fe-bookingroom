@@ -155,7 +155,7 @@ const menuConfig: MenuItem[] = [
         label: "Areal",
         icon: MapPinned,
         active: true,
-        permissions: ["area:read"], 
+        permissions: ["area:read"],
       },
       {
         href: "/properties/options-types",
@@ -189,13 +189,6 @@ const menuConfig: MenuItem[] = [
         icon: ShieldCheck,
         active: true,
         permissions: ["admin-roles:read"],
-      },
-      {
-        href: "/admin/company-access",
-        label: "Company Access",
-        icon: Building2,
-        active: true,
-        permissions: ["admin-company-access:read"],
       },
       {
         href: "/admin/settings",

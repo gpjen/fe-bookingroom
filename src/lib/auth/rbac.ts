@@ -23,7 +23,6 @@ const ROLES: Record<string, Role> = {
       "admin:read",
       "admin-users:read",
       "admin-roles:read",
-      "admin-company:read",
       "admin-settings:read",
       "admin-logs:read",
     ],
@@ -46,18 +45,23 @@ const ROLES: Record<string, Role> = {
       "admin:read",
       "admin-users:read",
       "admin-roles:read",
-      "admin-company:read",
       "admin-settings:read",
       "admin-logs:read",
     ],
   },
   staff: {
     name: "staff",
-    permissions: ["dashboard:read", "booking-calendar:read", "booking:read", "booking-mine:read", "booking-request:read"],
+    permissions: [
+      "dashboard:read",
+      "booking-calendar:read",
+      "booking:read",
+      "booking-mine:read",
+      "booking-request:read",
+    ],
   },
   viewer: {
     name: "viewer",
-    permissions: ["dashboard:read", "booking:read", "booking-mine:read"] ,
+    permissions: ["dashboard:read", "booking:read", "booking-mine:read"],
   },
 };
 

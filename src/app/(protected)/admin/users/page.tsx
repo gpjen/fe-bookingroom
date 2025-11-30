@@ -36,11 +36,9 @@ const MOCK_ROLES = [
 ];
 
 const MOCK_COMPANIES = [
-  { id: "c1", name: "PT. Teknologi Maju" },
-  { id: "c2", name: "PT. Sinergi Abadi" },
-  { id: "c3", name: "CV. Kreatif Digital" },
-  { id: "c4", name: "PT. Global Solusi" },
-  { id: "c5", name: "Yayasan Harapan Bangsa" },
+  { id: "c1", name: "PT. Dharma Cipta Mulia" },
+  { id: "c2", name: "PT. Halmahera Persada Lygend" },
+  { id: "c3", name: "CV. Obi Nickel Sulfat" },
 ];
 
 const MOCK_BUILDINGS = [

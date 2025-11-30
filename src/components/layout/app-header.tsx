@@ -33,7 +33,7 @@ export function AppHeader({
     label: p.charAt(0).toUpperCase() + p.slice(1).replace(/-/g, " "),
     href: "/" + parts.slice(0, i + 1).join("/"),
   }));
-  const disabledCrumbs = new Set<string>(["/properties"]);
+  const disabledCrumbs = new Set<string>(["/properties", "/admin", "/booking"]);
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">

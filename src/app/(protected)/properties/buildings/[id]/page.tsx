@@ -7,6 +7,7 @@ import { BuildingStats } from "./_components/building-stats";
 import { BuildingFloors } from "./_components/building-floors";
 import { BuildingOverview } from "./_components/building-overview";
 import { BuildingFacilities } from "./_components/building-facilities";
+import { Grip, Info, Layers } from "lucide-react";
 
 export default function BuildingDetailPage({
   params,
@@ -30,9 +31,18 @@ export default function BuildingDetailPage({
         onValueChange={setActiveTab}
       >
         <TabsList>
-          <TabsTrigger value="floors">Lantai & Kamar</TabsTrigger>
-          <TabsTrigger value="overview">Informasi Umum</TabsTrigger>
-          <TabsTrigger value="facilities">Fasilitas</TabsTrigger>
+          <TabsTrigger value="floors">
+            <Layers className="w-4 h-4" />
+            <span className="">Lantai & Kamar</span>
+          </TabsTrigger>
+          <TabsTrigger value="overview">
+            <Info className="w-4 h-4" />
+            <span className="">Informasi</span>
+          </TabsTrigger>
+          <TabsTrigger value="facilities">
+            <Grip className="w-4 h-4" />
+            <span className="">Fasilitas</span>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="floors" className="space-y-4">

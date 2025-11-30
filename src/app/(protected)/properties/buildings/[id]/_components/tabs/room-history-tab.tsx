@@ -12,17 +12,31 @@ interface RoomHistoryTabProps {
 // Mock Data Generator
 const getMockHistory = (count: number): HistoryOccupant[] => {
   const names = ["Joko Widodo", "Susilo Bambang", "Megawati", "Habibie", "Abdurrahman Wahid", "Soeharto", "Soekarno"];
-  return Array.from({ length: count }).map((_, i) => ({
-    id: `hist-${i}`,
-    name: names[i % names.length],
-    nik: `D${2023000 + i}`,
-    gender: "Male",
-    checkInDate: "2023-01-01",
-    checkOutDate: "2023-12-31",
-    department: "Former Staff",
-    avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=hist${i}`,
-    status: "Checked Out",
-  }));
+  const companies = ["PT Harita Nickel", "PT Lygend", "Dinas Pertambangan", "Vendor A", "Vendor B"];
+  const departments = ["HRD", "Finance", "Operations", "Safety", "External Relations"];
+  
+  return Array.from({ length: count }).map((_, i) => {
+    const type = i % 3 === 0 ? "employee" : i % 3 === 1 ? "guest" : "other";
+    const isEmployee = type === "employee";
+    const gender = i % 2 === 0 ? "Male" : "Female";
+    
+    return {
+      id: `hist-${i}`,
+      name: names[i % names.length],
+      identifier: isEmployee ? `${2023000 + i}` : `ID-${1000 + i}`,
+      type: type as "employee" | "guest" | "other",
+      gender: gender as "Male" | "Female",
+      checkInDate: "01/01/2023",
+      checkOutDate: "12/31/2023",
+      company: isEmployee ? "PT Harita Nickel" : companies[i % companies.length],
+      department: isEmployee ? departments[i % departments.length] : undefined,
+      notes: i % 4 === 0 ? "Late checkout requested" : i % 5 === 0 ? "Room condition good" : undefined,
+      avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=hist${i}`,
+      status: i % 10 === 0 ? "Cancelled" : "Checked Out",
+      companionName: !isEmployee && i % 2 === 0 ? "Gandi Jen" : undefined,
+      companionId: !isEmployee && i % 2 === 0 ? "D0525000109" : undefined,
+    };
+  });
 };
 
 export function RoomHistoryTab({ roomId }: RoomHistoryTabProps) {
@@ -56,7 +70,7 @@ export function RoomHistoryTab({ roomId }: RoomHistoryTabProps) {
 
   return (
     <div className="space-y-4 mb-5">
-      <DataTable columns={columns} data={data} searchKey="name" />
+      <DataTable columns={columns} pageSizeOptions={[10, 25, 50, 100]} data={data} searchKey="name" />
     </div>
   );
 }

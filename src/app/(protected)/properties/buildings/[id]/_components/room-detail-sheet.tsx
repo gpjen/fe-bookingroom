@@ -75,15 +75,15 @@ export function RoomDetailSheet({
           <TabsList className="grid w-full grid-cols-3 mb-4">
             <TabsTrigger value="occupants" className="flex items-center gap-2">
               <Users className="h-4 w-4" />
-              Penghuni
+              <span className="hidden md:block">Penghuni</span>
             </TabsTrigger>
             <TabsTrigger value="info" className="flex items-center gap-2">
               <Info className="h-4 w-4" />
-              Informasi
+              <span className="hidden md:block">Informasi</span>
             </TabsTrigger>
             <TabsTrigger value="history" className="flex items-center gap-2">
               <History className="h-4 w-4" />
-              Riwayat
+              <span className="hidden md:block">Riwayat</span>
             </TabsTrigger>
           </TabsList>
 
@@ -93,6 +93,7 @@ export function RoomDetailSheet({
               roomId={room.id} 
               capacity={room.capacity} 
               occupied={room.occupied} 
+              bedCodes={Array.from({ length: room.capacity }, (_, i) => String.fromCharCode(65 + i))} // ["A", "B", "C", ...]
             />
           </TabsContent>
 

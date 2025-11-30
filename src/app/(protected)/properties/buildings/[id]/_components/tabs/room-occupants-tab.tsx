@@ -45,7 +45,7 @@ const getMockOccupants = (count: number, bedCodes: string[]): Occupant[] => {
     return {
       id: `occ-${i}`,
       name: names[i % names.length],
-      identifier: isEmployee ? `NIK-${2024000 + i}` : `ID-${1000 + i}`,
+      identifier: isEmployee ? `D${2024000 + i}` : `ID-${1000 + i}`,
       type: type as "employee" | "guest" | "other",
       gender: i % 2 === 0 ? "Male" : "Female",
       checkInDate: "2024-01-15",
@@ -134,7 +134,7 @@ export function RoomOccupantsTab({ roomId, capacity, occupied, bedCodes }: RoomO
         )}
       </div>
 
-      <ScrollArea className="h-[400px] pr-4">
+      <ScrollArea className="pr-4">
         {occupants.length > 0 ? (
           <div className="space-y-3">
             {occupants.map((occupant) => (

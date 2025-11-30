@@ -35,6 +35,7 @@ const getMockHistory = (count: number): HistoryOccupant[] => {
       status: i % 10 === 0 ? "Cancelled" : "Checked Out",
       companionName: !isEmployee && i % 2 === 0 ? "Gandi Jen" : undefined,
       companionId: !isEmployee && i % 2 === 0 ? "D0525000109" : undefined,
+      bedCode: i % 2 === 0 ? "A" : "B",
     };
   });
 };

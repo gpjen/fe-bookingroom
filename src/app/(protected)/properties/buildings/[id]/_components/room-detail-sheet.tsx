@@ -53,7 +53,7 @@ export function RoomDetailSheet({
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
       <SheetContent
-        className="!max-w-none !w-full md:!w-[500px] lg:!w-[600px] xl:!w-[800px] overflow-y-auto px-4"
+        className="!max-w-none !w-full md:!w-[500px] lg:!w-[730px] overflow-y-auto px-4"
       >
         <SheetHeader className="mb-4">
           <div className="flex items-center justify-between">

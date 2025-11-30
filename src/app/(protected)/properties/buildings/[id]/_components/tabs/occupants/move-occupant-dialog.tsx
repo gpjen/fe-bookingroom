@@ -68,12 +68,12 @@ export function MoveOccupantDialog({
                 value={moveForm.area} 
                 onValueChange={(val) => setMoveForm({...moveForm, area: val, building: "", floor: "", room: ""})}
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Pilih Area" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="area-a">Living Quarter A</SelectItem>
-                  <SelectItem value="area-b">Living Quarter B</SelectItem>
+                  <SelectItem value="area-a">LQ Center</SelectItem>
+                  <SelectItem value="area-b">LQ</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -84,12 +84,12 @@ export function MoveOccupantDialog({
                 disabled={!moveForm.area}
                 onValueChange={(val) => setMoveForm({...moveForm, building: val, floor: "", room: ""})}
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Pilih Gedung" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="b-1">Gedung Meranti</SelectItem>
-                  <SelectItem value="b-2">Gedung Ulin</SelectItem>
+                  <SelectItem value="b-1">Block 11</SelectItem>
+                  <SelectItem value="b-2">Block 8</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -103,7 +103,7 @@ export function MoveOccupantDialog({
                 disabled={!moveForm.building}
                 onValueChange={(val) => setMoveForm({...moveForm, floor: val, room: ""})}
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Pilih Lantai" />
                 </SelectTrigger>
                 <SelectContent>
@@ -120,13 +120,14 @@ export function MoveOccupantDialog({
                 disabled={!moveForm.floor}
                 onValueChange={(val) => setMoveForm({...moveForm, room: val})}
               >
-                <SelectTrigger>
+                <SelectTrigger className="w-full">
                   <SelectValue placeholder="Pilih Kamar" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="r-101">101 (Kosong)</SelectItem>
-                  <SelectItem value="r-102">102 (Sisa 1)</SelectItem>
-                  <SelectItem value="r-103">103 (Kosong)</SelectItem>
+                  <SelectItem value="r-101">101 (1/2)</SelectItem>
+                  <SelectItem value="r-102">102 (2/4)</SelectItem>
+                  <SelectItem value="r-103">103 (3/4)</SelectItem>
+                  <SelectItem value="r-104">104 (0/4)</SelectItem>
                 </SelectContent>
               </Select>
             </div>

@@ -10,6 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import {
   Form,
@@ -132,6 +133,9 @@ export function FormRoom({
       <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Tambah Kamar Baru</DialogTitle>
+          <DialogDescription>
+            Isi formulir berikut untuk menambahkan kamar baru ke dalam sistem.
+          </DialogDescription>
         </DialogHeader>
 
         <Form {...form}>

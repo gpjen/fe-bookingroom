@@ -35,7 +35,6 @@ const formSchema = z.object({
   name: z.string().min(1, "Nama bangunan wajib diisi"),
   arealId: z.string().min(1, "Areal wajib dipilih"),
   buildingTypeId: z.string().min(1, "Tipe bangunan wajib dipilih"),
-  totalFloors: z.number().min(1, "Jumlah lantai minimal 1"),
   status: z.enum(["active", "inactive", "maintenance", "development"]),
   description: z.string().optional(),
 });
@@ -48,6 +47,7 @@ export interface Building extends BuildingFormData {
   updatedAt?: string;
   arealName?: string; // For display purposes
   buildingTypeName?: string; // For display purposes
+  totalFloors?: number;
 }
 
 interface FormBuildingsProps {
@@ -74,7 +74,6 @@ export function FormBuildings({
       name: "",
       arealId: "",
       buildingTypeId: "",
-      totalFloors: 1,
       status: "active",
       description: "",
     },
@@ -88,7 +87,6 @@ export function FormBuildings({
           name: initialData.name,
           arealId: initialData.arealId,
           buildingTypeId: initialData.buildingTypeId,
-          totalFloors: initialData.totalFloors,
           status: initialData.status,
           description: initialData.description || "",
         });
@@ -98,7 +96,6 @@ export function FormBuildings({
           name: "",
           arealId: "",
           buildingTypeId: "",
-          totalFloors: 1,
           status: "active",
           description: "",
         });
@@ -242,25 +239,6 @@ export function FormBuildings({
                 )}
               />
             </div>
-
-            <FormField
-              control={form.control}
-              name="totalFloors"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Jumlah Lantai</FormLabel>
-                  <FormControl className="w-full">
-                    <Input
-                      type="number"
-                      min={1}
-                      {...field}
-                      onChange={(e) => field.onChange(e.target.valueAsNumber)}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
 
             <FormField
               control={form.control}

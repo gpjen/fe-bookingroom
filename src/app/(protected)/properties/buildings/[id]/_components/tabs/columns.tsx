@@ -21,6 +21,7 @@ export type HistoryOccupant = {
   status: "Checked Out" | "Cancelled" | "Moved";
   companionName?: string;
   companionId?: string;
+  bedCode?: string;
 };
 
 export const columns: ColumnDef<HistoryOccupant>[] = [
@@ -52,6 +53,11 @@ export const columns: ColumnDef<HistoryOccupant>[] = [
                 <User className="h-3 w-3" />
                 <span>{occupant.identifier}</span>
               </div>
+              {occupant.bedCode && (
+                <Badge variant="outline" className="text-[10px] h-4 px-1 bg-muted">
+                  Bed {occupant.bedCode}
+                </Badge>
+              )}
               <div className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-muted">
                 <span className={occupant.gender === 'Male' ? 'text-blue-500' : 'text-pink-500'}>
                   {occupant.gender === 'Male' ? 'L' : 'P'}

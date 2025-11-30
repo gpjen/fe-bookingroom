@@ -24,7 +24,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertTriangle, Save } from "lucide-react";
+import { AlertTriangle, Save, Trash } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -347,10 +347,16 @@ export function RoomInfoTab({ roomId, isOccupied, initialData, floors }: RoomInf
           />
 
           {!isOccupied && (
+            <>
             <Button type="submit" className="w-full">
               <Save className="mr-2 h-4 w-4" />
               Simpan Perubahan
             </Button>
+            <Button type="button" className="w-full" variant="destructive">
+              <Trash className="mr-2 h-4 w-4" />
+              Hapus Kamar
+            </Button>
+            </>
           )}
         </form>
       </Form>

@@ -109,30 +109,6 @@ export function BookingDetailDialog({
   const StatusIcon = statusConfig.icon;
 
   const isAction = actionType !== "view";
-
-  const getBookingTypeConfig = (type: BookingRequest["bookingType"]) => {
-    const types = {
-      employee: {
-        label: "Karyawan",
-        className:
-          "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20",
-      },
-      guest: {
-        label: "Tamu",
-        className:
-          "bg-purple-500/10 text-purple-700 dark:text-purple-400 border-purple-500/20",
-      },
-      others: {
-        label: "Lainnya",
-        className:
-          "bg-orange-500/10 text-orange-700 dark:text-orange-400 border-orange-500/20",
-      },
-    };
-    return types[type];
-  };
-
-  const bookingTypeConfig = getBookingTypeConfig(booking.bookingType);
-
   const canApprove = booking.status === "request";
   const canReject = booking.status === "request";
 
@@ -165,28 +141,22 @@ export function BookingDetailDialog({
           <div className="py-6 space-y-6">
             {/* Requester Info */}
             <Section title="Informasi Pemohon" icon={User}>
-              <div className="space-y-3">
-                <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-                  <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold flex-shrink-0">
+              <div className="p-4 bg-muted/40 rounded-lg space-y-4">
+                <div className="flex items-center gap-4">
+                  <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold">
                     {booking.requester.name.charAt(0).toUpperCase()}
                   </div>
+
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-sm truncate">
                       {booking.requester.name}
                     </p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-xs text-muted-foreground truncate">
                       {booking.requester.nik}
                     </p>
                   </div>
-                  <Badge
-                    variant="outline"
-                    className={cn("text-xs", bookingTypeConfig.className)}
-                  >
-                    {bookingTypeConfig.label}
-                  </Badge>
                 </div>
-
-                <div className="space-y-2 text-sm">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                   <InfoRow
                     icon={Mail}
                     label="Email"
@@ -211,68 +181,86 @@ export function BookingDetailDialog({
               </div>
             </Section>
 
-            {/* Guest Info */}
-            {booking.guestInfo && (
-              <Section title="Informasi Tamu" icon={Users}>
-                <div className="space-y-2 text-sm p-3 bg-muted/50 rounded-lg">
-                  <InfoRow
-                    icon={User}
-                    label="Nama"
-                    value={booking.guestInfo.name}
-                  />
-                  <InfoRow
-                    icon={IdCard}
-                    label="No. Identitas"
-                    value={booking.guestInfo.idNumber}
-                  />
-                  <InfoRow
-                    icon={User}
-                    label="Jenis Kelamin"
-                    value={
-                      booking.guestInfo.gender === "L"
-                        ? "Laki-laki"
-                        : "Perempuan"
-                    }
-                  />
-                  <InfoRow
-                    icon={Phone}
-                    label="Telepon"
-                    value={booking.guestInfo.phone}
-                  />
-                  {booking.guestInfo.company && (
-                    <InfoRow
-                      icon={Briefcase}
-                      label="Perusahaan"
-                      value={booking.guestInfo.company}
-                    />
-                  )}
-                </div>
-              </Section>
-            )}
+            {/* Occupants Info */}
+            <Section title="Daftar Penghuni / Tamu" icon={Users}>
+              <div className="space-y-3">
+                {booking.occupants.map((occupant) => {
+                  const placement = booking.placements.find(
+                    (p) => p.occupantId === occupant.id
+                  );
+                  return (
+                    <div
+                      key={occupant.id}
+                      className="p-3 bg-muted/50 rounded-lg space-y-2 text-sm"
+                    >
+                      <div className="flex items-center gap-4">
+                        <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold">
+                          {occupant.name.charAt(0).toUpperCase()}
+                        </div>
 
-            {/* Room Info */}
-            <Section title="Detail Ruangan" icon={Building}>
-              <div className="grid grid-cols-2 gap-3">
-                <InfoBox icon={MapPin} label="Area" value={booking.area} />
-                <InfoBox
-                  icon={Building}
-                  label="Gedung"
-                  value={booking.building}
-                />
-                <InfoBox icon={Building} label="Ruangan" value={booking.room} />
-                {booking.bedCode && (
-                  <InfoBox
-                    icon={Bed}
-                    label="Kode Bed"
-                    value={booking.bedCode}
-                  />
-                )}
+                        <div className="flex-1 min-w-0">
+                          <p className="font-semibold text-sm truncate">
+                            {occupant.name}
+                          </p>
+                          <p className="text-xs text-muted-foreground truncate">
+                            {occupant.identifier}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-muted-foreground">
+                        <InfoRow
+                          icon={Phone}
+                          label="Telepon"
+                          value={occupant.phone || "-"}
+                        />
+                        <InfoRow
+                          icon={Briefcase}
+                          label="Perusahaan"
+                          value={occupant.company || "-"}
+                        />
+                        <InfoRow
+                          icon={Users}
+                          label="Departemen"
+                          value={occupant.department || "-"}
+                        />
+                        <InfoRow
+                          icon={Users}
+                          label="Jenis Kelamin"
+                          value={
+                            occupant.gender === "L" ? "Laki-laki" : "Perempuan"
+                          }
+                        />
+                      </div>
+
+                      {/* Room Assignment Display */}
+                      {placement && (
+                        <div className="mt-2 pt-2 border-t flex items-center gap-3">
+                          <div className="flex items-center gap-1.5 text-xs">
+                            <Building className="h-3.5 w-3.5 text-muted-foreground" />
+                            <span className="font-medium">
+                              {`Gedung ${placement.buildingId}, Kamar ${placement.roomId}`}
+                            </span>
+                          </div>
+                          {placement.bedId && (
+                            <div className="flex items-center gap-1.5 text-xs">
+                              <Bed className="h-3.5 w-3.5 text-muted-foreground" />
+                              <span className="font-medium">
+                                {placement.bedId}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </Section>
 
             {/* Date Info */}
             <Section title="Periode Menginap" icon={Calendar}>
-              <div className="bg-primary/5 rounded-lg p-4 space-y-3">
+              <div className="bg-primary/5 rounded-lg p-4">
                 <div className="flex items-center justify-between text-sm">
                   <div>
                     <p className="text-xs text-muted-foreground mb-1">
@@ -286,7 +274,7 @@ export function BookingDetailDialog({
                   </div>
                   <div className="text-center">
                     <div className="bg-primary text-primary-foreground px-3 py-1 rounded-full text-xs font-semibold">
-                      {booking.duration} Hari
+                      {booking.durationInDays} Hari
                     </div>
                   </div>
                   <div className="text-right">
@@ -300,6 +288,22 @@ export function BookingDetailDialog({
                     </p>
                   </div>
                 </div>
+              </div>
+            </Section>
+
+            {/* Location Info (General) */}
+            <Section title="Lokasi yang Diminta" icon={MapPin}>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <InfoBox
+                  icon={MapPin}
+                  label="Area"
+                  value={booking.requestedLocation.areaName}
+                />
+                <InfoBox
+                  icon={Building}
+                  label="Gedung"
+                  value={booking.requestedLocation.buildingName || "Area Saja"}
+                />
               </div>
             </Section>
 
@@ -450,8 +454,8 @@ export function BookingDetailDialog({
                   actionType === "reject" && "bg-red-600 hover:bg-red-700"
                 )}
               >
-                {actionType === "approve" && "Setujui"}
-                {actionType === "reject" && "Tolak"}
+                {actionType === "approve" && "Konfirmasi Setuju"}
+                {actionType === "reject" && "Konfirmasi Tolak"}
               </Button>
             </div>
           )}
@@ -499,11 +503,11 @@ function InfoRow({
   value: string;
 }) {
   return (
-    <div className="flex items-start gap-2">
+    <div className="flex items-start gap-2 text-sm">
       <Icon className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
       <div className="flex-1 min-w-0">
         <span className="text-xs text-muted-foreground">{label}:</span>
-        <span className="ml-2 font-medium truncate">{value}</span>
+        <p className="font-medium truncate">{value}</p>
       </div>
     </div>
   );

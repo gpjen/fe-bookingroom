@@ -32,16 +32,9 @@ export const getColumns = ({
     id: "no",
     header: () => <div className="text-center font-semibold">NO</div>,
     cell: ({ row, table }) => {
-      // Get the paginated rows (current page only)
       const paginatedRows = table.getPaginationRowModel().rows;
-
-      // Find index in current page
       const indexInPage = paginatedRows.findIndex((r) => r.id === row.id);
-
-      // Get pagination state
       const { pageIndex, pageSize } = table.getState().pagination;
-
-      // Calculate number: (pageIndex * pageSize) + indexInCurrentPage + 1
       const number = pageIndex * pageSize + indexInPage + 1;
 
       return (
@@ -66,44 +59,68 @@ export const getColumns = ({
     accessorKey: "requester",
     header: "Pemohon",
     cell: ({ row }) => {
-      const { requester, bookingType, guestInfo } = row.original;
-      const typeLabel =
-        bookingType === "employee"
-          ? "Karyawan"
-          : bookingType === "guest"
-          ? "Tamu"
-          : "Kontraktor";
-
+      const requester = row.original.requester;
       return (
-        <div className="flex flex-col gap-1 min-w-[180px]">
-          <div className="flex items-center gap-2">
-            <span className="font-medium text-sm">{requester.name}</span>
-            <Badge variant="outline" className="text-xs px-1 py-0 h-5">
-              {typeLabel}
-            </Badge>
-          </div>
+        <div className="flex flex-col">
+          <span className="font-medium text-sm">{requester.name}</span>
           <span className="text-xs text-muted-foreground">{requester.nik}</span>
-          {bookingType !== "employee" && guestInfo && (
-            <span className="text-xs text-muted-foreground">
-              Pendamping: {guestInfo.name}
-            </span>
-          )}
+          <span className="text-xs text-muted-foreground">
+            {requester.company}
+          </span>
+          <span className="text-xs text-muted-foreground">
+            {requester.department}
+          </span>
         </div>
       );
     },
   },
   {
-    accessorKey: "room",
-    header: "Ruangan",
-    cell: ({ row }) => (
-      <div className="flex flex-col min-w-[140px]">
-        <span className="font-medium text-sm">{row.original.building}</span>
-        <span className="text-xs text-muted-foreground">
-          {row.original.room}
-          {row.original.bedCode && ` - ${row.original.bedCode}`}
-        </span>
-      </div>
-    ),
+    accessorKey: "occupants",
+    header: "Tamu / Penghuni",
+    cell: ({ row }) => {
+      const occupants = row.original.occupants;
+      const count = occupants.length;
+      const types = occupants.reduce((acc, curr) => {
+        acc[curr.type] = (acc[curr.type] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
+
+      const summary = Object.entries(types)
+        .map(([type, count]) => {
+          const label =
+            type === "employee"
+              ? "Karyawan"
+              : type === "guest"
+              ? "Tamu"
+              : "Lainnya";
+          return `${count} ${label}`;
+        })
+        .join(", ");
+
+      return (
+        <div className="flex flex-col">
+          <span className="font-medium text-sm">{count} Orang</span>
+          <span className="text-xs text-muted-foreground">{summary}</span>
+        </div>
+      );
+    },
+  },
+  {
+    accessorKey: "location",
+    header: "Lokasi",
+    cell: ({ row }) => {
+      const { requestedLocation } = row.original;
+      return (
+        <div className="flex flex-col">
+          <span className="font-medium text-sm">
+            {requestedLocation.buildingName || "-"}
+          </span>
+          <span className="text-xs text-muted-foreground">
+            {requestedLocation.areaName}
+          </span>
+        </div>
+      );
+    },
   },
   {
     accessorKey: "checkInDate",
@@ -123,7 +140,7 @@ export const getColumns = ({
           </span>
         </div>
         <span className="text-muted-foreground mt-0.5">
-          {row.original.duration} hari
+          {row.original.durationInDays} hari
         </span>
       </div>
     ),
@@ -182,44 +199,51 @@ export const getColumns = ({
   },
   {
     id: "actions",
-    header: "Aksi",
     cell: ({ row }) => {
       const booking = row.original;
       const canApprove = booking.status === "request";
       const canReject = booking.status === "request";
 
       return (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" className="h-8 w-8 p-0">
-              <span className="sr-only">Buka menu</span>
-              <MoreHorizontal className="h-4 w-4" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuLabel>Aksi</DropdownMenuLabel>
-            <DropdownMenuItem onClick={() => onView(booking)}>
-              <Eye className="mr-2 h-4 w-4" />
-              Lihat Detail
-            </DropdownMenuItem>
-            <DropdownMenuSeparator />
-            {canApprove && (
-              <DropdownMenuItem onClick={() => onApprove(booking)}>
-                <CheckCircle className="mr-2 h-4 w-4 text-green-600" />
-                Setujui
+        <div className="text-right">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="h-8 w-8 p-0">
+                <span className="sr-only">Buka menu</span>
+                <MoreHorizontal className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuLabel>Aksi</DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => onView(booking)}>
+                <Eye className="mr-2 h-4 w-4" />
+                Lihat Detail
               </DropdownMenuItem>
-            )}
-            {canReject && (
-              <DropdownMenuItem
-                onClick={() => onReject(booking)}
-                className="text-red-600"
-              >
-                <XCircle className="mr-2 h-4 w-4" />
-                Tolak
-              </DropdownMenuItem>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
+              <DropdownMenuSeparator />
+              {canApprove && (
+                <DropdownMenuItem onClick={() => onApprove(booking)}>
+                  <CheckCircle className="mr-2 h-4 w-4 text-green-600" />
+                  Setujui
+                </DropdownMenuItem>
+              )}
+              {canReject && (
+                <DropdownMenuItem
+                  onClick={() => onReject(booking)}
+                  className="text-red-600 focus:text-red-600 focus:bg-red-50"
+                >
+                  <XCircle className="mr-2 h-4 w-4" />
+                  Tolak
+                </DropdownMenuItem>
+              )}
+              {!canApprove && !canReject && (
+                <DropdownMenuItem disabled>
+                  <Clock className="mr-2 h-4 w-4" />
+                  Tidak ada aksi
+                </DropdownMenuItem>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       );
     },
   },

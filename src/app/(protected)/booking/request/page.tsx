@@ -37,29 +37,34 @@ export default function BookingRequestPage() {
 
   // Filter bookings
   const filteredBookings = bookings.filter((booking) => {
+    const searchLower = searchQuery.toLowerCase();
     const matchesSearch =
-      booking.bookingCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      booking.requester.name
-        .toLowerCase()
-        .includes(searchQuery.toLowerCase()) ||
-      booking.requester.nik.toLowerCase().includes(searchQuery.toLowerCase());
+      booking.bookingCode.toLowerCase().includes(searchLower) ||
+      booking.requester.name.toLowerCase().includes(searchLower) ||
+      booking.requester.nik.toLowerCase().includes(searchLower) ||
+      booking.occupants.some((occ) =>
+        occ.name.toLowerCase().includes(searchLower)
+      ) ||
+      booking.requestedLocation.areaName.toLowerCase().includes(searchLower) ||
+      booking.requestedLocation.buildingName
+        ?.toLowerCase()
+        .includes(searchLower);
 
     const matchesStatus =
       statusFilter === "all" || booking.status === statusFilter;
-    const matchesType =
-      typeFilter === "all" || booking.bookingType === typeFilter;
 
     const matchesDate =
-      (!dateRange?.from || booking.checkInDate >= dateRange.from) &&
-      (!dateRange?.to || booking.checkInDate <= addDays(dateRange.to, 1));
+      !dateRange?.from ||
+      (booking.checkInDate >= dateRange.from &&
+        (!dateRange.to || booking.checkInDate <= dateRange.to));
 
-    return matchesSearch && matchesStatus && matchesType && matchesDate;
+    return matchesSearch && matchesStatus && matchesDate;
   });
 
   const handleView = (booking: BookingRequest) => {
     setSelectedBooking(booking);
     setActionType("view");
-    setAdminNotes("");
+    setAdminNotes(booking.adminNotes || "");
   };
 
   const handleApprove = (booking: BookingRequest) => {
@@ -86,6 +91,16 @@ export default function BookingRequestPage() {
           updated.approvedAt = new Date();
           updated.approvedBy = "Admin System";
           if (adminNotes) updated.adminNotes = adminNotes;
+
+          // Add mock placement info on approval
+          updated.placements = updated.occupants.map((occ, i) => ({
+            occupantId: occ.id,
+            areaId: updated.requestedLocation.areaId,
+            buildingId: updated.requestedLocation.buildingId || `B-0${i + 1}`,
+            roomId: `R-10${i + 1}`,
+            bedId: `Bed-0${i + 1}`,
+          }));
+
           toast.success("Booking berhasil disetujui", {
             description: `${updated.bookingCode} - ${updated.requester.name}`,
           });
@@ -116,8 +131,8 @@ export default function BookingRequestPage() {
 
   const handleRefresh = () => {
     toast.info("Memuat ulang data...");
-    // Simulate refresh
     setTimeout(() => {
+      setBookings(MOCK_BOOKING_REQUESTS);
       toast.success("Data berhasil dimuat ulang");
     }, 500);
   };
@@ -143,6 +158,7 @@ export default function BookingRequestPage() {
     statusFilter !== "all",
     typeFilter !== "all",
     searchQuery !== "",
+    dateRange?.from !== undefined || dateRange?.to !== undefined,
   ].filter(Boolean).length;
 
   const columns = getColumns({
@@ -154,7 +170,6 @@ export default function BookingRequestPage() {
   return (
     <Card className="p-3 md:p-6 lg:p-8">
       <div className="space-y-6">
-        {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
@@ -186,7 +201,6 @@ export default function BookingRequestPage() {
           </div>
         </div>
 
-        {/* Main Content */}
         <div className="space-y-4">
           <BookingFilters
             searchQuery={searchQuery}
@@ -204,7 +218,6 @@ export default function BookingRequestPage() {
           <DataTable columns={columns} data={filteredBookings} />
         </div>
 
-        {/* Detail Dialog */}
         {selectedBooking && actionType && (
           <BookingDetailDialog
             booking={selectedBooking}

@@ -49,7 +49,7 @@ const fetchHeaderData = async (id: string): Promise<BuildingHeaderData> => {
         status: "active",
         totalFloors: 3,
       });
-    }, 1000); // Simulate 1s delay
+    }, 300);
   });
 };
 

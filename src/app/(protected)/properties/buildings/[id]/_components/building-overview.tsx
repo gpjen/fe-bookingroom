@@ -25,7 +25,7 @@ const fetchOverviewData = async (id: string): Promise<BuildingOverviewData> => {
         arealCode: "AREA-LQ-01",
         buildYear: 2022,
       });
-    }, 1200); // Simulate 1.2s delay
+    }, 1000); // Simulate 1.2s delay
   });
 };
 

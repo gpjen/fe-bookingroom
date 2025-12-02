@@ -105,7 +105,7 @@ const fetchFloorsData = async (id: string): Promise<Floor[]> => {
           })),
         },
       ]);
-    }, 2000); // Simulate 2s delay
+    }, 300); // Simulate delay
   });
 };
 
@@ -132,7 +132,9 @@ const RoomCard = ({ room, onClick }: { room: Room; onClick: () => void }) => {
       <div className="flex justify-between mb-3">
         <div>
           <div className="font-semibold text-sm">{room.code}</div>
-          <div className="text-xs text-muted-foreground truncate">{room.type}</div>
+          <div className="text-xs text-muted-foreground truncate">
+            {room.type}
+          </div>
         </div>
         {room.status === "maintenance" && (
           <Construction className="h-4 w-4 text-orange-500" />
@@ -171,14 +173,15 @@ const RoomCard = ({ room, onClick }: { room: Room; onClick: () => void }) => {
   );
 };
 
-
 export function BuildingFloors({ id }: { id: string }) {
   const [floors, setFloors] = useState<Floor[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
   const [isSheetOpen, setIsSheetOpen] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [selectedFloorId, setSelectedFloorId] = useState<string | undefined>(undefined);
+  const [selectedFloorId, setSelectedFloorId] = useState<string | undefined>(
+    undefined
+  );
 
   useEffect(() => {
     fetchFloorsData(id).then((res) => {
@@ -263,7 +266,11 @@ export function BuildingFloors({ id }: { id: string }) {
                 Kelola struktur lantai dan ruangan dalam gedung ini
               </p>
             </div>
-            <Button size="sm" className="gap-2" onClick={() => handleAddFloor()}>
+            <Button
+              size="sm"
+              className="gap-2"
+              onClick={() => handleAddFloor()}
+            >
               <Layers className="h-4 w-4" />
               Tambah Lantai
             </Button>
@@ -290,8 +297,10 @@ export function BuildingFloors({ id }: { id: string }) {
                     <div className="flex items-center gap-4 text-xs text-muted-foreground font-normal ml-auto mr-4">
                       <span>{floor.rooms.length} Kamar</span>
                       <span>
-                        {floor.rooms.filter((r) => r.status === "available")
-                          .length}{" "}
+                        {
+                          floor.rooms.filter((r) => r.status === "available")
+                            .length
+                        }{" "}
                         Tersedia
                       </span>
                     </div>

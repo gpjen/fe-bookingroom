@@ -45,11 +45,36 @@ type RoomFormData = z.infer<typeof formSchema>;
 
 // Mock Data for Room Types (Duplicated from FormRoom for now)
 const MOCK_ROOM_TYPES = [
-  { id: "rt-1", name: "Standard (2 Bed)", price: 0, metadata: { maxOccupancy: 2 } },
-  { id: "rt-2", name: "VIP (1 Bed)", price: 500000, metadata: { maxOccupancy: 1 } },
-  { id: "rt-3", name: "VVIP (Suite)", price: 1000000, metadata: { maxOccupancy: 1 } },
-  { id: "rt-4", name: "Dormitory (4 Bed)", price: 0, metadata: { maxOccupancy: 4 } },
-  { id: "rt-5", name: "Dormitory (8 Bed)", price: 0, metadata: { maxOccupancy: 8 } },
+  {
+    id: "rt-1",
+    name: "Standard (2 Bed)",
+    price: 0,
+    metadata: { maxOccupancy: 2 },
+  },
+  {
+    id: "rt-2",
+    name: "VIP (1 Bed)",
+    price: 500000,
+    metadata: { maxOccupancy: 1 },
+  },
+  {
+    id: "rt-3",
+    name: "VVIP (Suite)",
+    price: 1000000,
+    metadata: { maxOccupancy: 1 },
+  },
+  {
+    id: "rt-4",
+    name: "Dormitory (4 Bed)",
+    price: 0,
+    metadata: { maxOccupancy: 4 },
+  },
+  {
+    id: "rt-5",
+    name: "Dormitory (8 Bed)",
+    price: 0,
+    metadata: { maxOccupancy: 8 },
+  },
 ];
 
 interface RoomInfoTabProps {
@@ -70,7 +95,12 @@ interface RoomInfoTabProps {
   floors: { id: string; name: string }[];
 }
 
-export function RoomInfoTab({ roomId, isOccupied, initialData, floors }: RoomInfoTabProps) {
+export function RoomInfoTab({
+  roomId,
+  isOccupied,
+  initialData,
+  floors,
+}: RoomInfoTabProps) {
   const [isLoading, setIsLoading] = useState(true);
 
   const form = useForm<RoomFormData>({
@@ -92,26 +122,34 @@ export function RoomInfoTab({ roomId, isOccupied, initialData, floors }: RoomInf
     const fetchRoomDetails = async () => {
       setIsLoading(true);
       // Simulate API call
-      await new Promise((resolve) => setTimeout(resolve, 800));
-      
+      await new Promise((resolve) => setTimeout(resolve, 300));
+
       // Mock matching room type based on capacity/name
-      const matchedType = MOCK_ROOM_TYPES.find(t => t.metadata.maxOccupancy === initialData.capacity) || MOCK_ROOM_TYPES[0];
-      
+      const matchedType =
+        MOCK_ROOM_TYPES.find(
+          (t) => t.metadata.maxOccupancy === initialData.capacity
+        ) || MOCK_ROOM_TYPES[0];
+
       // Mock bed codes based on capacity
-      const mockBedCodes = Array.from({ length: initialData.capacity }).map((_, i) => `B-${i + 1}`);
+      const mockBedCodes = Array.from({ length: initialData.capacity }).map(
+        (_, i) => `B-${i + 1}`
+      );
 
       form.reset({
         code: initialData.code,
         roomTypeId: matchedType.id,
         capacity: initialData.capacity,
         price: initialData.price,
-        status: initialData.status === "available" ? "active" : initialData.status as any,
+        status:
+          initialData.status === "available"
+            ? "active"
+            : (initialData.status as any),
         isMixGender: initialData.isMixGender,
         isBookable: initialData.isBookable,
         description: initialData.description,
         bedCodes: mockBedCodes,
       });
-      
+
       setIsLoading(false);
     };
 
@@ -124,7 +162,7 @@ export function RoomInfoTab({ roomId, isOccupied, initialData, floors }: RoomInf
       form.setValue("roomTypeId", value);
       form.setValue("capacity", selectedType.metadata.maxOccupancy);
       form.setValue("price", selectedType.price);
-      
+
       // Reset bed codes based on new capacity
       const newBedCodes = Array(selectedType.metadata.maxOccupancy).fill("");
       form.setValue("bedCodes", newBedCodes);
@@ -167,13 +205,17 @@ export function RoomInfoTab({ roomId, isOccupied, initialData, floors }: RoomInf
           <AlertTriangle className="h-4 w-4" />
           {/* <AlertTitle>Mode Baca Saja</AlertTitle> */}
           <AlertDescription>
-            Informasi kamar tidak dapat diubah karena sedang terisi oleh penghuni.
+            Informasi kamar tidak dapat diubah karena sedang terisi oleh
+            penghuni.
           </AlertDescription>
         </Alert>
       )}
 
       <Form {...form}>
-        <form onSubmit={form.handleSubmit(handleSaveRoom)} className="space-y-4">
+        <form
+          onSubmit={form.handleSubmit(handleSaveRoom)}
+          className="space-y-4"
+        >
           <div className="grid grid-cols-1 gap-4">
             <FormField
               control={form.control}
@@ -197,8 +239,8 @@ export function RoomInfoTab({ roomId, isOccupied, initialData, floors }: RoomInf
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Status</FormLabel>
-                  <Select 
-                    onValueChange={field.onChange} 
+                  <Select
+                    onValueChange={field.onChange}
                     defaultValue={field.value}
                     value={field.value}
                     disabled={isOccupied}
@@ -261,9 +303,15 @@ export function RoomInfoTab({ roomId, isOccupied, initialData, floors }: RoomInf
                     name={`bedCodes.${index}`}
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-xs">Kode Bed {index + 1}</FormLabel>
+                        <FormLabel className="text-xs">
+                          Kode Bed {index + 1}
+                        </FormLabel>
                         <FormControl>
-                          <Input placeholder={`Contoh: B-${index + 1}`} {...field} disabled={isOccupied} />
+                          <Input
+                            placeholder={`Contoh: B-${index + 1}`}
+                            {...field}
+                            disabled={isOccupied}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -281,10 +329,10 @@ export function RoomInfoTab({ roomId, isOccupied, initialData, floors }: RoomInf
               <FormItem>
                 <FormLabel>Harga / Malam</FormLabel>
                 <FormControl>
-                  <Input 
-                    {...field} 
-                    type="number" 
-                    disabled={isOccupied} 
+                  <Input
+                    {...field}
+                    type="number"
+                    disabled={isOccupied}
                     onChange={(e) => field.onChange(e.target.valueAsNumber)}
                   />
                 </FormControl>
@@ -339,7 +387,11 @@ export function RoomInfoTab({ roomId, isOccupied, initialData, floors }: RoomInf
               <FormItem>
                 <FormLabel>Deskripsi</FormLabel>
                 <FormControl>
-                  <Textarea {...field} disabled={isOccupied} className="resize-none" />
+                  <Textarea
+                    {...field}
+                    disabled={isOccupied}
+                    className="resize-none"
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -348,14 +400,14 @@ export function RoomInfoTab({ roomId, isOccupied, initialData, floors }: RoomInf
 
           {!isOccupied && (
             <>
-            <Button type="submit" className="w-full">
-              <Save className="mr-2 h-4 w-4" />
-              Simpan Perubahan
-            </Button>
-            <Button type="button" className="w-full" variant="destructive">
-              <Trash className="mr-2 h-4 w-4" />
-              Hapus Kamar
-            </Button>
+              <Button type="submit" className="w-full">
+                <Save className="mr-2 h-4 w-4" />
+                Simpan Perubahan
+              </Button>
+              <Button type="button" className="w-full" variant="destructive">
+                <Trash className="mr-2 h-4 w-4" />
+                Hapus Kamar
+              </Button>
             </>
           )}
         </form>

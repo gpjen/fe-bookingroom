@@ -3,13 +3,7 @@
 import { useState, useEffect } from "react";
 import { Plus, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { DataTable } from "@/components/ui/data-table";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -100,7 +94,7 @@ export default function UsersPage() {
     setTimeout(() => {
       setUsers(MOCK_USERS);
       setLoading(false);
-    }, 1000);
+    }, 300);
   }, []);
 
   const handleAdd = () => {

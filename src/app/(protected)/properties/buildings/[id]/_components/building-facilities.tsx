@@ -1,7 +1,13 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Plus, Pencil, Trash2, MoreVertical, Image as ImageIcon } from "lucide-react";
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  MoreVertical,
+  Image as ImageIcon,
+} from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -38,49 +44,59 @@ const fetchFacilitiesData = async (id: string): Promise<Facility[]> => {
   return new Promise((resolve) => {
     setTimeout(() => {
       resolve([
-        { 
-          id: "1", 
-          title: "Gym & Fitness", 
-          description: "Peralatan lengkap cardio dan weight training, buka 24 jam untuk penghuni.", 
-          imageUrl: "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=1470&auto=format&fit=crop" 
+        {
+          id: "1",
+          title: "Gym & Fitness",
+          description:
+            "Peralatan lengkap cardio dan weight training, buka 24 jam untuk penghuni.",
+          imageUrl:
+            "https://images.unsplash.com/photo-1534438327276-14e5300c3a48?q=80&w=1470&auto=format&fit=crop",
         },
-        { 
-          id: "2", 
-          title: "Swimming Pool", 
-          description: "Kolam renang outdoor dengan pemandangan kota, tersedia area berjemur.", 
-          imageUrl: "https://images.unsplash.com/photo-1576013551627-0cc20b96c2a7?q=80&w=1470&auto=format&fit=crop" 
+        {
+          id: "2",
+          title: "Swimming Pool",
+          description:
+            "Kolam renang outdoor dengan pemandangan kota, tersedia area berjemur.",
+          imageUrl:
+            "https://images.unsplash.com/photo-1576013551627-0cc20b96c2a7?q=80&w=1470&auto=format&fit=crop",
         },
-        { 
-          id: "3", 
-          title: "Co-working Space", 
-          description: "Area kerja nyaman dengan WiFi kecepatan tinggi dan kopi gratis.", 
-          imageUrl: "https://images.unsplash.com/photo-1497366216548-37526070297c?q=80&w=1469&auto=format&fit=crop" 
+        {
+          id: "3",
+          title: "Co-working Space",
+          description:
+            "Area kerja nyaman dengan WiFi kecepatan tinggi dan kopi gratis.",
+          imageUrl:
+            "https://images.unsplash.com/photo-1497366216548-37526070297c?q=80&w=1469&auto=format&fit=crop",
         },
-        { 
-          id: "4", 
-          title: "Mini Market", 
-          description: "Menyediakan kebutuhan sehari-hari, buka pukul 07:00 - 22:00.", 
-          imageUrl: "" 
+        {
+          id: "4",
+          title: "Mini Market",
+          description:
+            "Menyediakan kebutuhan sehari-hari, buka pukul 07:00 - 22:00.",
+          imageUrl: "",
         },
-        { 
-          id: "5", 
-          title: "Laundry Room", 
-          description: "Mesin cuci dan pengering coin-operated tersedia di setiap lantai.", 
-          imageUrl: "" 
+        {
+          id: "5",
+          title: "Laundry Room",
+          description:
+            "Mesin cuci dan pengering coin-operated tersedia di setiap lantai.",
+          imageUrl: "",
         },
       ]);
-    }, 1000);
+    }, 300);
   });
 };
 
 export function BuildingFacilities({ id }: { id: string }) {
   const [facilities, setFacilities] = useState<Facility[]>([]);
   const [loading, setLoading] = useState(true);
-  
+
   // Dialog States
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
-  const [selectedFacility, setSelectedFacility] = useState<Facility | null>(null);
+  const [selectedFacility, setSelectedFacility] = useState<Facility | null>(
+    null
+  );
   const [formMode, setFormMode] = useState<"create" | "edit">("create");
 
   useEffect(() => {
@@ -128,7 +144,9 @@ export function BuildingFacilities({ id }: { id: string }) {
 
   const handleConfirmDelete = () => {
     if (!selectedFacility) return;
-    const updatedFacilities = facilities.filter((f) => f.id !== selectedFacility.id);
+    const updatedFacilities = facilities.filter(
+      (f) => f.id !== selectedFacility.id
+    );
     setFacilities(updatedFacilities);
     setIsDeleteOpen(false);
     toast.success("Fasilitas berhasil dihapus");
@@ -155,7 +173,9 @@ export function BuildingFacilities({ id }: { id: string }) {
     <Card>
       <CardHeader className=" flex flex-row items-center justify-between mb-6">
         <div>
-          <CardTitle className="text-lg font-semibold">Fasilitas Gedung</CardTitle>
+          <CardTitle className="text-lg font-semibold">
+            Fasilitas Gedung
+          </CardTitle>
           <p className="text-sm text-muted-foreground mt-1">
             Daftar fasilitas yang tersedia untuk penghuni gedung ini.
           </p>
@@ -186,12 +206,16 @@ export function BuildingFacilities({ id }: { id: string }) {
                       <ImageIcon className="h-12 w-12 text-muted-foreground/20" />
                     </div>
                   )}
-                  
+
                   {/* Overlay Actions */}
                   <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="secondary" size="icon" className="h-8 w-8 rounded-full shadow-sm bg-white/90 hover:bg-white">
+                        <Button
+                          variant="secondary"
+                          size="icon"
+                          className="h-8 w-8 rounded-full shadow-sm bg-white/90 hover:bg-white"
+                        >
                           <MoreVertical className="h-4 w-4 text-foreground" />
                         </Button>
                       </DropdownMenuTrigger>
@@ -199,7 +223,7 @@ export function BuildingFacilities({ id }: { id: string }) {
                         <DropdownMenuItem onClick={() => handleEdit(facility)}>
                           <Pencil className="mr-2 h-3.5 w-3.5" /> Edit
                         </DropdownMenuItem>
-                        <DropdownMenuItem 
+                        <DropdownMenuItem
                           className="text-destructive focus:text-destructive"
                           onClick={() => handleDeleteClick(facility)}
                         >
@@ -212,7 +236,10 @@ export function BuildingFacilities({ id }: { id: string }) {
 
                 {/* Content */}
                 <div className="flex flex-col flex-1 p-4">
-                  <h3 className="font-semibold text-base mb-2 line-clamp-1" title={facility.title}>
+                  <h3
+                    className="font-semibold text-base mb-2 line-clamp-1"
+                    title={facility.title}
+                  >
                     {facility.title}
                   </h3>
                   <p className="text-sm text-muted-foreground line-clamp-2 flex-1">
@@ -229,7 +256,8 @@ export function BuildingFacilities({ id }: { id: string }) {
             </div>
             <h3 className="font-semibold text-lg mb-1">Belum ada fasilitas</h3>
             <p className="text-sm text-muted-foreground max-w-sm mb-6">
-              Tambahkan fasilitas gedung untuk memberikan informasi lebih lengkap kepada calon penghuni.
+              Tambahkan fasilitas gedung untuk memberikan informasi lebih
+              lengkap kepada calon penghuni.
             </p>
             <Button onClick={handleAdd} variant="outline">
               Mulai Tambah Fasilitas
@@ -238,15 +266,19 @@ export function BuildingFacilities({ id }: { id: string }) {
         )}
       </CardContent>
 
-      <FacilityForm 
+      <FacilityForm
         isOpen={isFormOpen}
         onClose={() => setIsFormOpen(false)}
         onSubmit={handleFormSubmit}
-        initialData={selectedFacility ? {
-          title: selectedFacility.title,
-          description: selectedFacility.description || "",
-          imageUrl: selectedFacility.imageUrl || "",
-        } : undefined}
+        initialData={
+          selectedFacility
+            ? {
+                title: selectedFacility.title,
+                description: selectedFacility.description || "",
+                imageUrl: selectedFacility.imageUrl || "",
+              }
+            : undefined
+        }
         mode={formMode}
       />
 
@@ -255,13 +287,17 @@ export function BuildingFacilities({ id }: { id: string }) {
           <AlertDialogHeader>
             <AlertDialogTitle>Hapus Fasilitas?</AlertDialogTitle>
             <AlertDialogDescription>
-              Apakah Anda yakin ingin menghapus fasilitas <b>{selectedFacility?.title}</b>? 
-              Tindakan ini tidak dapat dibatalkan.
+              Apakah Anda yakin ingin menghapus fasilitas{" "}
+              <b>{selectedFacility?.title}</b>? Tindakan ini tidak dapat
+              dibatalkan.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Batal</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive hover:bg-destructive/90">
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              className="bg-destructive hover:bg-destructive/90"
+            >
               Hapus
             </AlertDialogAction>
           </AlertDialogFooter>

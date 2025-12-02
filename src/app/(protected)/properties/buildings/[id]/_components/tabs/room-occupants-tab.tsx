@@ -32,16 +32,27 @@ interface RoomOccupantsTabProps {
 // Mock Data Generator
 const getMockOccupants = (count: number, bedCodes: string[]): Occupant[] => {
   const names = [
-    "Budi Santoso", "Siti Aminah", "Rudi Hermawan", "Dewi Sartika",
-    "Ahmad Yani", "Rina Wati", "Eko Prasetyo", "Maya Indah"
+    "Budi Santoso",
+    "Siti Aminah",
+    "Rudi Hermawan",
+    "Dewi Sartika",
+    "Ahmad Yani",
+    "Rina Wati",
+    "Eko Prasetyo",
+    "Maya Indah",
   ];
-  const departments = ["Mining Operation", "Plant Maintenance", "Human Resources", "Safety & Environment"];
+  const departments = [
+    "Mining Operation",
+    "Plant Maintenance",
+    "Human Resources",
+    "Safety & Environment",
+  ];
   const companies = ["PT Harita Nickel", "PT Lygend", "Vendor A", "Vendor B"];
 
   return Array.from({ length: count }).map((_, i) => {
     const type = i % 3 === 0 ? "employee" : i % 3 === 1 ? "guest" : "other";
     const isEmployee = type === "employee";
-    
+
     return {
       id: `occ-${i}`,
       name: names[i % names.length],
@@ -51,7 +62,9 @@ const getMockOccupants = (count: number, bedCodes: string[]): Occupant[] => {
       checkInDate: "2024-01-15",
       checkOutDate: i % 4 === 0 ? "2024-12-31" : undefined,
       department: isEmployee ? departments[i % departments.length] : undefined,
-      company: isEmployee ? "PT Harita Nickel" : companies[i % companies.length],
+      company: isEmployee
+        ? "PT Harita Nickel"
+        : companies[i % companies.length],
       companionName: !isEmployee && i % 2 === 0 ? "Pendamping A" : undefined,
       companionId: !isEmployee && i % 2 === 0 ? "ID-999" : undefined,
       avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${i}`,
@@ -61,11 +74,18 @@ const getMockOccupants = (count: number, bedCodes: string[]): Occupant[] => {
   });
 };
 
-export function RoomOccupantsTab({ roomId, capacity, occupied, bedCodes }: RoomOccupantsTabProps) {
+export function RoomOccupantsTab({
+  roomId,
+  capacity,
+  occupied,
+  bedCodes,
+}: RoomOccupantsTabProps) {
   const [occupants, setOccupants] = useState<Occupant[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedOccupant, setSelectedOccupant] = useState<Occupant | null>(null);
-  
+  const [selectedOccupant, setSelectedOccupant] = useState<Occupant | null>(
+    null
+  );
+
   // Dialog States
   const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
   const [isMoveOpen, setIsMoveOpen] = useState(false);
@@ -74,7 +94,7 @@ export function RoomOccupantsTab({ roomId, capacity, occupied, bedCodes }: RoomO
   useEffect(() => {
     const fetchOccupants = async () => {
       setIsLoading(true);
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await new Promise((resolve) => setTimeout(resolve, 300));
       setOccupants(getMockOccupants(occupied, bedCodes));
       setIsLoading(false);
     };
@@ -98,7 +118,9 @@ export function RoomOccupantsTab({ roomId, capacity, occupied, bedCodes }: RoomO
 
   const handleMove = (data: any) => {
     toast.success("Pindah Kamar Berhasil", {
-      description: `${selectedOccupant?.name} dipindahkan ke ${data.room || "kamar baru"}.`,
+      description: `${selectedOccupant?.name} dipindahkan ke ${
+        data.room || "kamar baru"
+      }.`,
     });
     setIsMoveOpen(false);
     setSelectedOccupant(null);
@@ -128,7 +150,11 @@ export function RoomOccupantsTab({ roomId, capacity, occupied, bedCodes }: RoomO
           Daftar Penghuni ({occupants.length}/{capacity})
         </h3>
         {occupants.length < capacity && (
-          <Button size="sm" onClick={() => setIsAddOpen(true)} className="h-8 gap-1">
+          <Button
+            size="sm"
+            onClick={() => setIsAddOpen(true)}
+            className="h-8 gap-1"
+          >
             <Plus className="h-3.5 w-3.5" /> Tambah Penghuni
           </Button>
         )}
@@ -157,23 +183,27 @@ export function RoomOccupantsTab({ roomId, capacity, occupied, bedCodes }: RoomO
           <div className="text-center py-12 text-muted-foreground border-2 border-dashed rounded-lg">
             <Users className="h-10 w-10 mx-auto mb-3 opacity-20" />
             <p>Belum ada penghuni di kamar ini.</p>
-            <Button variant="link" onClick={() => setIsAddOpen(true)} className="mt-2 text-primary">
+            <Button
+              variant="link"
+              onClick={() => setIsAddOpen(true)}
+              className="mt-2 text-primary"
+            >
               + Tambah Penghuni
             </Button>
           </div>
         )}
       </ScrollArea>
 
-      <AddOccupantDialog 
-        open={isAddOpen} 
-        onOpenChange={setIsAddOpen} 
+      <AddOccupantDialog
+        open={isAddOpen}
+        onOpenChange={setIsAddOpen}
         onAdd={handleAddOccupant}
         bedCodes={bedCodes}
       />
 
-      <MoveOccupantDialog 
-        open={isMoveOpen} 
-        onOpenChange={setIsMoveOpen} 
+      <MoveOccupantDialog
+        open={isMoveOpen}
+        onOpenChange={setIsMoveOpen}
         onMove={handleMove}
         occupant={selectedOccupant}
       />
@@ -184,13 +214,17 @@ export function RoomOccupantsTab({ roomId, capacity, occupied, bedCodes }: RoomO
           <AlertDialogHeader>
             <AlertDialogTitle>Konfirmasi Check Out</AlertDialogTitle>
             <AlertDialogDescription>
-              Apakah Anda yakin ingin melakukan check-out untuk <b>{selectedOccupant?.name}</b>? 
-              Tindakan ini akan menghapus penghuni dari kamar ini.
+              Apakah Anda yakin ingin melakukan check-out untuk{" "}
+              <b>{selectedOccupant?.name}</b>? Tindakan ini akan menghapus
+              penghuni dari kamar ini.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Batal</AlertDialogCancel>
-            <AlertDialogAction onClick={handleCheckout} className="bg-destructive hover:bg-destructive/90">
+            <AlertDialogAction
+              onClick={handleCheckout}
+              className="bg-destructive hover:bg-destructive/90"
+            >
               Check Out
             </AlertDialogAction>
           </AlertDialogFooter>

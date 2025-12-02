@@ -83,11 +83,11 @@ const menuConfig: MenuItem[] = [
     icon: CalendarCheck2,
     items: [
       {
-        href: "/booking/calendar",
-        label: "Calendar View",
-        icon: CalendarCheck2,
+        href: "/booking/request",
+        label: "Permintaan",
+        icon: ClipboardList,
         active: true,
-        permissions: ["booking-calendar:read"],
+        permissions: ["booking-request:read"],
       },
       {
         href: "/booking/list",
@@ -97,18 +97,18 @@ const menuConfig: MenuItem[] = [
         permissions: ["booking-all:read"],
       },
       {
+        href: "/booking/calendar",
+        label: "Calendar View",
+        icon: CalendarCheck2,
+        active: true,
+        permissions: ["booking-calendar:read"],
+      },
+      {
         href: "/booking/mine",
         label: "Pemesanan Saya",
         icon: DoorOpen,
         active: true,
         permissions: ["booking-mine:read"],
-      },
-      {
-        href: "/booking/requests",
-        label: "Permintaan Pemesanan",
-        icon: ClipboardList,
-        active: true,
-        permissions: ["booking-request:read"],
       },
     ],
   },

@@ -290,7 +290,7 @@ export default function RolesPage() {
   if (loading) {
     return (
       <Card className="p-3 md:p-6 lg:p-8">
-        <div className="py-6 space-y-6">
+        <div className="space-y-6">
           <div className="flex justify-between items-center">
             <Skeleton className="h-8 w-48" />
             <Skeleton className="h-10 w-32" />
@@ -307,7 +307,7 @@ export default function RolesPage() {
 
   return (
     <Card className="p-3 md:p-6 lg:p-8">
-      <div className="py-6 space-y-6">
+      <div className="space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>

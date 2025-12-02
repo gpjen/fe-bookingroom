@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Bell, CheckCheck } from "lucide-react";
+import { Activity, Bell, CheckCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -147,172 +147,187 @@ export default function NotificationsPage() {
   }
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="flex items-center justify-center h-10 w-10 rounded-lg bg-primary/10">
-            <Bell className="h-5 w-5 text-primary" />
-          </div>
+    <Card className="p-3 md:p-6 lg:p-8">
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl md:text-3xl font-bold tracking-tight flex items-center gap-2">
-              Notifikasi
+            <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+              <Activity className="h-6 w-6" /> Notifikasi
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              Daftar lengkap notifikasi dalam sistem.
+            </p>
+          </div>
+        </div>
+      </div>
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center justify-center h-10 w-10 rounded-lg bg-primary/10">
+              <Bell className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <h1 className="text-2xl md:text-3xl font-bold tracking-tight flex items-center gap-2">
+                Notifikasi
+                {unreadCount > 0 && (
+                  <Badge
+                    variant="destructive"
+                    className="h-5 min-w-[20px] px-1.5 text-xs font-bold"
+                  >
+                    {unreadCount}
+                  </Badge>
+                )}
+              </h1>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                {notifications.length} notifikasi total
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {unreadCount > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleMarkAllAsRead}
+                className="gap-2"
+              >
+                <CheckCheck className="h-4 w-4" />
+                <span className="hidden sm:inline">Tandai Semua Dibaca</span>
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {/* Content */}
+        <Tabs
+          defaultValue="all"
+          value={activeTab}
+          onValueChange={setActiveTab}
+          className="w-full"
+        >
+          <TabsList className="grid w-full max-w-[320px] grid-cols-2 mb-4">
+            <TabsTrigger value="all" className="text-xs sm:text-sm">
+              Semua
+              <Badge
+                variant="secondary"
+                className="ml-2 h-5 min-w-[20px] px-1.5 text-xs"
+              >
+                {notifications.length}
+              </Badge>
+            </TabsTrigger>
+            <TabsTrigger value="unread" className="text-xs sm:text-sm">
+              Belum Dibaca
               {unreadCount > 0 && (
                 <Badge
                   variant="destructive"
-                  className="h-5 min-w-[20px] px-1.5 text-xs font-bold"
+                  className="ml-2 h-5 min-w-[20px] px-1.5 text-xs"
                 >
                   {unreadCount}
                 </Badge>
               )}
-            </h1>
-            <p className="text-sm text-muted-foreground mt-0.5">
-              {notifications.length} notifikasi total
-            </p>
-          </div>
-        </div>
+            </TabsTrigger>
+          </TabsList>
 
-        <div className="flex items-center gap-2">
-          {unreadCount > 0 && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={handleMarkAllAsRead}
-              className="gap-2"
-            >
-              <CheckCheck className="h-4 w-4" />
-              <span className="hidden sm:inline">Tandai Semua Dibaca</span>
-            </Button>
-          )}
-        </div>
-      </div>
-
-      {/* Content */}
-      <Tabs
-        defaultValue="all"
-        value={activeTab}
-        onValueChange={setActiveTab}
-        className="w-full"
-      >
-        <TabsList className="grid w-full max-w-[320px] grid-cols-2 mb-4">
-          <TabsTrigger value="all" className="text-xs sm:text-sm">
-            Semua
-            <Badge
-              variant="secondary"
-              className="ml-2 h-5 min-w-[20px] px-1.5 text-xs"
-            >
-              {notifications.length}
-            </Badge>
-          </TabsTrigger>
-          <TabsTrigger value="unread" className="text-xs sm:text-sm">
-            Belum Dibaca
-            {unreadCount > 0 && (
-              <Badge
-                variant="destructive"
-                className="ml-2 h-5 min-w-[20px] px-1.5 text-xs"
-              >
-                {unreadCount}
-              </Badge>
-            )}
-          </TabsTrigger>
-        </TabsList>
-
-        <Card className="overflow-hidden shadow-sm">
-          {filteredNotifications.length === 0 ? (
-            <div className="text-center py-16 px-4">
-              <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-muted/50 mb-4">
-                <Bell className="h-8 w-8 text-muted-foreground/40" />
+          <Card className="overflow-hidden shadow-sm">
+            {filteredNotifications.length === 0 ? (
+              <div className="text-center py-16 px-4">
+                <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-muted/50 mb-4">
+                  <Bell className="h-8 w-8 text-muted-foreground/40" />
+                </div>
+                <h3 className="font-semibold text-lg mb-1">
+                  Tidak ada notifikasi
+                </h3>
+                <p className="text-sm text-muted-foreground">
+                  {activeTab === "unread"
+                    ? "Anda sudah membaca semua notifikasi"
+                    : "Belum ada notifikasi untuk ditampilkan"}
+                </p>
               </div>
-              <h3 className="font-semibold text-lg mb-1">
-                Tidak ada notifikasi
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                {activeTab === "unread"
-                  ? "Anda sudah membaca semua notifikasi"
-                  : "Belum ada notifikasi untuk ditampilkan"}
-              </p>
-            </div>
-          ) : (
-            <div className="divide-y">
-              {groupedNotifications.today.length > 0 && (
-                <>
-                  <div className="px-4 py-2.5 bg-gradient-to-r from-primary/5 to-primary/10 backdrop-blur-sm border-b">
-                    <div className="flex items-center gap-2">
-                      <div className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
-                      <span className="text-xs font-semibold text-primary uppercase tracking-wide">
-                        Hari Ini
-                      </span>
-                      <Badge
-                        variant="secondary"
-                        className="h-4 text-[10px] px-1.5"
-                      >
-                        {groupedNotifications.today.length}
-                      </Badge>
+            ) : (
+              <div className="divide-y">
+                {groupedNotifications.today.length > 0 && (
+                  <>
+                    <div className="px-4 py-2.5 bg-gradient-to-r from-primary/5 to-primary/10 backdrop-blur-sm border-b">
+                      <div className="flex items-center gap-2">
+                        <div className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
+                        <span className="text-xs font-semibold text-primary uppercase tracking-wide">
+                          Hari Ini
+                        </span>
+                        <Badge
+                          variant="secondary"
+                          className="h-4 text-[10px] px-1.5"
+                        >
+                          {groupedNotifications.today.length}
+                        </Badge>
+                      </div>
                     </div>
-                  </div>
-                  {groupedNotifications.today.map((notification) => (
-                    <NotificationItem
-                      key={notification.id}
-                      notification={notification}
-                      onMarkAsRead={handleMarkAsRead}
-                    />
-                  ))}
-                </>
-              )}
+                    {groupedNotifications.today.map((notification) => (
+                      <NotificationItem
+                        key={notification.id}
+                        notification={notification}
+                        onMarkAsRead={handleMarkAsRead}
+                      />
+                    ))}
+                  </>
+                )}
 
-              {groupedNotifications.yesterday.length > 0 && (
-                <>
-                  <div className="px-4 py-2.5 bg-muted/30 backdrop-blur-sm border-b">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                        Kemarin
-                      </span>
-                      <Badge
-                        variant="secondary"
-                        className="h-4 text-[10px] px-1.5"
-                      >
-                        {groupedNotifications.yesterday.length}
-                      </Badge>
+                {groupedNotifications.yesterday.length > 0 && (
+                  <>
+                    <div className="px-4 py-2.5 bg-muted/30 backdrop-blur-sm border-b">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                          Kemarin
+                        </span>
+                        <Badge
+                          variant="secondary"
+                          className="h-4 text-[10px] px-1.5"
+                        >
+                          {groupedNotifications.yesterday.length}
+                        </Badge>
+                      </div>
                     </div>
-                  </div>
-                  {groupedNotifications.yesterday.map((notification) => (
-                    <NotificationItem
-                      key={notification.id}
-                      notification={notification}
-                      onMarkAsRead={handleMarkAsRead}
-                    />
-                  ))}
-                </>
-              )}
+                    {groupedNotifications.yesterday.map((notification) => (
+                      <NotificationItem
+                        key={notification.id}
+                        notification={notification}
+                        onMarkAsRead={handleMarkAsRead}
+                      />
+                    ))}
+                  </>
+                )}
 
-              {groupedNotifications.older.length > 0 && (
-                <>
-                  <div className="px-4 py-2.5 bg-muted/20 backdrop-blur-sm border-b">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                        Lebih Lama
-                      </span>
-                      <Badge
-                        variant="secondary"
-                        className="h-4 text-[10px] px-1.5"
-                      >
-                        {groupedNotifications.older.length}
-                      </Badge>
+                {groupedNotifications.older.length > 0 && (
+                  <>
+                    <div className="px-4 py-2.5 bg-muted/20 backdrop-blur-sm border-b">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                          Lebih Lama
+                        </span>
+                        <Badge
+                          variant="secondary"
+                          className="h-4 text-[10px] px-1.5"
+                        >
+                          {groupedNotifications.older.length}
+                        </Badge>
+                      </div>
                     </div>
-                  </div>
-                  {groupedNotifications.older.map((notification) => (
-                    <NotificationItem
-                      key={notification.id}
-                      notification={notification}
-                      onMarkAsRead={handleMarkAsRead}
-                    />
-                  ))}
-                </>
-              )}
-            </div>
-          )}
-        </Card>
-      </Tabs>
-    </div>
+                    {groupedNotifications.older.map((notification) => (
+                      <NotificationItem
+                        key={notification.id}
+                        notification={notification}
+                        onMarkAsRead={handleMarkAsRead}
+                      />
+                    ))}
+                  </>
+                )}
+              </div>
+            )}
+          </Card>
+        </Tabs>
+      </div>
+    </Card>
   );
 }

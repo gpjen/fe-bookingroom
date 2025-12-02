@@ -5,7 +5,7 @@ import { columns } from "./_components/columns";
 import { SystemLog, LogLevel, LogStatus } from "./_components/types";
 import { addDays, subDays, subMinutes } from "date-fns";
 import { DateRange } from "react-day-picker";
-import { Search } from "lucide-react";
+import { Activity, Plus, Search } from "lucide-react";
 import { DatePickerWithRange } from "@/components/ui/date-picker-with-range";
 import { Input } from "@/components/ui/input";
 import {
@@ -16,6 +16,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { DataTable } from "@/components/ui/data-table";
+import { Button } from "@/components/ui/button";
 
 // Mock Data Generator
 const generateMockLogs = (count: number): SystemLog[] => {
@@ -99,22 +100,21 @@ export default function LogsPage() {
   });
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight">System Logs</h1>
-        <p className="text-muted-foreground">
-          Pantau aktivitas pengguna dan kejadian sistem.
-        </p>
-      </div>
+    <Card className="p-3 md:p-6 lg:p-8">
+      <div className="space-y-6">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+              <Activity className="h-6 w-6" /> Log Aktivitas
+            </h1>
+            <p className="text-muted-foreground mt-1">
+              Daftar lengkap riwayat aktivitas dalam sistem.
+            </p>
+          </div>
+        </div>
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Log Aktivitas</CardTitle>
-          <CardDescription>
-            Daftar lengkap riwayat aktivitas dalam sistem.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
+        <div className="space-y-4">
           <div className="flex flex-col md:flex-row gap-4 justify-between">
             <div className="flex items-center gap-2 w-full md:w-auto">
               <div className="relative w-full md:w-[300px]">
@@ -131,10 +131,9 @@ export default function LogsPage() {
               <DatePickerWithRange date={dateRange} setDate={setDateRange} />
             </div>
           </div>
-
           <DataTable columns={columns} data={filteredLogs} />
-        </CardContent>
-      </Card>
-    </div>
+        </div>
+      </div>
+    </Card>
   );
 }

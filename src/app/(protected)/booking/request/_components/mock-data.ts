@@ -5,8 +5,8 @@ import {
   BookingStatus,
   BookingType,
   BookingOccupant,
-  RequestType,
   OccupantStatus,
+  Gender,
 } from "./types";
 
 const MOCK_PURPOSES = [
@@ -39,7 +39,9 @@ export const BUILDINGS = [
 export function generateMockBookingRequests(count: number): BookingRequest[] {
   return Array.from({ length: count }).map((_, i) => {
     const requesterName = faker.person.fullName();
-    const requesterNik = faker.string.numeric(8);
+    const requesterNik = `${faker.string
+      .fromCharacters("DLC")
+      .substring(0, 1)}${faker.string.numeric(8)}`;
 
     // Determine status
     const statuses: BookingStatus[] = [
@@ -51,89 +53,82 @@ export function generateMockBookingRequests(count: number): BookingRequest[] {
     ];
     const status = faker.helpers.arrayElement(statuses);
 
-    const requestType = faker.helpers.arrayElement([
-      "new",
-      "extend",
-      "move",
-      "additional_occupant",
-      "change_bed",
-      "change_room_type",
-      "terminate",
-    ]) as RequestType;
-
     // Generate Occupants
     const occupantsCount = faker.number.int({ min: 1, max: 4 });
     const occupants: BookingOccupant[] = Array.from({
       length: occupantsCount,
-    }).map(() => {
-      const type: BookingType = Math.random() > 0.7 ? "guest" : "employee";
-      const gender = faker.person.sex() === "male" ? "L" : "P";
-      const isAssigned = status === "approved";
+    })
+      .map(() => {
+        const type: BookingType = Math.random() > 0.7 ? "guest" : "employee";
+        const gender: Gender = faker.person.sex() === "male" ? "L" : "P";
+        const isAssigned = status === "approved";
 
-      // Determine occupant status based on booking status
-      let occStatus: OccupantStatus = "scheduled";
-      if (status === "approved") {
-        occStatus = faker.helpers.arrayElement([
-          "scheduled",
-          "checked_in",
-          "checked_out",
-        ]);
-      } else if (status === "cancelled") {
-        occStatus = "cancelled";
-      }
+        // Determine occupant status based on booking status
+        let occStatus: OccupantStatus = "scheduled";
+        if (status === "approved") {
+          occStatus = faker.helpers.arrayElement([
+            "scheduled",
+            "checked_in",
+            "checked_out",
+          ]);
+        } else if (status === "cancelled") {
+          occStatus = "cancelled";
+        }
 
-      // Per-occupant dates
-      const occCheckInDate = addDays(
-        new Date(),
-        faker.number.int({ min: -10, max: 60 })
-      );
-      const occDuration = faker.number.int({ min: 1, max: 14 });
-      const occCheckOutDate = addDays(occCheckInDate, occDuration);
+        // Per-occupant dates
+        const occCheckInDate = addDays(
+          new Date(),
+          faker.number.int({ min: -10, max: 60 })
+        );
+        const occDuration = faker.number.int({ min: 1, max: 14 });
+        const occCheckOutDate = addDays(occCheckInDate, occDuration);
 
-      // Per-occupant location
-      const occBuilding = faker.helpers.arrayElement(BUILDINGS);
+        // Per-occupant location
+        const occBuilding = faker.helpers.arrayElement(BUILDINGS);
 
-      return {
-        id: faker.string.uuid(),
-        name: faker.person.fullName(),
-        identifier:
-          type === "employee"
-            ? faker.string.numeric(8)
-            : faker.string.numeric(16),
-        type,
-        gender,
-        phone: faker.phone.number(),
-        company: faker.helpers.arrayElement(COMPANIES),
-        department:
-          type === "employee"
-            ? faker.helpers.arrayElement(DEPARTMENTS)
-            : undefined,
+        return {
+          id: faker.string.uuid(),
+          name: faker.person.fullName(),
+          identifier:
+            type === "employee"
+              ? `${faker.string
+                  .fromCharacters("DLC")
+                  .substring(0, 1)}${faker.string.numeric(8)}`
+              : faker.string.numeric(16),
+          type,
+          gender,
+          phone: faker.phone.number(),
+          company: faker.helpers.arrayElement(COMPANIES),
+          department:
+            type === "employee"
+              ? faker.helpers.arrayElement(DEPARTMENTS)
+              : undefined,
 
-        status: occStatus,
+          status: occStatus,
 
-        // Stay Details
-        checkInDate: occCheckInDate,
-        checkOutDate: occCheckOutDate,
-        duration: occDuration,
+          // Stay Details
+          checkInDate: occCheckInDate,
+          checkOutDate: occCheckOutDate,
+          duration: occDuration,
 
-        // Location Details
-        areaId: occBuilding.areaId,
-        buildingId: occBuilding.id,
-
-        // Simulate requester selecting a room (30% chance even if not approved yet)
-        roomId:
-          isAssigned || Math.random() > 0.7
-            ? `R-${faker.number.int({ min: 100, max: 999 })}`
-            : undefined,
-        bedId:
-          isAssigned || Math.random() > 0.7
-            ? `B-${faker.number
-                .int({ min: 1, max: 4 })
-                .toString()
-                .padStart(2, "0")}`
-            : undefined,
-      };
-    });
+          // Room assignment (optional - set by requester or admin)
+          // bedId can only be set if roomId is set
+          roomId:
+            isAssigned || Math.random() > 0.7
+              ? `R-${faker.number.int({ min: 100, max: 999 })}`
+              : undefined,
+        };
+      })
+      .map((occ) => ({
+        ...occ,
+        // Only set bedId if roomId exists
+        bedId: occ.roomId
+          ? `B-${faker.number
+              .int({ min: 1, max: 4 })
+              .toString()
+              .padStart(2, "0")}`
+          : undefined,
+      }));
 
     // Timestamps
     // Use the earliest check-in date for requestedAt logic
@@ -173,7 +168,6 @@ export function generateMockBookingRequests(count: number): BookingRequest[] {
     return {
       id: faker.string.uuid(),
       bookingCode: `REQ-${faker.string.alphanumeric(6).toUpperCase()}`,
-      requestType,
       requester: {
         name: requesterName,
         nik: requesterNik,

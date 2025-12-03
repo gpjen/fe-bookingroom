@@ -11,15 +11,6 @@ export type OccupantStatus =
   | "checked_out"
   | "cancelled";
 
-export type RequestType =
-  | "new"
-  | "extend"
-  | "move"
-  | "additional_occupant"
-  | "change_bed"
-  | "change_room_type"
-  | "terminate";
-
 export type BookingType = "employee" | "guest" | "others";
 export type Gender = "L" | "P";
 
@@ -49,9 +40,7 @@ export interface BookingOccupant {
   checkOutDate?: Date;
   duration?: number;
 
-  // Location
-  areaId: string;
-  buildingId?: string;
+  // Room assignment (optional - can be set by requester or admin)
   roomId?: string;
   bedId?: string;
 
@@ -67,7 +56,6 @@ export interface BookingOccupant {
 export interface BookingRequest {
   id: string;
   bookingCode: string;
-  requestType: RequestType;
 
   requester: {
     name: string;
@@ -78,10 +66,9 @@ export interface BookingRequest {
     phone: string;
   };
 
-  // General preference (optional)
+  // Main location (mandatory)
   areaId: string;
-  buildingId?: string;
-  roomTypeId?: string;
+  buildingId: string;
 
   occupants: BookingOccupant[];
 

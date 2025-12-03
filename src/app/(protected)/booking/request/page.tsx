@@ -50,17 +50,15 @@ export default function BookingRequestPage() {
       booking.bookingCode.toLowerCase().includes(searchLower) ||
       booking.requester.name.toLowerCase().includes(searchLower) ||
       booking.requester.nik.toLowerCase().includes(searchLower) ||
-      booking.occupants.some((occ) => {
-        const buildingName =
-          BUILDINGS.find((b) => b.id === occ.buildingId)?.name || "";
-        const areaName =
-          BUILDINGS.find((b) => b.areaId === occ.areaId)?.area || occ.areaId;
-        return (
-          occ.name.toLowerCase().includes(searchLower) ||
-          areaName.toLowerCase().includes(searchLower) ||
-          buildingName.toLowerCase().includes(searchLower)
-        );
-      });
+      booking.occupants.some((occ) =>
+        occ.name.toLowerCase().includes(searchLower)
+      ) ||
+      BUILDINGS.find((b) => b.id === booking.buildingId)
+        ?.name.toLowerCase()
+        .includes(searchLower) ||
+      BUILDINGS.find((b) => b.areaId === booking.areaId)
+        ?.area.toLowerCase()
+        .includes(searchLower);
 
     const matchesStatus =
       statusFilter === "all" || booking.status === statusFilter;

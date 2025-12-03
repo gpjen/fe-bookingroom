@@ -42,7 +42,7 @@ import { format } from "date-fns";
 import { id } from "date-fns/locale";
 
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
+import { cn, formatDate } from "@/lib/utils";
 
 import { BookingRequest, OccupantStatus } from "./types";
 import { BUILDINGS } from "./mock-data";
@@ -235,19 +235,6 @@ export function BookingDetailDialog({
             <Section title="Informasi Request" icon={FileText}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <InfoBox
-                  icon={FileText}
-                  label="Tipe Request"
-                  value={
-                    booking.requestType === "new"
-                      ? "Request Baru"
-                      : booking.requestType === "extend"
-                      ? "Perpanjangan"
-                      : booking.requestType === "move"
-                      ? "Pindah Kamar"
-                      : "Tambahan Penghuni"
-                  }
-                />
-                <InfoBox
                   icon={Users}
                   label="Total Penghuni"
                   value={`${booking.occupants.length} Orang`}
@@ -400,49 +387,38 @@ export function BookingDetailDialog({
                       </div>
 
                       {/* Stay & Location Details */}
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t mt-2">
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-1.5 text-xs font-medium text-foreground">
-                            <Calendar className="h-3.5 w-3.5" />
+                      <div className="pt-2">
+                        <div className="flex items-center gap-2 mb-3">
+                          <Calendar className="h-4 w-4 text-primary" />
+                          <span className="font-semibold text-xs">
                             Periode Menginap
+                          </span>
+                        </div>
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                          <div>
+                            <p className="text-xs text-muted-foreground mb-1">
+                              Check-In
+                            </p>
+                            <p className="font-semibold">
+                              {formatDate(occupant.checkInDate)}
+                            </p>
                           </div>
-                          <div className="text-xs text-muted-foreground pl-5 space-y-0.5">
-                            <p>
-                              In:{" "}
-                              {format(occupant.checkInDate, "dd MMM yyyy", {
-                                locale: id,
-                              })}
+                          <div>
+                            <p className="text-xs text-muted-foreground mb-1">
+                              Check-Out
                             </p>
-                            <p>
-                              Out:{" "}
-                              {occupant.checkOutDate
-                                ? format(occupant.checkOutDate, "dd MMM yyyy", {
-                                    locale: id,
-                                  })
-                                : "-"}
+                            <p className="font-semibold">
+                              {formatDate(occupant.checkOutDate)}
                             </p>
-                            <p className="font-medium text-primary">
+                          </div>
+                          <div>
+                            <p className="text-xs text-muted-foreground mb-1">
+                              Durasi
+                            </p>
+                            <p className="font-bold text-primary">
                               {occupant.duration
                                 ? `${occupant.duration} Hari`
                                 : "-"}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="space-y-1">
-                          <div className="flex items-center gap-1.5 text-xs font-medium text-foreground">
-                            <MapPin className="h-3.5 w-3.5" />
-                            Lokasi
-                          </div>
-                          <div className="text-xs text-muted-foreground pl-5 space-y-0.5">
-                            <p>
-                              {BUILDINGS.find(
-                                (b) => b.id === occupant.buildingId
-                              )?.name || "-"}
-                            </p>
-                            <p>
-                              {BUILDINGS.find(
-                                (b) => b.areaId === occupant.areaId
-                              )?.area || occupant.areaId}
                             </p>
                           </div>
                         </div>
@@ -461,13 +437,20 @@ export function BookingDetailDialog({
                               </Label>
                               <Select
                                 value={currentEdit.room}
-                                onValueChange={(value) =>
+                                onValueChange={(value) => {
                                   handleOccupantChange(
                                     occupant.id,
                                     "room",
                                     value
-                                  )
-                                }
+                                  );
+                                  // Clear bed selection when room changes
+                                  // In the future, this will trigger an API call to fetch available beds for the selected room
+                                  handleOccupantChange(
+                                    occupant.id,
+                                    "bedCode",
+                                    ""
+                                  );
+                                }}
                               >
                                 <SelectTrigger className="h-8 text-xs w-full">
                                   <SelectValue placeholder="Pilih Kamar" />
@@ -501,9 +484,16 @@ export function BookingDetailDialog({
                                     value
                                   )
                                 }
+                                disabled={!currentEdit.room}
                               >
                                 <SelectTrigger className="h-8 text-xs w-full">
-                                  <SelectValue placeholder="Pilih Bed" />
+                                  <SelectValue
+                                    placeholder={
+                                      currentEdit.room
+                                        ? "Pilih Kasur"
+                                        : "Pilih Ruangan Dulu"
+                                    }
+                                  />
                                 </SelectTrigger>
                                 <SelectContent>
                                   {["B-01", "B-02", "B-03", "B-04"].map(

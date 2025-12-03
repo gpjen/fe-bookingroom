@@ -6,14 +6,17 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export const formatDate = (
-  date: string | number | Date,
+  date: string | number | Date | null | undefined,
   options: Intl.DateTimeFormatOptions = {
     day: "2-digit",
     month: "short",
     year: "numeric",
   },
   locale: string = "id-ID"
-) => new Intl.DateTimeFormat(locale, options).format(new Date(date));
+) => {
+  if (!date) return "";
+  return new Intl.DateTimeFormat(locale, options).format(new Date(date));
+};
 
 export const formatDateTime = (
   date: string | number | Date,

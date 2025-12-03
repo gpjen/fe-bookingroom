@@ -1,179 +1,222 @@
+import { faker } from "@faker-js/faker";
 import { addDays, subDays } from "date-fns";
-import { BookingRequest, BookingStatus, Occupant } from "./types";
-
-// --- MOCK DATABASE ---
-
-export const MOCK_AREAS = [
-  { id: "area-1", name: "Kawasan Industri" },
-  { id: "area-2", name: "Pusat Kota" },
-  { id: "area-3", name: "Area Pantai" },
-];
-
-export const MOCK_BUILDINGS = [
-  { id: "bldg-a", name: "Gedung A (Pria)", areaId: "area-1" },
-  { id: "bldg-b", name: "Gedung B (Wanita)", areaId: "area-1" },
-  { id: "bldg-c", name: "Menara C (Campur)", areaId: "area-2" },
-  { id: "bldg-d", name: "Wisma D (VIP)", areaId: "area-2" },
-  { id: "bldg-e", name: "Villa E (Keluarga)", areaId: "area-3" },
-];
-
-export const MOCK_ROOMS = [
-  // Building A
-  { id: "room-a101", name: "Kamar A101", buildingId: "bldg-a" },
-  { id: "room-a102", name: "Kamar A102", buildingId: "bldg-a" },
-  // Building B
-  { id: "room-b101", name: "Kamar B101", buildingId: "bldg-b" },
-  // Building C
-  { id: "room-c201", name: "Kamar C201 (2 bed)", buildingId: "bldg-c" },
-  { id: "room-c202", name: "Kamar C202 (2 bed)", buildingId: "bldg-c" },
-  // Building D
-  { id: "room-d301", name: "Suite D301", buildingId: "bldg-d" },
-];
-
-export const MOCK_BEDS = [
-  // Room A101
-  { id: "bed-a101-1", name: "Bed 1", roomId: "room-a101" },
-  // Room A102
-  { id: "bed-a102-1", name: "Bed 1", roomId: "room-a102" },
-  // Room B101
-  { id: "bed-b101-1", name: "Bed 1", roomId: "room-b101" },
-  // Room C201
-  { id: "bed-c201-1", name: "Bed 1", roomId: "room-c201" },
-  { id: "bed-c201-2", name: "Bed 2", roomId: "room-c201" },
-  // Room C202
-  { id: "bed-c202-1", name: "Bed 1", roomId: "room-c202" },
-  { id: "bed-c202-2", name: "Bed 2", roomId: "room-c202" },
-  // Room D301
-  { id: "bed-d301-1", name: "A1", roomId: "room-d301" },
-];
-
-const MOCK_USERS = [
-  {
-    name: "Budi Santoso",
-    nik: "123456789",
-    email: "budi.santoso@example.com",
-    phone: "081234567890",
-    company: "PT. Maju Mundur",
-    department: "IT",
-  },
-  {
-    name: "Siti Aminah",
-    nik: "987654321",
-    email: "siti.aminah@example.com",
-    phone: "089876543210",
-    company: "CV. Sejahtera",
-    department: "HR",
-  },
-];
+import {
+  BookingRequest,
+  BookingStatus,
+  BookingType,
+  BookingOccupant,
+  RequestType,
+  OccupantStatus,
+} from "./types";
 
 const MOCK_PURPOSES = [
-  "Kunjungan Dinas",
-  "Pelatihan Karyawan",
-  "Meeting Proyek",
-  "Acara Perusahaan",
+  "Perjalanan Dinas ke Site A",
+  "Meeting Project X",
+  "Audit Tahunan",
+  "Instalasi Mesin Baru",
+  "Penempatan Karyawan Baru",
 ];
 
-const STATUSES: BookingStatus[] = [
-  "request",
-  "approved",
-  "rejected",
-  "cancelled",
-  "checkin",
-  "checkout",
+const COMPANIES = [
+  "PT. Dharma Cipta Mulia",
+  "PT. Halmahera Persada Lygend",
+  "PT. Obi Nickel Cobalt",
+];
+const DEPARTMENTS = [
+  "Operations",
+  "Engineering",
+  "HR & GA",
+  "Safety",
+  "Information and Technology",
+];
+export const BUILDINGS = [
+  { id: "b1", name: "Block 11", areaId: "area-1", area: "LQ" },
+  { id: "b2", name: "Block 3", areaId: "area-2", area: "LQ Center" },
+  { id: "b3", name: "Block C", areaId: "area-3", area: "Tomori" },
+  { id: "b4", name: "Block A9", areaId: "area-4", area: "P2" },
 ];
 
-// --- MOCK GENERATORS ---
+export function generateMockBookingRequests(count: number): BookingRequest[] {
+  return Array.from({ length: count }).map((_, i) => {
+    const requesterName = faker.person.fullName();
+    const requesterNik = faker.string.numeric(8);
 
-const generateMockOccupants = (count: number): Occupant[] => {
-  const occupants: Occupant[] = [];
-  for (let i = 0; i < count; i++) {
-    const gender = Math.random() > 0.5 ? "L" : "P";
-    occupants.push({
-      id: `occ-${Date.now()}-${i}`,
-      name: `Tamu ${i + 1}`,
-      identifier: `KTP-000${i + 1}`,
-      type: "guest",
-      gender,
-      department: "Guest",
-      company: "External",
+    // Determine status
+    const statuses: BookingStatus[] = [
+      "request",
+      "approved",
+      "rejected",
+      "cancelled",
+      "expired",
+    ];
+    const status = faker.helpers.arrayElement(statuses);
+
+    const requestType = faker.helpers.arrayElement([
+      "new",
+      "extend",
+      "move",
+      "additional_occupant",
+      "change_bed",
+      "change_room_type",
+      "terminate",
+    ]) as RequestType;
+
+    // Generate Occupants
+    const occupantsCount = faker.number.int({ min: 1, max: 4 });
+    const occupants: BookingOccupant[] = Array.from({
+      length: occupantsCount,
+    }).map(() => {
+      const type: BookingType = Math.random() > 0.7 ? "guest" : "employee";
+      const gender = faker.person.sex() === "male" ? "L" : "P";
+      const isAssigned = status === "approved";
+
+      // Determine occupant status based on booking status
+      let occStatus: OccupantStatus = "scheduled";
+      if (status === "approved") {
+        occStatus = faker.helpers.arrayElement([
+          "scheduled",
+          "checked_in",
+          "checked_out",
+        ]);
+      } else if (status === "cancelled") {
+        occStatus = "cancelled";
+      }
+
+      // Per-occupant dates
+      const occCheckInDate = addDays(
+        new Date(),
+        faker.number.int({ min: -10, max: 60 })
+      );
+      const occDuration = faker.number.int({ min: 1, max: 14 });
+      const occCheckOutDate = addDays(occCheckInDate, occDuration);
+
+      // Per-occupant location
+      const occBuilding = faker.helpers.arrayElement(BUILDINGS);
+
+      return {
+        id: faker.string.uuid(),
+        name: faker.person.fullName(),
+        identifier:
+          type === "employee"
+            ? faker.string.numeric(8)
+            : faker.string.numeric(16),
+        type,
+        gender,
+        phone: faker.phone.number(),
+        company: faker.helpers.arrayElement(COMPANIES),
+        department:
+          type === "employee"
+            ? faker.helpers.arrayElement(DEPARTMENTS)
+            : undefined,
+
+        status: occStatus,
+
+        // Stay Details
+        checkInDate: occCheckInDate,
+        checkOutDate: occCheckOutDate,
+        duration: occDuration,
+
+        // Location Details
+        areaId: occBuilding.areaId,
+        buildingId: occBuilding.id,
+
+        // Simulate requester selecting a room (30% chance even if not approved yet)
+        roomId:
+          isAssigned || Math.random() > 0.7
+            ? `R-${faker.number.int({ min: 100, max: 999 })}`
+            : undefined,
+        bedId:
+          isAssigned || Math.random() > 0.7
+            ? `B-${faker.number
+                .int({ min: 1, max: 4 })
+                .toString()
+                .padStart(2, "0")}`
+            : undefined,
+      };
     });
-  }
-  return occupants;
-};
 
-const generateMockBookingRequests = (count: number): BookingRequest[] => {
-  const requests: BookingRequest[] = [];
+    // Timestamps
+    // Use the earliest check-in date for requestedAt logic
+    const earliestCheckIn = occupants.reduce(
+      (min, occ) => (occ.checkInDate < min ? occ.checkInDate : min),
+      occupants[0].checkInDate
+    );
 
-  for (let i = 0; i < count; i++) {
-    const requester = MOCK_USERS[i % MOCK_USERS.length];
+    const requestedAt = subDays(
+      earliestCheckIn,
+      faker.number.int({ min: 1, max: 30 })
+    );
+    const expiresAt = addDays(requestedAt, 7); // Expire after 7 days if not processed
 
-    // Have some requests without a specific building
-    const requestSpecificBuilding = Math.random() > 0.3;
-    const building = requestSpecificBuilding
-      ? MOCK_BUILDINGS[i % MOCK_BUILDINGS.length]
-      : undefined;
-    const area = building
-      ? MOCK_AREAS.find((a) => a.id === building.areaId)!
-      : MOCK_AREAS[i % MOCK_AREAS.length];
+    let approvedAt: Date | undefined;
+    let approvedBy: string | undefined;
+    let adminNotes: string | undefined;
+    let rejectReason: string | undefined;
 
-    const status = STATUSES[i % STATUSES.length];
-    const checkInDate = addDays(new Date(), Math.floor(Math.random() * 10) - 5);
-    const durationInDays = Math.floor(Math.random() * 7) + 1;
-    const checkOutDate = addDays(checkInDate, durationInDays);
-    const occupants = generateMockOccupants(Math.floor(Math.random() * 2) + 1);
-
-    const booking: BookingRequest = {
-      id: `book-${i + 1}`,
-      bookingCode: `BK-00${i + 1}`,
-      requester,
-      occupants,
-      requestedLocation: {
-        areaId: area.id,
-        areaName: area.name,
-        buildingId: building?.id,
-        buildingName: building?.name,
-      },
-      placements: [],
-      checkInDate,
-      checkOutDate,
-      durationInDays,
-      status,
-      purpose: MOCK_PURPOSES[i % MOCK_PURPOSES.length],
-      notes: i % 3 === 0 ? "Mohon diproses segera." : undefined,
-      requestedAt: subDays(new Date(), Math.floor(Math.random() * 5)),
-    };
-
-    // Add approval and placement data for bookings that are past the 'request' state
-    if (
-      status !== "request" &&
-      status !== "rejected" &&
-      status !== "cancelled"
-    ) {
-      booking.approvedAt = subDays(new Date(), Math.floor(Math.random() * 2));
-      booking.approvedBy = "Manager HR";
-      booking.placements = occupants.map((occ, index) => {
-        const room = MOCK_ROOMS[index % MOCK_ROOMS.length];
-        const buildingForPlacement = MOCK_BUILDINGS.find(
-          (b) => b.id === room.buildingId
-        )!;
-        return {
-          occupantId: occ.id,
-          areaId: buildingForPlacement.areaId,
-          buildingId: room.buildingId,
-          roomId: room.id,
-          bedId: `bed-${index + 1}`,
-        };
-      });
+    if (status === "approved") {
+      approvedAt = subDays(
+        earliestCheckIn,
+        faker.number.int({ min: 1, max: 5 })
+      );
+      approvedBy = "Gandi Jen";
     }
 
     if (status === "rejected") {
-      booking.adminNotes = "Ruangan tidak tersedia pada tanggal yang diminta.";
+      rejectReason = "Kapasitas penuh";
+      adminNotes =
+        "Mohon maaf, kapasitas penuh untuk tanggal tersebut. Silakan ajukan tanggal lain.";
     }
 
-    requests.push(booking);
-  }
+    // Main Location Info (derived from first occupant or random)
+    const mainBuilding = faker.helpers.arrayElement(BUILDINGS);
 
-  return requests;
-};
+    return {
+      id: faker.string.uuid(),
+      bookingCode: `REQ-${faker.string.alphanumeric(6).toUpperCase()}`,
+      requestType,
+      requester: {
+        name: requesterName,
+        nik: requesterNik,
+        department: faker.helpers.arrayElement(DEPARTMENTS),
+        company: faker.helpers.arrayElement(COMPANIES),
+        email: faker.internet.email({ firstName: requesterName }),
+        phone: faker.phone.number(),
+      },
 
-export const MOCK_BOOKING_REQUESTS = generateMockBookingRequests(25);
+      // Main Location Request
+      areaId: mainBuilding.areaId,
+      buildingId: mainBuilding.id,
+
+      occupants,
+
+      attachments: [
+        {
+          id: faker.string.uuid(),
+          name: "Surat Tugas.pdf",
+          url: "#",
+          type: "document",
+        },
+        {
+          id: faker.string.uuid(),
+          name: "Ticket-booking.pdf",
+          url: "#",
+          type: "document",
+        },
+      ],
+
+      purpose: faker.helpers.arrayElement(MOCK_PURPOSES),
+      notes: Math.random() > 0.7 ? faker.lorem.sentence() : undefined,
+      status,
+      rejectReason,
+      adminNotes,
+
+      requestedAt,
+      expiresAt,
+      approvedAt,
+      approvedBy,
+      updatedAt: faker.date.recent(),
+    };
+  });
+}
+
+export const MOCK_BOOKING_REQUESTS = generateMockBookingRequests(20);

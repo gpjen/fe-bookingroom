@@ -1,90 +1,104 @@
 export type BookingStatus =
   | "request"
-  | "cancelled"
   | "approved"
   | "rejected"
-  | "checkin"
-  | "checkout";
+  | "cancelled"
+  | "expired";
+
+export type OccupantStatus =
+  | "scheduled"
+  | "checked_in"
+  | "checked_out"
+  | "cancelled";
+
+export type RequestType =
+  | "new"
+  | "extend"
+  | "move"
+  | "additional_occupant"
+  | "change_bed"
+  | "change_room_type"
+  | "terminate";
 
 export type BookingType = "employee" | "guest" | "others";
 export type Gender = "L" | "P";
 
-/**
- * Represents an individual who will be staying.
- */
-export interface Occupant {
+export interface BookingAttachment {
   id: string;
   name: string;
-  identifier: string; // NIK for employees, KTP/Passport for guests
+  url: string;
+  type: "document" | "image";
+}
+
+export interface BookingOccupant {
+  id: string;
+  name: string;
+  identifier: string;
   type: BookingType;
   gender: Gender;
+
   phone?: string;
   company?: string;
   department?: string;
-}
 
-/**
- * Represents the final placement information for an occupant.
- * This is usually filled after the booking is approved.
- */
-export interface PlacementInfo {
-  occupantId: string;
+  status: OccupantStatus;
+  cancelledAt?: Date;
+  cancelReason?: string;
+
+  checkInDate: Date;
+  checkOutDate?: Date;
+  duration?: number;
+
+  // Location
   areaId: string;
-  buildingId: string;
-  roomId: string;
-  bedId?: string; // Optional, for rooms with multiple beds
+  buildingId?: string;
+  roomId?: string;
+  bedId?: string;
+
+  // Log history for move/extend
+  history?: {
+    fromRoomId?: string;
+    toRoomId?: string;
+    changedAt: Date;
+    reason?: string;
+  }[];
 }
 
-/**
- * Represents the initial booking request made by a user.
- */
 export interface BookingRequest {
   id: string;
   bookingCode: string;
+  requestType: RequestType;
 
-  // User Information (Requester)
   requester: {
     name: string;
     nik: string;
+    department: string;
+    company: string;
     email: string;
     phone: string;
-    company: string;
-    department: string;
   };
 
-  // List of people who will be staying
-  occupants: Occupant[];
+  // General preference (optional)
+  areaId: string;
+  buildingId?: string;
+  roomTypeId?: string;
 
-  // Location preference from the requester
-  // Can be just an area, or a specific building. Room is not requested here.
-  requestedLocation: {
-    areaId: string;
-    areaName: string;
-    buildingId?: string;
-    buildingName?: string;
-  };
+  occupants: BookingOccupant[];
 
-  // Final assigned placements for occupants
-  // This is usually populated after approval.
-  placements: PlacementInfo[];
+  attachments: BookingAttachment[];
 
-  // Dates
-  checkInDate: Date;
-  checkOutDate: Date;
-  durationInDays: number;
-
-  // Status & Workflow
-  status: BookingStatus;
-
-  // Notes & Reason
   purpose: string;
   notes?: string;
+
+  status: BookingStatus;
+  rejectReason?: string;
   adminNotes?: string;
 
-  // Timestamps
   requestedAt: Date;
-  verifiedAt?: Date;
+  expiresAt?: Date;
   approvedAt?: Date;
-  verifiedBy?: string; // Should be a user ID or name
-  approvedBy?: string; // Should be a user ID or name
+  approvedBy?: string;
+
+  updatedAt?: Date;
+  cancelledAt?: Date;
 }

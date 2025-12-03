@@ -3,8 +3,8 @@
 import { useState } from "react";
 import { DataTable } from "@/components/ui/data-table";
 import { getColumns } from "./_components/columns";
-import { BookingRequest } from "./_components/types";
-import { MOCK_BOOKING_REQUESTS } from "./_components/mock-data";
+import { BookingRequest, BookingStatus } from "./_components/types";
+import { MOCK_BOOKING_REQUESTS, BUILDINGS } from "./_components/mock-data";
 import { DateRange } from "react-day-picker";
 import { ClipboardList, Download, RefreshCw } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -21,10 +21,7 @@ export default function BookingRequestPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
-  const [dateRange, setDateRange] = useState<DateRange | undefined>({
-    from: addDays(new Date(), -7),
-    to: new Date(),
-  });
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
 
   // Dialog states
   const [selectedBooking, setSelectedBooking] = useState<BookingRequest | null>(
@@ -34,6 +31,17 @@ export default function BookingRequestPage() {
     "view" | "approve" | "reject" | null
   >(null);
   const [adminNotes, setAdminNotes] = useState("");
+  const [rejectReason, setRejectReason] = useState("");
+
+  const handleAction = (
+    booking: BookingRequest,
+    type: "view" | "approve" | "reject"
+  ) => {
+    setSelectedBooking(booking);
+    setActionType(type);
+    setAdminNotes(booking.adminNotes || "");
+    setRejectReason(booking.rejectReason || "");
+  };
 
   // Filter bookings
   const filteredBookings = bookings.filter((booking) => {
@@ -42,91 +50,73 @@ export default function BookingRequestPage() {
       booking.bookingCode.toLowerCase().includes(searchLower) ||
       booking.requester.name.toLowerCase().includes(searchLower) ||
       booking.requester.nik.toLowerCase().includes(searchLower) ||
-      booking.occupants.some((occ) =>
-        occ.name.toLowerCase().includes(searchLower)
-      ) ||
-      booking.requestedLocation.areaName.toLowerCase().includes(searchLower) ||
-      booking.requestedLocation.buildingName
-        ?.toLowerCase()
-        .includes(searchLower);
+      booking.occupants.some((occ) => {
+        const buildingName =
+          BUILDINGS.find((b) => b.id === occ.buildingId)?.name || "";
+        const areaName =
+          BUILDINGS.find((b) => b.areaId === occ.areaId)?.area || occ.areaId;
+        return (
+          occ.name.toLowerCase().includes(searchLower) ||
+          areaName.toLowerCase().includes(searchLower) ||
+          buildingName.toLowerCase().includes(searchLower)
+        );
+      });
 
     const matchesStatus =
       statusFilter === "all" || booking.status === statusFilter;
 
     const matchesDate =
       !dateRange?.from ||
-      (booking.checkInDate >= dateRange.from &&
-        (!dateRange.to || booking.checkInDate <= dateRange.to));
+      booking.occupants.some(
+        (occ) =>
+          occ.checkInDate >= dateRange.from! &&
+          (!dateRange.to || occ.checkInDate <= dateRange.to!)
+      );
 
     return matchesSearch && matchesStatus && matchesDate;
   });
 
-  const handleView = (booking: BookingRequest) => {
-    setSelectedBooking(booking);
-    setActionType("view");
-    setAdminNotes(booking.adminNotes || "");
-  };
-
-  const handleApprove = (booking: BookingRequest) => {
-    setSelectedBooking(booking);
-    setActionType("approve");
-    setAdminNotes("");
-  };
-
-  const handleReject = (booking: BookingRequest) => {
-    setSelectedBooking(booking);
-    setActionType("reject");
-    setAdminNotes("");
-  };
-
-  const handleConfirmAction = () => {
+  const handleConfirmAction = (updatedBookingFromDialog?: BookingRequest) => {
     if (!selectedBooking || !actionType) return;
 
     const updatedBookings = bookings.map((b) => {
       if (b.id === selectedBooking.id) {
-        const updated = { ...b };
+        const baseBooking = updatedBookingFromDialog || b;
 
-        if (actionType === "approve") {
-          updated.status = "approved";
-          updated.approvedAt = new Date();
-          updated.approvedBy = "Admin System";
-          if (adminNotes) updated.adminNotes = adminNotes;
-
-          // Add mock placement info on approval
-          updated.placements = updated.occupants.map((occ, i) => ({
-            occupantId: occ.id,
-            areaId: updated.requestedLocation.areaId,
-            buildingId: updated.requestedLocation.buildingId || `B-0${i + 1}`,
-            roomId: `R-10${i + 1}`,
-            bedId: `Bed-0${i + 1}`,
-          }));
-
-          toast.success("Booking berhasil disetujui", {
-            description: `${updated.bookingCode} - ${updated.requester.name}`,
-          });
-        } else if (actionType === "reject") {
-          updated.status = "rejected";
-          updated.adminNotes = adminNotes || "Ditolak oleh admin";
-          toast.error("Booking ditolak", {
-            description: `${updated.bookingCode} - ${updated.requester.name}`,
-          });
-        }
-
-        return updated;
+        return {
+          ...baseBooking,
+          status:
+            actionType === "approve"
+              ? ("approved" as BookingStatus)
+              : actionType === "reject"
+              ? ("rejected" as BookingStatus)
+              : baseBooking.status,
+          adminNotes: adminNotes,
+          rejectReason: actionType === "reject" ? rejectReason : undefined,
+          approvedAt: actionType === "approve" ? new Date() : undefined,
+          approvedBy: actionType === "approve" ? "Admin System" : undefined,
+        };
       }
       return b;
     });
 
     setBookings(updatedBookings);
+    toast.success(
+      actionType === "approve"
+        ? "Booking berhasil disetujui"
+        : "Booking berhasil ditolak"
+    );
     setSelectedBooking(null);
     setActionType(null);
     setAdminNotes("");
+    setRejectReason("");
   };
 
   const handleCancelAction = () => {
     setActionType(null);
     setSelectedBooking(null);
     setAdminNotes("");
+    setRejectReason(""); // Reset rejectReason on cancel
   };
 
   const handleRefresh = () => {
@@ -147,10 +137,7 @@ export default function BookingRequestPage() {
     setSearchQuery("");
     setStatusFilter("all");
     setTypeFilter("all");
-    setDateRange({
-      from: addDays(new Date(), -7),
-      to: new Date(),
-    });
+    setDateRange(undefined);
     toast.info("Filter telah direset");
   };
 
@@ -160,12 +147,6 @@ export default function BookingRequestPage() {
     searchQuery !== "",
     dateRange?.from !== undefined || dateRange?.to !== undefined,
   ].filter(Boolean).length;
-
-  const columns = getColumns({
-    onView: handleView,
-    onApprove: handleApprove,
-    onReject: handleReject,
-  });
 
   return (
     <Card className="p-3 md:p-6 lg:p-8">
@@ -215,19 +196,33 @@ export default function BookingRequestPage() {
             activeFiltersCount={activeFiltersCount}
           />
 
-          <DataTable columns={columns} data={filteredBookings} />
+          <div className="rounded-md">
+            <DataTable
+              columns={getColumns({
+                onView: (b) => handleAction(b, "view"),
+              })}
+              data={filteredBookings}
+            />
+          </div>
         </div>
 
-        {selectedBooking && actionType && (
-          <BookingDetailDialog
-            booking={selectedBooking}
-            actionType={actionType}
-            adminNotes={adminNotes}
-            onAdminNotesChange={setAdminNotes}
-            onConfirm={handleConfirmAction}
-            onCancel={handleCancelAction}
-          />
-        )}
+        <BookingDetailDialog
+          booking={selectedBooking}
+          actionType={actionType}
+          adminNotes={adminNotes}
+          onAdminNotesChange={setAdminNotes}
+          rejectReason={rejectReason}
+          onRejectReasonChange={setRejectReason}
+          onConfirm={handleConfirmAction}
+          onRequestApprove={() => setActionType("approve")}
+          onRequestReject={() => setActionType("reject")}
+          onCancel={() => {
+            setSelectedBooking(null);
+            setActionType(null);
+            setAdminNotes("");
+            setRejectReason("");
+          }}
+        />
       </div>
     </Card>
   );

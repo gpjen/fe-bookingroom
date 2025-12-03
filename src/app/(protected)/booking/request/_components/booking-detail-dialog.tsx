@@ -1,15 +1,25 @@
+import { useState, useEffect } from "react";
+
 import {
   Sheet,
   SheetContent,
-  SheetDescription,
   SheetHeader,
   SheetTitle,
+  SheetDescription,
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { BookingRequest } from "./types";
 import { Badge } from "@/components/ui/badge";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
 import {
   User,
   Building,
@@ -26,19 +36,28 @@ import {
   AlertCircle,
   CheckCircle2,
   XCircle,
-  IdCard,
 } from "lucide-react";
+
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
+
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+
+import { BookingRequest, OccupantStatus } from "./types";
+import { BUILDINGS } from "./mock-data";
 
 interface BookingDetailDialogProps {
   booking: BookingRequest | null;
   actionType: "view" | "approve" | "reject" | null;
   adminNotes: string;
   onAdminNotesChange: (notes: string) => void;
-  onConfirm: () => void;
+  rejectReason?: string;
+  onRejectReasonChange?: (reason: string) => void;
+  onConfirm: (updatedBooking?: BookingRequest) => void;
   onCancel: () => void;
+  onRequestApprove?: () => void;
+  onRequestReject?: () => void;
 }
 
 export function BookingDetailDialog({
@@ -46,61 +65,130 @@ export function BookingDetailDialog({
   actionType,
   adminNotes,
   onAdminNotesChange,
+  rejectReason,
+  onRejectReasonChange,
   onConfirm,
   onCancel,
+  onRequestApprove,
+  onRequestReject,
 }: BookingDetailDialogProps) {
-  if (!booking || !actionType) return null;
+  const [occupantEdits, setOccupantEdits] = useState<
+    Record<string, { room: string; bedCode: string }>
+  >({});
 
+  const [isRejecting, setIsRejecting] = useState(false);
+
+  /* ---------------------------------------------
+   * Reset state setiap kali booking berubah
+   * ------------------------------------------- */
+  useEffect(() => {
+    if (!booking) return;
+
+    const initial: Record<string, { room: string; bedCode: string }> = {};
+
+    booking.occupants.forEach((occ) => {
+      initial[occ.id] = {
+        room: occ.roomId || "",
+        bedCode: occ.bedId || "",
+      };
+    });
+
+    setOccupantEdits(initial);
+    setIsRejecting(false);
+  }, [booking]);
+
+  if (!booking) return null;
+
+  const isPending = booking.status === "request";
+  const isEditing = isPending && !isRejecting;
+
+  /* ---------------------------------------------
+   * Update occupant assignment
+   * ------------------------------------------- */
+  const handleOccupantChange = (
+    id: string,
+    field: "room" | "bedCode",
+    value: string
+  ) => {
+    setOccupantEdits((prev) => ({
+      ...prev,
+      [id]: { ...prev[id], [field]: value },
+    }));
+  };
+
+  /* ---------------------------------------------
+   * Handle Approve
+   * ------------------------------------------- */
+  const handleApprove = () => {
+    const hasUnassigned = booking.occupants.some(
+      (occ) => !occupantEdits[occ.id]?.room || !occupantEdits[occ.id]?.bedCode
+    );
+
+    if (hasUnassigned) {
+      toast.error("Semua tamu harus memiliki ruangan dan bed.");
+      return;
+    }
+
+    const updatedBooking: BookingRequest = {
+      ...booking,
+      occupants: booking.occupants.map((occ) => ({
+        ...occ,
+        roomId: occupantEdits[occ.id].room,
+        bedId: occupantEdits[occ.id].bedCode,
+        status: "scheduled" as OccupantStatus,
+      })),
+    };
+
+    onConfirm(updatedBooking);
+  };
+
+  /* ---------------------------------------------
+   * Handle Reject
+   * ------------------------------------------- */
+  const handleReject = () => {
+    if (!rejectReason) {
+      toast.error("Alasan penolakan wajib diisi.");
+      return;
+    }
+
+    onConfirm();
+  };
+
+  /* ---------------------------------------------
+   * Status Style Config
+   * ------------------------------------------- */
   const getStatusConfig = (status: BookingRequest["status"]) => {
+    const base = "border px-2 py-0.5 rounded text-xs";
     switch (status) {
       case "request":
         return {
           label: "Menunggu",
-          className:
-            "bg-yellow-500/10 text-yellow-700 dark:text-yellow-500 border-yellow-500/20",
           icon: Clock,
+          className: `${base} bg-yellow-500/10 text-yellow-700 border-yellow-500/20`,
         };
       case "approved":
         return {
           label: "Disetujui",
-          className:
-            "bg-blue-500/10 text-blue-700 dark:text-blue-400 border-blue-500/20",
           icon: CheckCircle2,
-        };
-      case "checkin":
-        return {
-          label: "Check-In",
-          className:
-            "bg-green-500/10 text-green-700 dark:text-green-400 border-green-500/20",
-          icon: CheckCircle2,
-        };
-      case "checkout":
-        return {
-          label: "Check-Out",
-          className:
-            "bg-gray-500/10 text-gray-700 dark:text-gray-400 border-gray-500/20",
-          icon: CheckCircle2,
+          className: `${base} bg-blue-500/10 text-blue-700 border-blue-500/20`,
         };
       case "rejected":
         return {
           label: "Ditolak",
-          className:
-            "bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/20",
           icon: XCircle,
+          className: `${base} bg-red-500/10 text-red-700 border-red-500/20`,
         };
       case "cancelled":
         return {
           label: "Dibatalkan",
-          className:
-            "bg-gray-500/10 text-gray-700 dark:text-gray-400 border-gray-500/20",
           icon: XCircle,
+          className: `${base} bg-gray-500/10 text-gray-700 border-gray-500/20`,
         };
       default:
         return {
           label: status,
-          className:
-            "bg-gray-500/10 text-gray-700 dark:text-gray-400 border-gray-500/20",
           icon: Clock,
+          className: `${base} bg-gray-500/10 text-gray-700 border-gray-500/20`,
         };
     }
   };
@@ -108,13 +196,17 @@ export function BookingDetailDialog({
   const statusConfig = getStatusConfig(booking.status);
   const StatusIcon = statusConfig.icon;
 
+  const canApprove = isPending;
+  const canReject = isPending;
   const isAction = actionType !== "view";
-  const canApprove = booking.status === "request";
-  const canReject = booking.status === "request";
+
+  /* ---------------------------------------------
+   * UI Layout
+   * ------------------------------------------- */
 
   return (
     <Sheet open={true} onOpenChange={onCancel}>
-      <SheetContent className="!max-w-none !w-full md:!w-[500px] lg:!w-[730px] overflow-y-auto px-4">
+      <SheetContent className="!max-w-none !w-full md:!w-[600px] lg:!w-[800px] overflow-y-auto px-4">
         {/* Header */}
         <SheetHeader className="px-6 pt-6 pb-4 border-b space-y-3 flex-shrink-0">
           <div className="flex items-start justify-between gap-4">
@@ -139,6 +231,61 @@ export function BookingDetailDialog({
         {/* Content */}
         <div className="flex-1 overflow-y-auto px-6">
           <div className="py-6 space-y-6">
+            {/* Request Info */}
+            <Section title="Informasi Request" icon={FileText}>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <InfoBox
+                  icon={FileText}
+                  label="Tipe Request"
+                  value={
+                    booking.requestType === "new"
+                      ? "Request Baru"
+                      : booking.requestType === "extend"
+                      ? "Perpanjangan"
+                      : booking.requestType === "move"
+                      ? "Pindah Kamar"
+                      : "Tambahan Penghuni"
+                  }
+                />
+                <InfoBox
+                  icon={Users}
+                  label="Total Penghuni"
+                  value={`${booking.occupants.length} Orang`}
+                />
+                <InfoBox
+                  icon={Clock}
+                  label="Kadaluarsa Pada"
+                  value={
+                    booking.expiresAt
+                      ? format(booking.expiresAt, "dd MMM yyyy", { locale: id })
+                      : "-"
+                  }
+                />
+              </div>
+            </Section>
+
+            {/* Main Location Info */}
+            <Section title="Lokasi Utama yang Diminta" icon={MapPin}>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                <InfoBox
+                  icon={MapPin}
+                  label="Area"
+                  value={
+                    BUILDINGS.find((b) => b.areaId === booking.areaId)?.area ||
+                    booking.areaId
+                  }
+                />
+                <InfoBox
+                  icon={Building}
+                  label="Gedung"
+                  value={
+                    BUILDINGS.find((b) => b.id === booking.buildingId)?.name ||
+                    "Area Saja"
+                  }
+                />
+              </div>
+            </Section>
+
             {/* Requester Info */}
             <Section title="Informasi Pemohon" icon={User}>
               <div className="p-4 bg-muted/40 rounded-lg space-y-4">
@@ -185,26 +332,55 @@ export function BookingDetailDialog({
             <Section title="Daftar Penghuni / Tamu" icon={Users}>
               <div className="space-y-3">
                 {booking.occupants.map((occupant) => {
-                  const placement = booking.placements.find(
-                    (p) => p.occupantId === occupant.id
-                  );
+                  const isEditing = actionType === "approve";
+                  const currentEdit = occupantEdits[occupant.id] || {
+                    room: "",
+                    bedCode: "",
+                  };
+
                   return (
                     <div
                       key={occupant.id}
-                      className="p-3 bg-muted/50 rounded-lg space-y-2 text-sm"
+                      className="p-4 bg-muted/50 rounded-lg space-y-3 text-sm border border-transparent hover:border-border transition-colors"
                     >
-                      <div className="flex items-center gap-4">
-                        <div className="h-8 w-8 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold">
-                          {occupant.name.charAt(0).toUpperCase()}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <Badge variant="outline" className="h-6">
+                            {occupant.type === "employee"
+                              ? "Karyawan"
+                              : occupant.type === "guest"
+                              ? "Tamu"
+                              : "Lainnya"}
+                          </Badge>
+                          <div>
+                            <p className="font-semibold">{occupant.name}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {occupant.identifier}
+                            </p>
+                          </div>
                         </div>
-
-                        <div className="flex-1 min-w-0">
-                          <p className="font-semibold text-sm truncate">
-                            {occupant.name}
-                          </p>
-                          <p className="text-xs text-muted-foreground truncate">
-                            {occupant.identifier}
-                          </p>
+                        <div className="flex items-center gap-2">
+                          <Badge
+                            variant={
+                              occupant.status === "cancelled"
+                                ? "destructive"
+                                : "secondary"
+                            }
+                            className="h-6"
+                          >
+                            {occupant.status === "scheduled"
+                              ? "Terjadwal"
+                              : occupant.status === "checked_in"
+                              ? "Check-In"
+                              : occupant.status === "checked_out"
+                              ? "Check-Out"
+                              : "Batal"}
+                          </Badge>
+                          <Badge variant="secondary" className="h-6">
+                            {occupant.gender === "L"
+                              ? "Laki-laki"
+                              : "Perempuan"}
+                          </Badge>
                         </div>
                       </div>
 
@@ -214,98 +390,191 @@ export function BookingDetailDialog({
                           label="Telepon"
                           value={occupant.phone || "-"}
                         />
-                        <InfoRow
-                          icon={Briefcase}
-                          label="Perusahaan"
-                          value={occupant.company || "-"}
-                        />
-                        <InfoRow
-                          icon={Users}
-                          label="Departemen"
-                          value={occupant.department || "-"}
-                        />
-                        <InfoRow
-                          icon={Users}
-                          label="Jenis Kelamin"
-                          value={
-                            occupant.gender === "L" ? "Laki-laki" : "Perempuan"
-                          }
-                        />
+                        {occupant.company && (
+                          <InfoRow
+                            icon={Briefcase}
+                            label="Perusahaan"
+                            value={occupant.company}
+                          />
+                        )}
                       </div>
 
-                      {/* Room Assignment Display */}
-                      {placement && (
-                        <div className="mt-2 pt-2 border-t flex items-center gap-3">
-                          <div className="flex items-center gap-1.5 text-xs">
-                            <Building className="h-3.5 w-3.5 text-muted-foreground" />
-                            <span className="font-medium">
-                              {`Gedung ${placement.buildingId}, Kamar ${placement.roomId}`}
-                            </span>
+                      {/* Stay & Location Details */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2 border-t mt-2">
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-1.5 text-xs font-medium text-foreground">
+                            <Calendar className="h-3.5 w-3.5" />
+                            Periode Menginap
                           </div>
-                          {placement.bedId && (
-                            <div className="flex items-center gap-1.5 text-xs">
-                              <Bed className="h-3.5 w-3.5 text-muted-foreground" />
+                          <div className="text-xs text-muted-foreground pl-5 space-y-0.5">
+                            <p>
+                              In:{" "}
+                              {format(occupant.checkInDate, "dd MMM yyyy", {
+                                locale: id,
+                              })}
+                            </p>
+                            <p>
+                              Out:{" "}
+                              {occupant.checkOutDate
+                                ? format(occupant.checkOutDate, "dd MMM yyyy", {
+                                    locale: id,
+                                  })
+                                : "-"}
+                            </p>
+                            <p className="font-medium text-primary">
+                              {occupant.duration
+                                ? `${occupant.duration} Hari`
+                                : "-"}
+                            </p>
+                          </div>
+                        </div>
+                        <div className="space-y-1">
+                          <div className="flex items-center gap-1.5 text-xs font-medium text-foreground">
+                            <MapPin className="h-3.5 w-3.5" />
+                            Lokasi
+                          </div>
+                          <div className="text-xs text-muted-foreground pl-5 space-y-0.5">
+                            <p>
+                              {BUILDINGS.find(
+                                (b) => b.id === occupant.buildingId
+                              )?.name || "-"}
+                            </p>
+                            <p>
+                              {BUILDINGS.find(
+                                (b) => b.areaId === occupant.areaId
+                              )?.area || occupant.areaId}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Room Assignment Section */}
+                      <div className="pt-3 mt-1 border-t">
+                        {isEditing ? (
+                          <div className="grid grid-cols-2 gap-3">
+                            <div className="space-y-1.5">
+                              <Label
+                                htmlFor={`room-${occupant.id}`}
+                                className="text-xs"
+                              >
+                                Ruangan
+                              </Label>
+                              <Select
+                                value={currentEdit.room}
+                                onValueChange={(value) =>
+                                  handleOccupantChange(
+                                    occupant.id,
+                                    "room",
+                                    value
+                                  )
+                                }
+                              >
+                                <SelectTrigger className="h-8 text-xs w-full">
+                                  <SelectValue placeholder="Pilih Kamar" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {Array.from({ length: 5 }).map((_, i) => (
+                                    <SelectItem
+                                      key={i}
+                                      value={`R-10${i + 1}`}
+                                      className="text-xs"
+                                    >
+                                      R-10{i + 1}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label
+                                htmlFor={`bed-${occupant.id}`}
+                                className="text-xs"
+                              >
+                                Kasur
+                              </Label>
+                              <Select
+                                value={currentEdit.bedCode}
+                                onValueChange={(value) =>
+                                  handleOccupantChange(
+                                    occupant.id,
+                                    "bedCode",
+                                    value
+                                  )
+                                }
+                              >
+                                <SelectTrigger className="h-8 text-xs w-full">
+                                  <SelectValue placeholder="Pilih Bed" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {["B-01", "B-02", "B-03", "B-04"].map(
+                                    (bed) => (
+                                      <SelectItem
+                                        key={bed}
+                                        value={bed}
+                                        className="text-xs"
+                                      >
+                                        {bed}
+                                      </SelectItem>
+                                    )
+                                  )}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-2 text-xs">
+                              <Building className="h-3.5 w-3.5 text-muted-foreground" />
+                              <span className="text-muted-foreground">
+                                Ruangan:
+                              </span>
                               <span className="font-medium">
-                                {placement.bedId}
+                                {occupant.roomId || "-"}
                               </span>
                             </div>
-                          )}
-                        </div>
-                      )}
+                            <div className="flex items-center gap-2 text-xs">
+                              <Bed className="h-3.5 w-3.5 text-muted-foreground" />
+                              <span className="text-muted-foreground">
+                                Kasur:
+                              </span>
+                              <span className="font-medium">
+                                {occupant.bedId || "-"}
+                              </span>
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
               </div>
             </Section>
 
-            {/* Date Info */}
-            <Section title="Periode Menginap" icon={Calendar}>
-              <div className="bg-primary/5 rounded-lg p-4">
-                <div className="flex items-center justify-between text-sm">
-                  <div>
-                    <p className="text-xs text-muted-foreground mb-1">
-                      Check-in
-                    </p>
-                    <p className="font-semibold">
-                      {format(booking.checkInDate, "dd MMM yyyy", {
-                        locale: id,
-                      })}
-                    </p>
-                  </div>
-                  <div className="text-center">
-                    <div className="bg-primary text-primary-foreground px-3 py-1 rounded-full text-xs font-semibold">
-                      {booking.durationInDays} Hari
+            {/* Attachments */}
+            {booking.attachments && booking.attachments.length > 0 && (
+              <Section title="Lampiran" icon={FileText}>
+                <div className="grid grid-cols-1 gap-2">
+                  {booking.attachments.map((file) => (
+                    <div
+                      key={file.id}
+                      className="flex items-center gap-3 p-3 border rounded-lg bg-background hover:bg-muted/50 transition-colors cursor-pointer"
+                    >
+                      <div className="h-8 w-8 rounded bg-primary/10 flex items-center justify-center text-primary">
+                        <FileText className="h-4 w-4" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">
+                          {file.name}
+                        </p>
+                        <p className="text-xs text-muted-foreground uppercase">
+                          {file.type}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xs text-muted-foreground mb-1">
-                      Check-out
-                    </p>
-                    <p className="font-semibold">
-                      {format(booking.checkOutDate, "dd MMM yyyy", {
-                        locale: id,
-                      })}
-                    </p>
-                  </div>
+                  ))}
                 </div>
-              </div>
-            </Section>
-
-            {/* Location Info (General) */}
-            <Section title="Lokasi yang Diminta" icon={MapPin}>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <InfoBox
-                  icon={MapPin}
-                  label="Area"
-                  value={booking.requestedLocation.areaName}
-                />
-                <InfoBox
-                  icon={Building}
-                  label="Gedung"
-                  value={booking.requestedLocation.buildingName || "Area Saja"}
-                />
-              </div>
-            </Section>
+              </Section>
+            )}
 
             {/* Purpose */}
             <Section title="Tujuan & Keperluan" icon={FileText}>
@@ -350,28 +619,40 @@ export function BookingDetailDialog({
             )}
 
             {/* Admin Section */}
-            {(isAction || booking.adminNotes) && (
+            {(isAction || booking.adminNotes || booking.rejectReason) && (
               <Section title="Area Administrator" icon={UserCheck}>
                 {isAction ? (
                   <div className="space-y-3">
+                    {actionType === "reject" && (
+                      <div>
+                        <Label htmlFor="rejectReason" className="text-sm">
+                          Alasan Penolakan{" "}
+                          <span className="text-red-500">*</span>
+                        </Label>
+                        <Input
+                          id="rejectReason"
+                          placeholder="Contoh: Kapasitas Penuh"
+                          className="mt-1.5"
+                          value={rejectReason}
+                          onChange={(e) =>
+                            onRejectReasonChange?.(e.target.value)
+                          }
+                        />
+                      </div>
+                    )}
                     <div>
                       <Label htmlFor="adminNotes" className="text-sm">
                         Catatan Administrator
-                        {actionType === "reject" && (
-                          <span className="text-red-500 ml-1">*</span>
-                        )}
                       </Label>
                       <p className="text-xs text-muted-foreground mt-1">
-                        {actionType === "reject"
-                          ? "Wajib diisi untuk penolakan"
-                          : "Opsional"}
+                        Opsional
                       </p>
                     </div>
                     <Textarea
                       id="adminNotes"
                       placeholder={
                         actionType === "reject"
-                          ? "Tuliskan alasan penolakan..."
+                          ? "Tuliskan detail alasan penolakan..."
                           : "Tambahkan catatan..."
                       }
                       value={adminNotes}
@@ -384,19 +665,33 @@ export function BookingDetailDialog({
                       )}
                       rows={3}
                     />
-                    {actionType === "reject" && !adminNotes && (
-                      <p className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1.5">
+                    {actionType === "reject" && !rejectReason && (
+                      <p className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1.5 mt-2">
                         <AlertCircle className="h-3 w-3" />
-                        Catatan wajib diisi untuk penolakan
+                        Alasan penolakan wajib diisi
                       </p>
                     )}
                   </div>
-                ) : booking.adminNotes ? (
-                  <div className="p-3 bg-muted/50 rounded-lg text-sm">
-                    <p className="text-xs text-muted-foreground mb-1.5">
-                      Catatan Admin:
-                    </p>
-                    <p>{booking.adminNotes}</p>
+                ) : booking.adminNotes || booking.rejectReason ? (
+                  <div className="space-y-3">
+                    {booking.rejectReason && (
+                      <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-sm">
+                        <p className="text-xs text-red-600 dark:text-red-400 font-semibold mb-1">
+                          Alasan Penolakan:
+                        </p>
+                        <p className="text-red-700 dark:text-red-300">
+                          {booking.rejectReason}
+                        </p>
+                      </div>
+                    )}
+                    {booking.adminNotes && (
+                      <div className="p-3 bg-muted/50 rounded-lg text-sm">
+                        <p className="text-xs text-muted-foreground mb-1.5">
+                          Catatan Admin:
+                        </p>
+                        <p>{booking.adminNotes}</p>
+                      </div>
+                    )}
                   </div>
                 ) : null}
               </Section>
@@ -412,8 +707,7 @@ export function BookingDetailDialog({
               {canApprove && (
                 <Button
                   onClick={() => {
-                    onCancel();
-                    // Parent will handle opening approve dialog
+                    onRequestApprove?.();
                   }}
                   className="flex-1 bg-green-600 hover:bg-green-700"
                   size="sm"
@@ -425,8 +719,7 @@ export function BookingDetailDialog({
               {canReject && (
                 <Button
                   onClick={() => {
-                    onCancel();
-                    // Parent will handle opening reject dialog
+                    onRequestReject?.();
                   }}
                   variant="destructive"
                   className="flex-1"
@@ -446,8 +739,13 @@ export function BookingDetailDialog({
                 Batal
               </Button>
               <Button
-                onClick={onConfirm}
-                disabled={actionType === "reject" && !adminNotes.trim()}
+                onClick={
+                  actionType === "approve" ? handleApprove : handleReject
+                }
+                disabled={
+                  actionType === "reject" &&
+                  (!rejectReason || !rejectReason.trim())
+                }
                 className={cn(
                   "flex-1",
                   actionType === "approve" && "bg-green-600 hover:bg-green-700",

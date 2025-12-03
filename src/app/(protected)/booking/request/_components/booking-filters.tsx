@@ -78,8 +78,6 @@ export function BookingFilters({
             <SelectItem value="all">Semua Status</SelectItem>
             <SelectItem value="request">Menunggu</SelectItem>
             <SelectItem value="approved">Disetujui</SelectItem>
-            <SelectItem value="checkin">Check-In</SelectItem>
-            <SelectItem value="checkout">Check-Out</SelectItem>
             <SelectItem value="rejected">Ditolak</SelectItem>
             <SelectItem value="cancelled">Dibatalkan</SelectItem>
           </SelectContent>
@@ -163,8 +161,6 @@ export function BookingFilters({
                     <SelectItem value="all">Semua Status</SelectItem>
                     <SelectItem value="request">Menunggu</SelectItem>
                     <SelectItem value="approved">Disetujui</SelectItem>
-                    <SelectItem value="checkin">Check-In</SelectItem>
-                    <SelectItem value="checkout">Check-Out</SelectItem>
                     <SelectItem value="rejected">Ditolak</SelectItem>
                     <SelectItem value="cancelled">Dibatalkan</SelectItem>
                   </SelectContent>

@@ -51,11 +51,36 @@ export type RoomFormData = z.infer<typeof formSchema>;
 
 // Mock Data for Room Types
 const MOCK_ROOM_TYPES = [
-  { id: "rt-1", name: "Standard (2 Bed)", price: 0, metadata: { maxOccupancy: 2 } },
-  { id: "rt-2", name: "VIP (1 Bed)", price: 500000, metadata: { maxOccupancy: 1 } },
-  { id: "rt-3", name: "VVIP (Suite)", price: 1000000, metadata: { maxOccupancy: 1 } },
-  { id: "rt-4", name: "Dormitory (4 Bed)", price: 0, metadata: { maxOccupancy: 4 } },
-  { id: "rt-5", name: "Dormitory (8 Bed)", price: 0, metadata: { maxOccupancy: 8 } },
+  {
+    id: "rt-1",
+    name: "Standard (2 Bed)",
+    price: 0,
+    metadata: { maxOccupancy: 2 },
+  },
+  {
+    id: "rt-2",
+    name: "VIP (1 Bed)",
+    price: 500000,
+    metadata: { maxOccupancy: 1 },
+  },
+  {
+    id: "rt-3",
+    name: "VVIP (Suite)",
+    price: 1000000,
+    metadata: { maxOccupancy: 1 },
+  },
+  {
+    id: "rt-4",
+    name: "Dormitory (4 Bed)",
+    price: 0,
+    metadata: { maxOccupancy: 4 },
+  },
+  {
+    id: "rt-5",
+    name: "Dormitory (8 Bed)",
+    price: 0,
+    metadata: { maxOccupancy: 8 },
+  },
 ];
 
 interface FormRoomProps {
@@ -114,7 +139,7 @@ export function FormRoom({
       form.setValue("roomTypeId", value);
       form.setValue("capacity", selectedType.metadata.maxOccupancy);
       form.setValue("price", selectedType.price);
-      
+
       // Reset bed codes based on new capacity
       const newBedCodes = Array(selectedType.metadata.maxOccupancy).fill("");
       form.setValue("bedCodes", newBedCodes);
@@ -218,7 +243,7 @@ export function FormRoom({
             </div>
 
             <div className="grid grid-cols-2 gap-4">
-                <FormField
+              <FormField
                 control={form.control}
                 name="roomTypeId"
                 render={({ field }) => (
@@ -246,28 +271,6 @@ export function FormRoom({
                   </FormItem>
                 )}
               />
-
-              {/* <FormField
-                control={form.control}
-                name="capacity"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Kapasitas (Orang)</FormLabel>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        {...field}
-                        disabled
-                        className="bg-muted"
-                      />
-                    </FormControl>
-                    <FormDescription>
-                      Otomatis dari Tipe Kamar
-                    </FormDescription>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              /> */}
             </div>
 
             {/* Dynamic Bed Codes */}
@@ -282,9 +285,14 @@ export function FormRoom({
                       name={`bedCodes.${index}`}
                       render={({ field }) => (
                         <FormItem>
-                          <FormLabel className="text-xs">Kode Bed {index + 1}</FormLabel>
+                          <FormLabel className="text-xs">
+                            Kode Bed {index + 1}
+                          </FormLabel>
                           <FormControl>
-                            <Input placeholder={`Contoh: B-${index + 1}`} {...field} />
+                            <Input
+                              placeholder={`Contoh: B-${index + 1}`}
+                              {...field}
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>

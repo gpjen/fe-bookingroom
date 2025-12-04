@@ -9,11 +9,7 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
-import {
-  Users,
-  History,
-  Info,
-} from "lucide-react";
+import { Users, History, Info } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { RoomOccupantsTab } from "./tabs/room-occupants-tab";
 import { RoomInfoTab } from "./tabs/room-info-tab";
@@ -33,6 +29,7 @@ interface RoomDetailSheetProps {
     price: number;
     isMixGender: boolean;
     isBookable: boolean;
+    isOnlyForEmployee: boolean;
     description: string;
   } | null;
   floors: { id: string; name: string }[];
@@ -52,15 +49,17 @@ export function RoomDetailSheet({
 
   return (
     <Sheet open={isOpen} onOpenChange={onClose}>
-      <SheetContent
-        className="!max-w-none !w-full md:!w-[500px] lg:!w-[730px] overflow-y-auto px-4"
-      >
+      <SheetContent className="!max-w-none !w-full md:!w-[500px] lg:!w-[730px] overflow-y-auto px-4">
         <SheetHeader className="mb-4">
           <div className="flex items-center justify-between">
             <div>
               <SheetTitle className="text-xl flex items-center gap-2">
                 {room.name}
-                <Badge variant={room.status === "available" ? "default" : "secondary"}>
+                <Badge
+                  variant={
+                    room.status === "available" ? "default" : "secondary"
+                  }
+                >
                   {room.status}
                 </Badge>
               </SheetTitle>
@@ -71,7 +70,12 @@ export function RoomDetailSheet({
           </div>
         </SheetHeader>
 
-        <Tabs defaultValue="occupants" value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <Tabs
+          defaultValue="occupants"
+          value={activeTab}
+          onValueChange={setActiveTab}
+          className="w-full"
+        >
           <TabsList className="grid w-full grid-cols-3 mb-4">
             <TabsTrigger value="occupants" className="flex items-center gap-2">
               <Users className="h-4 w-4" />
@@ -89,20 +93,22 @@ export function RoomDetailSheet({
 
           {/* TAB: PENGHUNI */}
           <TabsContent value="occupants">
-            <RoomOccupantsTab 
-              roomId={room.id} 
-              capacity={room.capacity} 
-              occupied={room.occupied} 
-              bedCodes={Array.from({ length: room.capacity }, (_, i) => String.fromCharCode(65 + i))} // ["A", "B", "C", ...]
+            <RoomOccupantsTab
+              roomId={room.id}
+              capacity={room.capacity}
+              occupied={room.occupied}
+              bedCodes={Array.from({ length: room.capacity }, (_, i) =>
+                String.fromCharCode(65 + i)
+              )} // ["A", "B", "C", ...]
             />
           </TabsContent>
 
           {/* TAB: INFORMASI & EDIT */}
           <TabsContent value="info">
-            <RoomInfoTab 
-              roomId={room.id} 
-              isOccupied={isOccupied} 
-              initialData={room} 
+            <RoomInfoTab
+              roomId={room.id}
+              isOccupied={isOccupied}
+              initialData={room}
               floors={floors}
             />
           </TabsContent>

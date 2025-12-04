@@ -97,3 +97,22 @@ export interface BookingRequest {
   updatedAt?: Date;
   cancelledAt?: Date;
 }
+
+export interface OccupantFormData {
+  id: string;
+  name: string;
+  identifier: string;
+  type: BookingType;
+  gender: Gender;
+  phone?: string;
+  company?: string;
+  department?: string;
+  isPendamping?: boolean;
+  inDate?: Date;
+  outDate?: Date;
+  duration?: number;
+  roomId?: string;
+  roomCode?: string;
+  bedId?: string;
+  bedCode?: string;
+}

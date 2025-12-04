@@ -332,13 +332,21 @@ export function BookingDetailDialog({
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <Badge variant="outline" className="h-6">
-                            {occupant.type === "employee"
-                              ? "Karyawan"
-                              : occupant.type === "guest"
-                              ? "Tamu"
-                              : "Lainnya"}
-                          </Badge>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="h-6">
+                              {occupant.type === "employee"
+                                ? "Karyawan"
+                                : "Tamu"}
+                            </Badge>
+                            {occupant.isPendamping && (
+                              <Badge
+                                variant="secondary"
+                                className="h-6 bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
+                              >
+                                Pendamping
+                              </Badge>
+                            )}
+                          </div>
                           <div>
                             <p className="font-semibold">{occupant.name}</p>
                             <p className="text-xs text-muted-foreground">
@@ -397,19 +405,39 @@ export function BookingDetailDialog({
                         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                           <div>
                             <p className="text-xs text-muted-foreground mb-1">
-                              Check-In
+                              Dari
                             </p>
                             <p className="font-semibold">
-                              {formatDate(occupant.checkInDate)}
+                              {formatDate(occupant.inDate)}
                             </p>
+                            {occupant.actualCheckInAt && (
+                              <p className="text-xs text-green-600 dark:text-green-400 mt-1">
+                                Aktual:{" "}
+                                {format(
+                                  occupant.actualCheckInAt,
+                                  "dd MMM yyyy, HH:mm",
+                                  { locale: id }
+                                )}
+                              </p>
+                            )}
                           </div>
                           <div>
                             <p className="text-xs text-muted-foreground mb-1">
-                              Check-Out
+                              Sampai
                             </p>
                             <p className="font-semibold">
-                              {formatDate(occupant.checkOutDate)}
+                              {formatDate(occupant.outDate)}
                             </p>
+                            {occupant.actualCheckOutAt && (
+                              <p className="text-xs text-red-600 dark:text-red-400 mt-1">
+                                Aktual:{" "}
+                                {format(
+                                  occupant.actualCheckOutAt,
+                                  "dd MMM yyyy, HH:mm",
+                                  { locale: id }
+                                )}
+                              </p>
+                            )}
                           </div>
                           <div>
                             <p className="text-xs text-muted-foreground mb-1">

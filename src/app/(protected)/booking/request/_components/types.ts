@@ -11,7 +11,7 @@ export type OccupantStatus =
   | "checked_out"
   | "cancelled";
 
-export type BookingType = "employee" | "guest" | "others";
+export type BookingType = "employee" | "guest";
 export type Gender = "L" | "P";
 
 export interface BookingAttachment {
@@ -24,7 +24,7 @@ export interface BookingAttachment {
 export interface BookingOccupant {
   id: string;
   name: string;
-  identifier: string;
+  identifier: string; // NIK for employee, ID/Passport for guest
   type: BookingType;
   gender: Gender;
 
@@ -32,13 +32,21 @@ export interface BookingOccupant {
   company?: string;
   department?: string;
 
+  // Mark if this employee is a companion for a guest
+  isPendamping?: boolean;
+
   status: OccupantStatus;
   cancelledAt?: Date;
   cancelReason?: string;
 
-  checkInDate: Date;
-  checkOutDate?: Date;
-  duration?: number;
+  // Planned stay dates (from booking request)
+  inDate: Date; // Planned date
+  outDate?: Date; // Planned date
+  duration?: number; // Planned duration in days
+
+  // Actual check-in/out timestamps (set when status changes)
+  actualCheckInAt?: Date; // Actual check-in timestamp
+  actualCheckOutAt?: Date; // Actual check-out timestamp
 
   // Room assignment (optional - can be set by requester or admin)
   roomId?: string;

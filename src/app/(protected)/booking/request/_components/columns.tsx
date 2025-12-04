@@ -143,12 +143,7 @@ export const getColumns = ({
 
       const summary = Object.entries(types)
         .map(([type, count]) => {
-          const label =
-            type === "employee"
-              ? "Karyawan"
-              : type === "guest"
-              ? "Tamu"
-              : "Lainnya";
+          const label = type === "employee" ? "Karyawan" : "Tamu";
           return `${count} ${label}`;
         })
         .join(", ");

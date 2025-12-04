@@ -91,7 +91,7 @@ export function BookingFilters({
             <SelectItem value="all">Semua Tipe</SelectItem>
             <SelectItem value="employee">Karyawan</SelectItem>
             <SelectItem value="guest">Tamu</SelectItem>
-            <SelectItem value="others">Lainnya</SelectItem>
+            <SelectItem value="guest">Tamu</SelectItem>
           </SelectContent>
         </Select>
 
@@ -177,7 +177,7 @@ export function BookingFilters({
                     <SelectItem value="all">Semua Tipe</SelectItem>
                     <SelectItem value="employee">Karyawan</SelectItem>
                     <SelectItem value="guest">Tamu</SelectItem>
-                    <SelectItem value="others">Lainnya</SelectItem>
+                    <SelectItem value="guest">Tamu</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

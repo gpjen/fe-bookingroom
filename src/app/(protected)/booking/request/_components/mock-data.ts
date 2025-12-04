@@ -55,7 +55,7 @@ export function generateMockBookingRequests(count: number): BookingRequest[] {
 
     // Generate Occupants
     const occupantsCount = faker.number.int({ min: 1, max: 4 });
-    const occupants: BookingOccupant[] = Array.from({
+    let occupants: BookingOccupant[] = Array.from({
       length: occupantsCount,
     })
       .map(() => {
@@ -104,12 +104,25 @@ export function generateMockBookingRequests(count: number): BookingRequest[] {
               ? faker.helpers.arrayElement(DEPARTMENTS)
               : undefined,
 
+          // Will be set later based on guest presence
+          isPendamping: undefined,
+
           status: occStatus,
 
-          // Stay Details
-          checkInDate: occCheckInDate,
-          checkOutDate: occCheckOutDate,
+          // Planned stay dates
+          inDate: occCheckInDate,
+          outDate: occCheckOutDate,
           duration: occDuration,
+
+          // Actual timestamps (only if checked in/out)
+          actualCheckInAt:
+            occStatus === "checked_in" || occStatus === "checked_out"
+              ? addDays(occCheckInDate, faker.number.int({ min: 0, max: 1 }))
+              : undefined,
+          actualCheckOutAt:
+            occStatus === "checked_out"
+              ? addDays(occCheckOutDate!, faker.number.int({ min: -1, max: 0 }))
+              : undefined,
 
           // Room assignment (optional - set by requester or admin)
           // bedId can only be set if roomId is set
@@ -130,11 +143,69 @@ export function generateMockBookingRequests(count: number): BookingRequest[] {
           : undefined,
       }));
 
+    // Ensure guests always have employee companions
+    const hasGuests = occupants.some((occ) => occ.type === "guest");
+    const employees = occupants.filter((occ) => occ.type === "employee");
+
+    if (hasGuests) {
+      if (employees.length === 0) {
+        // No employees, add one as companion
+        const occCheckInDate = occupants[0].inDate;
+        const occDuration = occupants[0].duration || 7;
+        const occCheckOutDate = occupants[0].outDate;
+        const occStatus = occupants[0].status;
+
+        occupants.push({
+          id: faker.string.uuid(),
+          name: faker.person.fullName(),
+          identifier: `${faker.string
+            .fromCharacters("DLC")
+            .substring(0, 1)}${faker.string.numeric(8)}`,
+          type: "employee",
+          gender: faker.person.sex() === "male" ? "L" : "P",
+          phone: faker.phone.number(),
+          company: faker.helpers.arrayElement(COMPANIES),
+          department: faker.helpers.arrayElement(DEPARTMENTS),
+          isPendamping: true,
+          status: occStatus,
+          inDate: occCheckInDate,
+          outDate: occCheckOutDate,
+          duration: occDuration,
+          actualCheckInAt:
+            occStatus === "checked_in" || occStatus === "checked_out"
+              ? addDays(occCheckInDate, faker.number.int({ min: 0, max: 1 }))
+              : undefined,
+          actualCheckOutAt:
+            occStatus === "checked_out"
+              ? addDays(occCheckOutDate!, faker.number.int({ min: -1, max: 0 }))
+              : undefined,
+          roomId:
+            status === "approved" || Math.random() > 0.7
+              ? `R-${faker.number.int({ min: 100, max: 999 })}`
+              : undefined,
+          bedId: undefined,
+        });
+        // Set bedId if roomId exists
+        const lastOcc = occupants[occupants.length - 1];
+        if (lastOcc.roomId) {
+          lastOcc.bedId = `B-${faker.number
+            .int({ min: 1, max: 4 })
+            .toString()
+            .padStart(2, "0")}`;
+        }
+      } else {
+        // Mark at least one employee as pendamping
+        const randomEmployee =
+          employees[faker.number.int({ min: 0, max: employees.length - 1 })];
+        randomEmployee.isPendamping = true;
+      }
+    }
+
     // Timestamps
     // Use the earliest check-in date for requestedAt logic
     const earliestCheckIn = occupants.reduce(
-      (min, occ) => (occ.checkInDate < min ? occ.checkInDate : min),
-      occupants[0].checkInDate
+      (min, occ) => (occ.inDate < min ? occ.inDate : min),
+      occupants[0].inDate
     );
 
     const requestedAt = subDays(

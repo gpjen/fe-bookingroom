@@ -9,7 +9,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList } from "recharts";
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Cell,
+  LabelList,
+} from "recharts";
 import { Building2 } from "lucide-react";
 import { AREAS, getBuildingStats } from "../mock-data";
 
@@ -59,44 +69,52 @@ export function BuildingOccupancyBarChart() {
       <CardContent>
         <div className="h-[300px]">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart 
-              data={data} 
+            <BarChart
+              data={data}
               layout="vertical"
               margin={{ top: 5, right: 30, left: 50, bottom: 5 }}
             >
-              <CartesianGrid strokeDasharray="3 3" className="stroke-muted" horizontal={true} vertical={false} />
-              <XAxis 
-                type="number" 
+              <CartesianGrid
+                strokeDasharray="3 3"
+                className="stroke-muted"
+                horizontal={true}
+                vertical={false}
+              />
+              <XAxis
+                type="number"
                 domain={[0, 100]}
                 tick={{ fontSize: 11 }}
                 tickFormatter={(value) => `${value}%`}
               />
-              <YAxis 
-                type="category" 
-                dataKey="name" 
+              <YAxis
+                type="category"
+                dataKey="name"
                 tick={{ fontSize: 11 }}
                 width={45}
               />
               <Tooltip
-                contentStyle={{ 
-                  backgroundColor: "hsl(var(--card))", 
+                contentStyle={{
+                  backgroundColor: "hsl(var(--card))",
                   border: "1px solid hsl(var(--border))",
                   borderRadius: "8px",
                 }}
                 formatter={(value: number) => [`${value}%`, "Okupansi"]}
                 labelFormatter={(label) => {
-                  const item = data.find(d => d.name === label);
+                  const item = data.find((d) => d.name === label);
                   return item ? `${item.fullName} (${item.area})` : label;
                 }}
               />
               <Bar dataKey="Okupansi" radius={[0, 4, 4, 0]} maxBarSize={25}>
                 {data.map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={getBarColor(entry.Okupansi)} />
+                  <Cell
+                    key={`cell-${index}`}
+                    fill={getBarColor(entry.Okupansi)}
+                  />
                 ))}
-                <LabelList 
-                  dataKey="Okupansi" 
-                  position="right" 
-                  formatter={(value: number) => `${value}%`}
+                <LabelList
+                  dataKey="Okupansi"
+                  position="right"
+                  formatter={(value) => `${Number(value)}%`}
                   style={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
                 />
               </Bar>

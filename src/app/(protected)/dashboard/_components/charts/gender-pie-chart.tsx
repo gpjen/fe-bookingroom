@@ -2,17 +2,28 @@
 
 import { useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from "recharts";
+import {
+  PieChart,
+  Pie,
+  Cell,
+  ResponsiveContainer,
+  Legend,
+  Tooltip,
+} from "recharts";
 import { Users2 } from "lucide-react";
 import { MOCK_BEDS } from "../mock-data";
 
 export function GenderPieChart() {
   const data = useMemo(() => {
-    const occupiedBeds = MOCK_BEDS.filter((b) => b.status === "occupied" && b.occupant);
-    
+    const occupiedBeds = MOCK_BEDS.filter(
+      (b) => b.status === "occupied" && b.occupant
+    );
+
     const male = occupiedBeds.filter((b) => b.occupant?.gender === "L").length;
-    const female = occupiedBeds.filter((b) => b.occupant?.gender === "P").length;
-    
+    const female = occupiedBeds.filter(
+      (b) => b.occupant?.gender === "P"
+    ).length;
+
     return [
       { name: "Laki-laki", value: male, color: "#0ea5e9" },
       { name: "Perempuan", value: female, color: "#ec4899" },
@@ -41,23 +52,25 @@ export function GenderPieChart() {
                 outerRadius={100}
                 paddingAngle={3}
                 dataKey="value"
-                label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                label={({ name, percent }) =>
+                  `${name} ${(percent ? percent * 100 : 0).toFixed(0)}%`
+                }
                 labelLine={false}
               >
                 {data.map((entry, index) => (
                   <Cell key={`cell-${index}`} fill={entry.color} />
                 ))}
               </Pie>
-              <Tooltip 
+              <Tooltip
                 formatter={(value: number) => [`${value} orang`, ""]}
-                contentStyle={{ 
-                  backgroundColor: "hsl(var(--card))", 
+                contentStyle={{
+                  backgroundColor: "hsl(var(--card))",
                   border: "1px solid hsl(var(--border))",
                   borderRadius: "8px",
                 }}
               />
-              <Legend 
-                verticalAlign="bottom" 
+              <Legend
+                verticalAlign="bottom"
                 height={36}
                 formatter={(value) => <span className="text-xs">{value}</span>}
               />

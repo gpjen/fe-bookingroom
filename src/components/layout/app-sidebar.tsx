@@ -99,11 +99,11 @@ const menuConfig: MenuItem[] = [
         permissions: ["booking-request:read"],
       },
       {
-        href: "/booking/list",
-        label: "All Bookings",
+        href: "/booking/occupant-status",
+        label: "Status Penghuni",
         icon: ListChecks,
         active: true,
-        permissions: ["booking-all:read"],
+        permissions: ["booking-occupant-status:read"],
       },
       {
         href: "/booking/calendar",

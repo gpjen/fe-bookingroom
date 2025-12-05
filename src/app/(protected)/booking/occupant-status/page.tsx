@@ -8,21 +8,21 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 
-export default function LogsPage() {
+export default function Page() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-bold tracking-tight">Daftar Booking</h1>
+        <h1 className="text-2xl font-bold tracking-tight">Daftar Penghuni</h1>
         <p className="text-muted-foreground">
-          Daftar booking yang telah dilakukan oleh pengguna.
+          Daftar penghuni yang telah melakukan pemesanan.
         </p>
       </div>
 
       <Card>
         <CardHeader>
-          <CardTitle>Daftar Booking</CardTitle>
+          <CardTitle>Daftar Penghuni</CardTitle>
           <CardDescription>
-            Daftar booking yang telah dilakukan oleh pengguna.
+            Daftar penghuni yang telah melakukan pemesanan.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4"></CardContent>

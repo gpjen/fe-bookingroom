@@ -11,13 +11,13 @@ export default function Page() {
   const router = useRouter();
 
   useEffect(() => {
-    // Only redirect to dashboard if truly authenticated and session is not expired
+    // Only redirect to home if truly authenticated and session is not expired
     if (
       status === "authenticated" &&
       session?.expires &&
       new Date(session.expires) > new Date()
     ) {
-      router.push("/dashboard");
+      router.push("/home");
     }
   }, [status, session?.expires, router]);
 

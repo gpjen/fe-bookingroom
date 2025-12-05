@@ -40,6 +40,7 @@ import {
   Activity,
   Layers,
   Folder,
+  Home,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -63,6 +64,14 @@ import { performLogout } from "@/lib/auth/logout-utils";
 
 // Menu Configuration
 const menuConfig: MenuItem[] = [
+  {
+    type: "single",
+    href: "/home",
+    label: "Home",
+    icon: Home,
+    active: true,
+    permissions: ["home:read"],
+  },
   {
     type: "single",
     href: "/dashboard",

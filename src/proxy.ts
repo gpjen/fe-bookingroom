@@ -21,9 +21,9 @@ export async function proxy(req: NextRequest) {
     return NextResponse.redirect(new URL("/", req.url));
   }
 
-  // If user is logged in (token exists and has no error) and tries to access home page, redirect to dashboard
+  // If user is logged in (token exists and has no error) and tries to access home page, redirect to /home
   if (token && !token.error && pathname === "/") {
-    return NextResponse.redirect(new URL("/dashboard", req.url));
+    return NextResponse.redirect(new URL("/home", req.url));
   }
 
   return NextResponse.next();

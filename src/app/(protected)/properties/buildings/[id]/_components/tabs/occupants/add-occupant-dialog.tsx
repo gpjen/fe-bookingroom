@@ -23,10 +23,24 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Search } from "lucide-react";
 import { toast } from "sonner";
 
+interface OccupantFormData {
+  type: string;
+  name: string;
+  identifier: string;
+  gender: string;
+  company: string;
+  department: string;
+  companionName: string;
+  companionId: string;
+  checkInDate: string;
+  checkOutDate: string;
+  bedCode: string;
+}
+
 interface AddOccupantDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onAdd: (data: any) => void;
+  onAdd: (data: OccupantFormData) => void;
   bedCodes: string[];
 }
 

@@ -6,12 +6,9 @@ import { ColumnDef } from "@tanstack/react-table";
 import { BookingRequest } from "./types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { format } from "date-fns";
-import { id } from "date-fns/locale";
 import { Eye, CheckCircle, XCircle, Clock } from "lucide-react";
 import { cn, formatDate } from "@/lib/utils";
 import { BUILDINGS } from "./mock-data";
-import { stat } from "fs";
 
 interface ColumnsProps {
   onView: (booking: BookingRequest) => void;
@@ -197,7 +194,7 @@ export const getColumns = ({
           </span>
           {booking.notes && (
             <span className="text-xs text-muted-foreground truncate italic">
-              "{booking.notes}"
+              &quot;{booking.notes}&quot;
             </span>
           )}
         </div>

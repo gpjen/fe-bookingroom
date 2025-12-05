@@ -37,7 +37,7 @@ export const BUILDINGS = [
 ];
 
 export function generateMockBookingRequests(count: number): BookingRequest[] {
-  return Array.from({ length: count }).map((_, i) => {
+  return Array.from({ length: count }).map(() => {
     const requesterName = faker.person.fullName();
     const requesterNik = `${faker.string
       .fromCharacters("DLC")
@@ -55,7 +55,7 @@ export function generateMockBookingRequests(count: number): BookingRequest[] {
 
     // Generate Occupants
     const occupantsCount = faker.number.int({ min: 1, max: 4 });
-    let occupants: BookingOccupant[] = Array.from({
+    const occupants: BookingOccupant[] = Array.from({
       length: occupantsCount,
     })
       .map(() => {
@@ -84,7 +84,7 @@ export function generateMockBookingRequests(count: number): BookingRequest[] {
         const occCheckOutDate = addDays(occCheckInDate, occDuration);
 
         // Per-occupant location
-        const occBuilding = faker.helpers.arrayElement(BUILDINGS);
+        faker.helpers.arrayElement(BUILDINGS);
 
         return {
           id: faker.string.uuid(),
@@ -143,17 +143,15 @@ export function generateMockBookingRequests(count: number): BookingRequest[] {
           : undefined,
       }));
 
-    // Ensure guests have companion info
-    const guests = occupants.filter((occ) => occ.type === "guest");
-    const employees = occupants.filter((occ) => occ.type === "employee");
-
-    // Assign companion info to each guest
-    guests.forEach((guest) => {
-      // Create a companion employee info
+    // Check if any guest occupants exist - if so, create companion info at booking level
+    const hasGuests = occupants.some((occ) => occ.type === "guest");
+    
+    let bookingCompanion = undefined;
+    if (hasGuests) {
       const companionName = faker.person.fullName();
       const companionNik = `${faker.string.fromCharacters("DLC").substring(0, 1)}${faker.string.numeric(8)}`;
       
-      guest.companion = {
+      bookingCompanion = {
         nik: companionNik,
         name: companionName,
         company: faker.helpers.arrayElement(COMPANIES),
@@ -161,7 +159,7 @@ export function generateMockBookingRequests(count: number): BookingRequest[] {
         email: faker.internet.email({ firstName: companionName.split(" ")[0] }),
         phone: faker.phone.number(),
       };
-    });
+    }
 
     // Timestamps
     // Use the earliest check-in date for requestedAt logic
@@ -212,6 +210,9 @@ export function generateMockBookingRequests(count: number): BookingRequest[] {
 
       // Main Location Request (area only, buildings are per-occupant)
       areaId: mainBuilding.areaId,
+
+      // Companion info (required when any occupant is a guest)
+      companion: bookingCompanion,
 
       occupants,
 

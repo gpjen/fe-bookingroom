@@ -23,7 +23,6 @@ import {
 import {
   Plus,
   MoreVertical,
-  Edit,
   Trash2,
   Building2,
   Calendar,
@@ -214,11 +213,12 @@ export default function BuildingsPage() {
     toast.success(`Bangunan ${name} berhasil dihapus`);
   };
 
-  // Open modal for editing
-  const handleEdit = (item: Building) => {
+  // Open modal for editing - will be used when edit functionality is enabled
+  const _handleEdit = (item: Building) => {
     setEditingItem(item);
     setIsModalOpen(true);
   };
+  void _handleEdit; // Suppress unused warning
 
   // Open modal for adding
   const handleAdd = () => {

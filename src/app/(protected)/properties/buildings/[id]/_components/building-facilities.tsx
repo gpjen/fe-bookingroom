@@ -40,7 +40,7 @@ interface Facility {
 }
 
 // Mock Data Fetcher
-const fetchFacilitiesData = async (id: string): Promise<Facility[]> => {
+const fetchFacilitiesData = async (): Promise<Facility[]> => {
   return new Promise((resolve) => {
     setTimeout(() => {
       resolve([
@@ -87,7 +87,8 @@ const fetchFacilitiesData = async (id: string): Promise<Facility[]> => {
   });
 };
 
-export function BuildingFacilities({ id }: { id: string }) {
+export function BuildingFacilities({ id: _id }: { id: string }) {
+  void _id; // Will be used when fetching real data
   const [facilities, setFacilities] = useState<Facility[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -100,11 +101,11 @@ export function BuildingFacilities({ id }: { id: string }) {
   const [formMode, setFormMode] = useState<"create" | "edit">("create");
 
   useEffect(() => {
-    fetchFacilitiesData(id).then((res) => {
+    fetchFacilitiesData().then((res) => {
       setFacilities(res);
       setLoading(false);
     });
-  }, [id]);
+  }, []);
 
   const handleAdd = () => {
     setFormMode("create");

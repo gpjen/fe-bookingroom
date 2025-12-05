@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import { useState, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -23,7 +23,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { ImagePlus, X, UploadCloud } from "lucide-react";
+import { ImagePlus, X } from "lucide-react";
 import Image from "next/image";
 
 const formSchema = z.object({
@@ -49,33 +49,19 @@ export function FacilityForm({
   initialData,
   mode,
 }: FacilityFormProps) {
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(
+    initialData?.imageUrl || null
+  );
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<FacilityFormData>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
+    defaultValues: initialData || {
       title: "",
       description: "",
       imageUrl: "",
     },
   });
-
-  useEffect(() => {
-    if (isOpen) {
-      if (initialData) {
-        form.reset(initialData);
-        setPreviewUrl(initialData.imageUrl || null);
-      } else {
-        form.reset({
-          title: "",
-          description: "",
-          imageUrl: "",
-        });
-        setPreviewUrl(null);
-      }
-    }
-  }, [isOpen, initialData, form]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];

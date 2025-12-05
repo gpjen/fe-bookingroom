@@ -28,7 +28,6 @@ import {
   BUILDINGS,
 } from "@/app/(protected)/booking/request/_components/mock-data";
 import type {
-  BookingRequest,
   BookingStatus,
   OccupantStatus,
 } from "@/app/(protected)/booking/request/_components/types";
@@ -334,7 +333,9 @@ export default function Page() {
                     <UserX className="h-5 w-5 text-slate-600 dark:text-slate-500" />
                   </div>
                 </div>
-                <h3 className="text-2xl font-bold mb-0.5">{stats.checkedOut}</h3>
+                <h3 className="text-2xl font-bold mb-0.5">
+                  {stats.checkedOut}
+                </h3>
                 <p className="text-xs text-muted-foreground font-medium">
                   Checked-out
                 </p>
@@ -387,7 +388,9 @@ export default function Page() {
                     .map((occ) => getBuildingInfo(occ.buildingId!))
                     .filter(Boolean);
                   const uniqueBuildings = [
-                    ...new Map(occupantBuildings.map((b) => [b?.id, b])).values(),
+                    ...new Map(
+                      occupantBuildings.map((b) => [b?.id, b])
+                    ).values(),
                   ];
                   const earliestDate = request.occupants.reduce(
                     (min, occ) => (occ.inDate < min ? occ.inDate : min),
@@ -439,7 +442,9 @@ export default function Page() {
                               <div className="min-w-0">
                                 <p className="font-medium text-foreground truncate">
                                   {uniqueBuildings.length > 0
-                                    ? uniqueBuildings.map((b) => b?.name).join(", ")
+                                    ? uniqueBuildings
+                                        .map((b) => b?.name)
+                                        .join(", ")
                                     : "-"}
                                 </p>
                                 <p className="text-xs truncate">
@@ -498,7 +503,9 @@ export default function Page() {
                                   <span className="font-medium truncate max-w-[100px]">
                                     {occ.name.split(" ")[0]}
                                   </span>
-                                  {getOccupantStatusBadge(occ.status)}
+                                  {getOccupantStatusBadge(
+                                    occ.status || "scheduled"
+                                  )}
                                 </div>
                               ))}
                               {request.occupants.length > 3 && (

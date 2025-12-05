@@ -1,22 +1,16 @@
 import { useEffect, useRef, useState } from "react";
-import { MapContainer, TileLayer, FeatureGroup, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, FeatureGroup } from "react-leaflet";
 import { EditControl } from "react-leaflet-draw";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "leaflet-draw/dist/leaflet.draw.css";
 import { Maximize2, Minimize2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { MapControl } from "./map-control";
 
 // Fix for Leaflet default icon not found
-// @ts-ignore
+// @ts-expect-error Leaflet type issue
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl:
@@ -39,22 +33,16 @@ function LeafletMap({
   onChange,
   readOnly,
   onMapReady,
-  isFullscreenTrigger,
   onToggleFullscreen,
   isFullscreen,
 }: MapInputClientProps & {
   onMapReady?: (map: L.Map) => void;
-  isFullscreenTrigger?: boolean;
   onToggleFullscreen?: () => void;
   isFullscreen?: boolean;
 }) {
   const [map, setMap] = useState<L.Map | null>(null);
   const featureGroupRef = useRef<L.FeatureGroup>(null);
-  const [isMounted, setIsMounted] = useState(false);
-
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
+  const [isMounted] = useState(typeof window !== "undefined");
 
   useEffect(() => {
     if (map && onMapReady) {
@@ -73,7 +61,6 @@ function LeafletMap({
         const layer = L.geoJSON(geoJson);
         layer.eachLayer((l) => {
           if (l instanceof L.Path) {
-            // @ts-ignore
             fg.addLayer(l);
           }
         });
@@ -82,25 +69,25 @@ function LeafletMap({
         if (fg.getLayers().length > 0) {
           map.fitBounds(fg.getBounds());
         }
-      } catch (e) {
-        console.error("Invalid GeoJSON", e);
+      } catch {
+        console.error("Invalid GeoJSON");
       }
     }
   }, [value, isMounted, map]);
 
-  const handleCreated = (e: any) => {
+  const handleCreated = (e: L.DrawEvents.Created) => {
     const layer = e.layer;
     if (onChange) {
-      const geoJson = layer.toGeoJSON();
+      const geoJson = (layer as L.Polygon).toGeoJSON();
       onChange(JSON.stringify(geoJson));
     }
   };
 
-  const handleEdited = (e: any) => {
+  const handleEdited = () => {
     if (onChange && featureGroupRef.current) {
       const layers = featureGroupRef.current.getLayers();
       if (layers.length > 0) {
-        // @ts-ignore
+        // @ts-expect-error Leaflet layer type
         const geoJson = layers[0].toGeoJSON();
         onChange(JSON.stringify(geoJson));
       } else {
@@ -109,13 +96,14 @@ function LeafletMap({
     }
   };
 
-  const handleDeleted = (e: any) => {
+  const handleDeleted = () => {
     if (onChange) {
       onChange("");
     }
   };
 
-  if (!isMounted) return <div className="h-full w-full bg-muted/20 animate-pulse" />;
+  if (!isMounted)
+    return <div className="h-full w-full bg-muted/20 animate-pulse" />;
 
   return (
     <MapContainer
@@ -193,9 +181,7 @@ export default function MapInputClient(props: MapInputClientProps) {
       {/* Fullscreen Trigger & Dialog */}
       <Dialog open={isFullscreenOpen} onOpenChange={setIsFullscreenOpen}>
         <DialogContent className="w-full h-full sm:max-w-[95vw] sm:max-h-[95vh] p-0 overflow-hidden flex flex-col">
-          <DialogTitle className="hidden">
-            Mapps
-          </DialogTitle>
+          <DialogTitle className="hidden">Mapps</DialogTitle>
           <div className="flex-1 relative">
             {/* Fullscreen Map Instance */}
             {isFullscreenOpen && (

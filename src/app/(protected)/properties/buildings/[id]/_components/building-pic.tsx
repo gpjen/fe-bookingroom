@@ -39,7 +39,8 @@ interface BuildingPIC {
 }
 
 // Mock Data Fetcher
-const fetchPICData = async (id: string): Promise<BuildingPIC[]> => {
+const fetchPICData = async (_id: string): Promise<BuildingPIC[]> => {
+  void _id; // Will be used when fetching real data
   return new Promise((resolve) => {
     setTimeout(() => {
       resolve([

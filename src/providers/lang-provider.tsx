@@ -1,5 +1,5 @@
 "use client";
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 
 export type Lang = "id" | "en" | "zh";
@@ -24,7 +24,13 @@ export function LangProvider({
     initialMessages || {}
   );
   const router = useRouter();
+  const isFirstMount = useRef(true);
+  
   useEffect(() => {
+    // Skip router.refresh() on first mount to prevent infinite reload
+    const shouldRefresh = !isFirstMount.current;
+    isFirstMount.current = false;
+    
     try {
       localStorage.setItem("app:lang", lang);
       document.cookie = `app:lang=${lang}; path=/; max-age=31536000`;
@@ -43,13 +49,16 @@ export function LangProvider({
             break;
         }
       }
-      router.refresh();
+      // Only refresh when language actually changes (not on first mount)
+      if (shouldRefresh) {
+        router.refresh();
+      }
     })();
-  }, [lang]);
-  const t = (k: string) => messages[k] ?? k;
+  }, [lang, initialLang, initialMessages, router]);
+  const t = useCallback((k: string) => messages[k] ?? k, [messages]);
   const value = useMemo<LangCtx>(
     () => ({ lang, setLang, t }),
-    [lang, messages]
+    [lang, t]
   );
   return <LangContext.Provider value={value}>{children}</LangContext.Provider>;
 }

@@ -145,37 +145,35 @@ export function MyBookingDetailDialog({
   };
 
   const getOccupantStatusConfig = (status: OccupantStatus) => {
-    const config: Record<
-      OccupantStatus,
-      { label: string; className: string }
-    > = {
-      scheduled: {
-        label: "Terjadwal",
-        className:
-          "bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-900/30 dark:text-blue-400",
-      },
-      checked_in: {
-        label: "Sudah Check-in",
-        className:
-          "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-900/30 dark:text-emerald-400",
-      },
-      checked_out: {
-        label: "Sudah Check-out",
-        className:
-          "bg-slate-100 text-slate-800 border-slate-300 dark:bg-slate-900/30 dark:text-slate-400",
-      },
-      cancelled: {
-        label: "Dibatalkan",
-        className:
-          "bg-gray-100 text-gray-800 border-gray-300 dark:bg-gray-900/30 dark:text-gray-400",
-      },
-    };
+    const config: Record<OccupantStatus, { label: string; className: string }> =
+      {
+        scheduled: {
+          label: "Terjadwal",
+          className:
+            "bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-900/30 dark:text-blue-400",
+        },
+        checked_in: {
+          label: "Sudah Check-in",
+          className:
+            "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-900/30 dark:text-emerald-400",
+        },
+        checked_out: {
+          label: "Sudah Check-out",
+          className:
+            "bg-slate-100 text-slate-800 border-slate-300 dark:bg-slate-900/30 dark:text-slate-400",
+        },
+        cancelled: {
+          label: "Dibatalkan",
+          className:
+            "bg-gray-100 text-gray-800 border-gray-300 dark:bg-gray-900/30 dark:text-gray-400",
+        },
+      };
     return config[status];
   };
 
   const statusConfig = getStatusConfig(booking.status);
   const StatusIcon = statusConfig.icon;
-  
+
   // Get unique buildings from occupants
   const uniqueBuildingIds = [
     ...new Set(
@@ -185,7 +183,8 @@ export function MyBookingDetailDialog({
   const buildings = uniqueBuildingIds
     .map((id) => BUILDINGS.find((b) => b.id === id))
     .filter(Boolean);
-  const areaName = BUILDINGS.find((b) => b.areaId === booking.areaId)?.area || "-";
+  const areaName =
+    BUILDINGS.find((b) => b.areaId === booking.areaId)?.area || "-";
 
   return (
     <>
@@ -240,11 +239,7 @@ export function MyBookingDetailDialog({
               {/* Location Info */}
               <Section title="Lokasi" icon={MapPin}>
                 <div className="grid grid-cols-2 gap-3">
-                  <InfoBox
-                    icon={MapPin}
-                    label="Area"
-                    value={areaName}
-                  />
+                  <InfoBox icon={MapPin} label="Area" value={areaName} />
                   <InfoBox
                     icon={Building}
                     label="Gedung"
@@ -328,7 +323,7 @@ export function MyBookingDetailDialog({
                 <div className="space-y-3">
                   {booking.occupants.map((occupant) => {
                     const occStatusConfig = getOccupantStatusConfig(
-                      occupant.status
+                      occupant.status as OccupantStatus
                     );
                     const canCancel = canCancelOccupant(occupant);
 
@@ -352,18 +347,14 @@ export function MyBookingDetailDialog({
                               </Badge>
                               <Badge
                                 variant="outline"
-                                className={cn("text-xs", occStatusConfig.className)}
+                                className={cn(
+                                  "text-xs",
+                                  occStatusConfig.className
+                                )}
                               >
                                 {occStatusConfig.label}
                               </Badge>
-                              {occupant.companion && (
-                                <Badge
-                                  variant="secondary"
-                                  className="text-xs bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
-                                >
-                                  Pendamping: {occupant.companion.name}
-                                </Badge>
-                              )}
+
                               <Badge variant="secondary" className="text-xs">
                                 {occupant.gender === "L"
                                   ? "Laki-laki"
@@ -613,7 +604,10 @@ export function MyBookingDetailDialog({
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="py-4">
-            <Label htmlFor="cancelOccupantReason" className="text-sm font-medium">
+            <Label
+              htmlFor="cancelOccupantReason"
+              className="text-sm font-medium"
+            >
               Alasan Pembatalan <span className="text-rose-500">*</span>
             </Label>
             <Textarea

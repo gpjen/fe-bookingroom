@@ -44,7 +44,8 @@ interface Floor {
 }
 
 // Mock Data Fetcher
-const fetchFloorsData = async (id: string): Promise<Floor[]> => {
+const fetchFloorsData = async (_id: string): Promise<Floor[]> => {
+  void _id; // Will be used when fetching real data
   return new Promise((resolve) => {
     setTimeout(() => {
       resolve([

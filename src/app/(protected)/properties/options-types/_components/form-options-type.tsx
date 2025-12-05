@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   Dialog,
   DialogContent,
@@ -31,7 +31,7 @@ export interface OptionType {
   category: "building" | "floor" | "room";
   name: string;
   description: string;
-  metadata: any;
+  metadata: Record<string, unknown>;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -40,20 +40,55 @@ export interface OptionType {
 const CATEGORY_FIELDS = {
   building: [
     { name: "floors", label: "Jumlah Lantai", type: "number", required: true },
-    { name: "yearBuilt", label: "Tahun Dibangun", type: "number", required: false },
-    { name: "capacity", label: "Kapasitas Total", type: "number", required: false },
+    {
+      name: "yearBuilt",
+      label: "Tahun Dibangun",
+      type: "number",
+      required: false,
+    },
+    {
+      name: "capacity",
+      label: "Kapasitas Total",
+      type: "number",
+      required: false,
+    },
     { name: "facilities", label: "Fasilitas", type: "array", required: false },
   ],
   floor: [
     { name: "level", label: "Tingkat/Level", type: "number", required: true },
-    { name: "totalRooms", label: "Total Kamar", type: "number", required: false },
-    { name: "hasElevatorAccess", label: "Akses Elevator", type: "boolean", required: false },
+    {
+      name: "totalRooms",
+      label: "Total Kamar",
+      type: "number",
+      required: false,
+    },
+    {
+      name: "hasElevatorAccess",
+      label: "Akses Elevator",
+      type: "boolean",
+      required: false,
+    },
     { name: "commonAreas", label: "Area Umum", type: "array", required: false },
   ],
   room: [
-    { name: "bedType", label: "Tipe Tempat Tidur", type: "text", required: true },
-    { name: "maxOccupancy", label: "Kapasitas Maksimal", type: "number", required: true },
-    { name: "priceMultiplier", label: "Pengali Harga", type: "number", required: false },
+    {
+      name: "bedType",
+      label: "Tipe Tempat Tidur",
+      type: "text",
+      required: true,
+    },
+    {
+      name: "maxOccupancy",
+      label: "Kapasitas Maksimal",
+      type: "number",
+      required: true,
+    },
+    {
+      name: "priceMultiplier",
+      label: "Pengali Harga",
+      type: "number",
+      required: false,
+    },
     { name: "amenities", label: "Amenitas", type: "array", required: false },
   ],
 };
@@ -72,41 +107,27 @@ export function FormOptionsType({
   onSubmit: (data: OptionType, id?: string) => void;
   initialData?: OptionType | null;
 }) {
-  const [category, setCategory] = useState<"building" | "floor" | "room">("building");
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [metadata, setMetadata] = useState<Record<string, any>>({});
+  const [category, setCategory] = useState<"building" | "floor" | "room">(
+    initialData?.category || "building"
+  );
+  const [name, setName] = useState(initialData?.name || "");
+  const [description, setDescription] = useState(
+    initialData?.description || ""
+  );
+  const [metadata, setMetadata] = useState<Record<string, unknown>>(
+    initialData?.metadata || {}
+  );
   const [errors, setErrors] = useState<Record<string, string>>({});
-
-  /* ---------------------------------------------------------------------- */
-  /* Load initial data / reset on open/close                                */
-  /* ---------------------------------------------------------------------- */
-  useEffect(() => {
-    if (isOpen) {
-      if (initialData) {
-        setCategory(initialData.category);
-        setName(initialData.name);
-        setDescription(initialData.description);
-        setMetadata(initialData.metadata || {});
-      } else {
-        setCategory("building");
-        setName("");
-        setDescription("");
-        setMetadata({});
-      }
-      setErrors({});
-    }
-  }, [isOpen, initialData]);
 
   /* ---------------------------------------------------------------------- */
   /* Handlers                                                               */
   /* ---------------------------------------------------------------------- */
   const handleCategoryChange = (value: string) => {
-    setCategory(value as any);
+    setCategory(value as "building" | "floor" | "room");
     setMetadata({}); // Reset metadata when category changes
   };
 
-  const handleMetadataChange = (fieldName: string, value: any) => {
+  const handleMetadataChange = (fieldName: string, value: unknown) => {
     setMetadata((prev) => ({
       ...prev,
       [fieldName]: value,
@@ -115,8 +136,8 @@ export function FormOptionsType({
 
   const handleArrayAdd = (fieldName: string, value: string) => {
     if (!value.trim()) return;
-    
-    const currentArray = metadata[fieldName] || [];
+
+    const currentArray = (metadata[fieldName] as string[]) || [];
     setMetadata((prev) => ({
       ...prev,
       [fieldName]: [...currentArray, value.trim()],
@@ -124,10 +145,10 @@ export function FormOptionsType({
   };
 
   const handleArrayRemove = (fieldName: string, index: number) => {
-    const currentArray = metadata[fieldName] || [];
+    const currentArray = (metadata[fieldName] as string[]) || [];
     setMetadata((prev) => ({
       ...prev,
-      [fieldName]: currentArray.filter((_: any, i: number) => i !== index),
+      [fieldName]: currentArray.filter((_, i: number) => i !== index),
     }));
   };
 
@@ -159,12 +180,15 @@ export function FormOptionsType({
     }
 
     // Clean up metadata (remove empty values)
-    const cleanedMetadata = Object.entries(metadata).reduce((acc, [key, value]) => {
-      if (value !== undefined && value !== null && value !== "") {
-        acc[key] = value;
-      }
-      return acc;
-    }, {} as Record<string, any>);
+    const cleanedMetadata = Object.entries(metadata).reduce(
+      (acc, [key, value]) => {
+        if (value !== undefined && value !== null && value !== "") {
+          acc[key] = value;
+        }
+        return acc;
+      },
+      {} as Record<string, unknown>
+    );
 
     const finalData: OptionType = {
       id: initialData?.id || "",
@@ -181,7 +205,14 @@ export function FormOptionsType({
   /* ---------------------------------------------------------------------- */
   /* Render Dynamic Field                                                   */
   /* ---------------------------------------------------------------------- */
-  const renderField = (field: any) => {
+  interface FieldConfig {
+    name: string;
+    label: string;
+    type: "text" | "number" | "boolean" | "array";
+    required: boolean;
+  }
+
+  const renderField = (field: FieldConfig) => {
     const value = metadata[field.name];
     const error = errors[field.name];
 
@@ -191,11 +222,13 @@ export function FormOptionsType({
           <div key={field.name} className="space-y-2">
             <Label htmlFor={field.name}>
               {field.label}
-              {field.required && <span className="text-destructive ml-1">*</span>}
+              {field.required && (
+                <span className="text-destructive ml-1">*</span>
+              )}
             </Label>
             <Input
               id={field.name}
-              value={value || ""}
+              value={value as string}
               onChange={(e) => handleMetadataChange(field.name, e.target.value)}
               placeholder={`Masukkan ${field.label.toLowerCase()}`}
             />
@@ -208,12 +241,14 @@ export function FormOptionsType({
           <div key={field.name} className="space-y-2">
             <Label htmlFor={field.name}>
               {field.label}
-              {field.required && <span className="text-destructive ml-1">*</span>}
+              {field.required && (
+                <span className="text-destructive ml-1">*</span>
+              )}
             </Label>
             <Input
               id={field.name}
               type="number"
-              value={value || ""}
+              value={value as string}
               onChange={(e) =>
                 handleMetadataChange(
                   field.name,
@@ -232,14 +267,16 @@ export function FormOptionsType({
             <div className="flex items-center space-x-2">
               <Checkbox
                 id={field.name}
-                checked={value || false}
+                checked={value as boolean}
                 onCheckedChange={(checked) =>
                   handleMetadataChange(field.name, checked)
                 }
               />
               <Label htmlFor={field.name} className="cursor-pointer">
                 {field.label}
-                {field.required && <span className="text-destructive ml-1">*</span>}
+                {field.required && (
+                  <span className="text-destructive ml-1">*</span>
+                )}
               </Label>
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
@@ -253,7 +290,7 @@ export function FormOptionsType({
             fieldName={field.name}
             label={field.label}
             required={field.required}
-            values={value || []}
+            values={value as string[]}
             onAdd={handleArrayAdd}
             onRemove={handleArrayRemove}
             error={error}
@@ -320,7 +357,9 @@ export function FormOptionsType({
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
-            {errors.name && <p className="text-sm text-destructive">{errors.name}</p>}
+            {errors.name && (
+              <p className="text-sm text-destructive">{errors.name}</p>
+            )}
           </div>
 
           {/* Description */}
@@ -340,12 +379,17 @@ export function FormOptionsType({
             <div className="flex items-center justify-between">
               <h3 className="font-semibold text-sm">Detail Metadata</h3>
               <span className="text-xs text-muted-foreground">
-                Sesuai kategori {category === "building" ? "Bangunan" : category === "floor" ? "Lantai" : "Kamar"}
+                Sesuai kategori{" "}
+                {category === "building"
+                  ? "Bangunan"
+                  : category === "floor"
+                  ? "Lantai"
+                  : "Kamar"}
               </span>
             </div>
-            
+
             <div className="space-y-4 bg-muted/30 p-4 rounded-lg">
-              {currentFields.map((field) => renderField(field))}
+              {currentFields.map((field) => renderField(field as FieldConfig))}
             </div>
           </div>
         </div>

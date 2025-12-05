@@ -36,27 +36,22 @@ export interface CompanionInfo {
 }
 
 /**
- * Location assignment for an occupant
- * Can be set by requester (optional) or admin (when approving)
- */
-export interface OccupantLocation {
-  areaId?: string;
-  buildingId?: string;
-  roomId?: string;
-  bedId?: string;
-}
-
-/**
  * History log for room changes (move/extend)
  */
 export interface OccupantHistoryLog {
-  fromLocation?: OccupantLocation;
-  toLocation?: OccupantLocation;
+  fromRoomId?: string;
+  fromBedId?: string;
+  toRoomId?: string;
+  toBedId?: string;
   changedAt: Date;
   changedBy?: string;
   reason?: string;
 }
 
+/**
+ * Occupant - unified type for both form input and stored data
+ * Used for booking request form and displaying booking details
+ */
 export interface BookingOccupant {
   id: string;
   name: string;
@@ -69,79 +64,36 @@ export interface BookingOccupant {
   company?: string;
   department?: string;
 
-  // Companion info - required for guest type occupants
-  // Contains the employee who accompanies this guest
-  companion?: CompanionInfo;
-
-  status: OccupantStatus;
+  // Status fields (set by system, optional for form)
+  status?: OccupantStatus;
   cancelledAt?: Date;
   cancelReason?: string;
 
-  // Planned stay dates (from booking request)
+  // Planned stay dates
   inDate: Date;
   outDate?: Date;
   duration?: number; // in days
 
-  // Actual check-in/out timestamps (set when status changes)
+  // Actual check-in/out timestamps (set by admin)
   actualCheckInAt?: Date;
   actualCheckOutAt?: Date;
 
-  // Location assignment (optional - can be set by requester or admin)
-  // Requester: can request specific area/building
-  // Admin: assigns room and bed when approving
+  // Location assignment
   areaId?: string;
+  areaName?: string;
   buildingId?: string;
+  buildingName?: string;
   roomId?: string;
+  roomCode?: string;
   bedId?: string;
+  bedCode?: string;
 
-  // Log history for move/extend
+  // History log for move/extend
   history?: OccupantHistoryLog[];
 }
 
 /**
- * Form data for occupant - used in booking request forms
- * Extends BookingOccupant with display codes for UI
- * Each occupant can have their own location (area/building/room/bed)
- */
-export interface OccupantFormData {
-  id: string;
-  name: string;
-  identifier: string; // NIK for employee, ID/Passport for guest
-  type: BookingType;
-  gender: Gender;
-
-  phone?: string;
-  email?: string;
-  company?: string;
-  department?: string;
-
-  // Companion info - required for guest type occupants
-  companion?: CompanionInfo;
-
-  // Planned stay dates
-  inDate: Date;
-  outDate: Date;
-  duration?: number; // in days
-
-  // Location assignment - each occupant can have different location
-  // Requester must select area first, then can optionally select building/room/bed
-  areaId?: string;
-  areaName?: string; // Display name for UI
-  buildingId?: string;
-  buildingName?: string; // Display name for UI
-  roomId?: string;
-  roomCode?: string; // Display code for UI (e.g., "R-101")
-  bedId?: string;
-  bedCode?: string; // Display code for UI (e.g., "A", "B")
-}
-
-/**
  * Booking Request - main booking entity
- * 
- * Location hierarchy:
- * - areaId: Required. Requester MUST select an area first
- * - Each occupant can have their own location (building/room/bed) within the same area
- *   which allows flexibility for different occupants to stay in different buildings
  */
 export interface BookingRequest {
   id: string;
@@ -157,11 +109,12 @@ export interface BookingRequest {
   };
 
   // Primary area requested (mandatory)
-  // Requester MUST select area first - this determines available buildings for occupants
   areaId: string;
 
-  // Occupants - each can have their own location assignment (building/room/bed)
-  // Use BookingOccupant for stored data, OccupantFormData for form input
+  // Companion info - required when any occupant is a guest
+  companion?: CompanionInfo;
+
+  // Occupants
   occupants: BookingOccupant[];
 
   attachments: BookingAttachment[];

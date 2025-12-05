@@ -8,7 +8,7 @@ import { MOCK_BOOKING_REQUESTS, BUILDINGS } from "./_components/mock-data";
 import { DateRange } from "react-day-picker";
 import { ClipboardList, Download, RefreshCw } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import { addDays } from "date-fns";
+
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { BookingDetailDialog } from "./_components/booking-detail-dialog";
@@ -112,12 +112,13 @@ export default function BookingRequestPage() {
     setRejectReason("");
   };
 
-  const handleCancelAction = () => {
+  const _handleCancelAction = () => {
     setActionType(null);
     setSelectedBooking(null);
     setAdminNotes("");
     setRejectReason(""); // Reset rejectReason on cancel
   };
+  void _handleCancelAction;
 
   const handleRefresh = () => {
     toast.info("Memuat ulang data...");

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { z } from "zod";
 import { toast } from "sonner";
 import {
@@ -65,24 +65,14 @@ export function FormArea({
   onSubmit,
   initialData,
 }: FormAreaProps) {
-  const [formData, setFormData] = useState<Partial<CompaniesFormData>>({});
-  const [errors, setErrors] = useState<Record<string, string>>({});
-
-  // Reset form saat initialData berubah
-  useEffect(() => {
-    if (isOpen) {
-      if (initialData) {
-        setFormData(initialData);
-      } else {
-        setFormData({
-          code: "",
-          name: "",
-          status: true,
-        });
-      }
-      setErrors({});
+  const [formData, setFormData] = useState<Partial<CompaniesFormData>>(
+    initialData || {
+      code: "",
+      name: "",
+      status: true,
     }
-  }, [isOpen, initialData]);
+  );
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const handleFormSubmit = () => {
     // Reset errors

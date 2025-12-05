@@ -15,7 +15,8 @@ interface BuildingStatsData {
 }
 
 // Mock Data Fetcher
-const fetchStatsData = async (id: string): Promise<BuildingStatsData> => {
+const fetchStatsData = async (_id: string): Promise<BuildingStatsData> => {
+  void _id; // Will be used when fetching real data
   return new Promise((resolve) => {
     setTimeout(() => {
       resolve({

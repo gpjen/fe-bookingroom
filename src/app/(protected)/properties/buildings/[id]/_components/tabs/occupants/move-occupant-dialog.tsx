@@ -22,10 +22,19 @@ import { Textarea } from "@/components/ui/textarea";
 import { ArrowRightLeft } from "lucide-react";
 import { Occupant } from "./types";
 
+interface MoveFormData {
+  area: string;
+  building: string;
+  floor: string;
+  room: string;
+  reason: string;
+  notes: string;
+}
+
 interface MoveOccupantDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onMove: (data: any) => void;
+  onMove: (data: MoveFormData) => void;
   occupant: Occupant | null;
 }
 

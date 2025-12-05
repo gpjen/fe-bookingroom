@@ -12,13 +12,15 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { UserCheck } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
+import { Send } from "lucide-react";
 
 import { LocationSection } from "./form-parts/location-section";
 import { OccupantList } from "./form-parts/occupant-list";
 import { OccupantForm } from "./form-parts/occupant-form";
 import { BookingInfoSection } from "./form-parts/booking-info-section";
-import type { OccupantFormData } from "@/app/(protected)/booking/request/_components/types";
+import { CompanionSection } from "./form-parts/companion-section";
+import type { BookingOccupant, CompanionInfo } from "@/app/(protected)/booking/request/_components/types";
 
 const formSchema = z.object({
   areaId: z.string().min(1, "Area wajib dipilih"),
@@ -32,7 +34,7 @@ type BookingRequestFormData = z.infer<typeof formSchema>;
 interface BookingRequestFormProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: any) => void;
+  onSubmit: (data: BookingRequestFormData & { companion?: CompanionInfo }) => void;
 }
 
 export function BookingRequestForm({
@@ -45,33 +47,36 @@ export function BookingRequestForm({
     purpose: "",
     notes: "",
   });
-  const [occupants, setOccupants] = useState<OccupantFormData[]>([]);
+  const [occupants, setOccupants] = useState<BookingOccupant[]>([]);
+  const [companion, setCompanion] = useState<CompanionInfo | undefined>(undefined);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [showOccupantForm, setShowOccupantForm] = useState(false);
   const [editingOccupant, setEditingOccupant] =
-    useState<OccupantFormData | null>(null);
+    useState<BookingOccupant | null>(null);
 
-  const handleAddOccupant = (newOccupant: OccupantFormData) => {
+  const hasGuestOccupant = occupants.some((o) => o.type === "guest");
+
+  const handleAddOccupant = (newOccupant: BookingOccupant) => {
     if (editingOccupant) {
       setOccupants(
         occupants.map((o) => (o.id === editingOccupant.id ? newOccupant : o))
       );
-      toast.success("Penghuni berhasil diupdate");
+      toast.success("Penghuni diupdate");
     } else {
       setOccupants([...occupants, newOccupant]);
-      toast.success("Penghuni berhasil ditambahkan");
+      toast.success("Penghuni ditambahkan");
     }
     handleCancelOccupantForm();
   };
 
-  const handleEditOccupant = (occupant: OccupantFormData) => {
+  const handleEditOccupant = (occupant: BookingOccupant) => {
     setEditingOccupant(occupant);
     setShowOccupantForm(true);
   };
 
   const handleDeleteOccupant = (id: string) => {
     setOccupants(occupants.filter((o) => o.id !== id));
-    toast.success("Penghuni berhasil dihapus");
+    toast.success("Penghuni dihapus");
   };
 
   const handleCancelOccupantForm = () => {
@@ -82,48 +87,33 @@ export function BookingRequestForm({
   const handleSubmit = () => {
     setErrors({});
 
-    // Check guest-companion rule - each guest must have a companion
-    const guests = occupants.filter((o) => o.type === "guest");
-    const guestsWithoutCompanion = guests.filter((o) => !o.companion);
-
-    if (guestsWithoutCompanion.length > 0) {
-      toast.error("Setiap tamu harus memiliki pendamping karyawan");
+    if (hasGuestOccupant && (!companion || !companion.nik || !companion.name)) {
+      setErrors({ companion: "Pendamping wajib diisi jika ada tamu" });
+      toast.error("Pendamping wajib diisi jika ada tamu");
       return;
     }
 
-    const validationData = {
-      ...formData,
-      occupants,
-    };
-
-    const result = formSchema.safeParse(validationData);
+    const result = formSchema.safeParse({ ...formData, occupants });
     if (!result.success) {
       const fieldErrors: Record<string, string> = {};
       result.error.issues.forEach((issue) => {
         const key = issue.path[0];
-        if (typeof key === "string") {
-          fieldErrors[key] = issue.message;
-        }
+        if (typeof key === "string") fieldErrors[key] = issue.message;
       });
       setErrors(fieldErrors);
-      toast.error("Validasi gagal. Periksa kembali isian form.");
+      toast.error("Periksa kembali isian form");
       return;
     }
 
     try {
-      onSubmit(result.data);
+      onSubmit({ ...result.data, companion: hasGuestOccupant ? companion : undefined });
       toast.success("Permintaan booking berhasil dibuat");
       onClose();
-
-      // Reset form
-      setFormData({
-        areaId: "",
-        purpose: "",
-        notes: "",
-      });
+      setFormData({ areaId: "", purpose: "", notes: "" });
       setOccupants([]);
+      setCompanion(undefined);
     } catch (error) {
-      toast.error("Terjadi kesalahan saat menyimpan data");
+      toast.error("Terjadi kesalahan");
       console.error(error);
     }
   };
@@ -131,27 +121,17 @@ export function BookingRequestForm({
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent
-        className="w-full md:max-w-[900px] max-h-[95vh] overflow-y-auto p-0"
+        className="w-full md:max-w-[600px] max-h-[95vh] overflow-y-auto"
         onInteractOutside={(e) => e.preventDefault()}
       >
-        <DialogHeader className="px-6 pt-6 pb-4 border-b">
-          <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-primary/10">
-              <UserCheck className="h-6 w-6 text-primary" />
-            </div>
-            <div>
-              <DialogTitle className="text-2xl font-bold">
-                Buat Permintaan Booking Baru
-              </DialogTitle>
-              <DialogDescription className="text-muted-foreground">
-                Lengkapi informasi booking di bawah ini. Field dengan tanda (*)
-                wajib diisi.
-              </DialogDescription>
-            </div>
-          </div>
+        <DialogHeader className="pb-3">
+          <DialogTitle>Permintaan Booking Baru</DialogTitle>
+          <DialogDescription>
+            Lengkapi informasi booking di bawah ini
+          </DialogDescription>
         </DialogHeader>
 
-        <div className="px-6 py-4 space-y-6">
+        <div className="space-y-5">
           <LocationSection
             areaId={formData.areaId || ""}
             onAreaChange={(value) =>
@@ -159,6 +139,8 @@ export function BookingRequestForm({
             }
             errors={errors}
           />
+
+          <Separator />
 
           {showOccupantForm ? (
             <OccupantForm
@@ -177,6 +159,15 @@ export function BookingRequestForm({
             />
           )}
 
+          <CompanionSection
+            companion={companion}
+            onCompanionChange={setCompanion}
+            hasGuestOccupant={hasGuestOccupant}
+            errors={errors}
+          />
+
+          <Separator />
+
           <BookingInfoSection
             purpose={formData.purpose || ""}
             notes={formData.notes || ""}
@@ -190,32 +181,22 @@ export function BookingRequestForm({
           />
         </div>
 
-        <DialogFooter className="px-6 py-4 border-t bg-gradient-to-r from-gray-50 to-white dark:from-gray-900/50 dark:to-gray-900/30">
-          <div className="flex items-center justify-between w-full">
-            <div className="text-sm text-muted-foreground">
-              {occupants.length} penghuni •{" "}
-              {formData.areaId ? "Area terpilih" : "Pilih area"}
-            </div>
-            <div className="flex gap-3">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={onClose}
-                className="min-w-[100px]"
-              >
-                Batal
-              </Button>
-              <Button
-                type="button"
-                onClick={handleSubmit}
-                className="min-w-[150px] gap-2"
-                disabled={occupants.length === 0}
-              >
-                <UserCheck className="h-4 w-4" />
-                Ajukan Permintaan
-              </Button>
-            </div>
+        <DialogFooter className="pt-4 gap-2 sm:gap-0">
+          <div className="flex items-center text-xs text-muted-foreground mr-auto">
+            {occupants.length} penghuni
           </div>
+          <Button type="button" variant="outline" onClick={onClose}>
+            Batal
+          </Button>
+          <Button
+            type="button"
+            onClick={handleSubmit}
+            disabled={occupants.length === 0}
+            className="gap-1.5"
+          >
+            <Send className="h-4 w-4" />
+            Ajukan
+          </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

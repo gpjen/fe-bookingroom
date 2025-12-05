@@ -23,7 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { AlertTriangle, Save, Trash } from "lucide-react";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -143,7 +143,7 @@ export function RoomInfoTab({
         status:
           initialData.status === "available"
             ? "active"
-            : (initialData.status as any),
+            : (initialData.status as "active" | "inactive" | "maintenance"),
         isMixGender: initialData.isMixGender,
         isBookable: initialData.isBookable,
         description: initialData.description,

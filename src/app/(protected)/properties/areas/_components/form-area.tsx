@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { z } from "zod";
 import { toast } from "sonner";
 import {
@@ -76,27 +76,17 @@ export function FormArea({
   initialData,
   allAreas = [],
 }: FormAreaProps) {
-  const [formData, setFormData] = useState<Partial<ArealFormData>>({});
-  const [errors, setErrors] = useState<Record<string, string>>({});
-
-  // Reset form saat initialData berubah
-  useEffect(() => {
-    if (isOpen) {
-      if (initialData) {
-        setFormData(initialData);
-      } else {
-        setFormData({
-          name: "",
-          location: "",
-          status: "active",
-          parent_id: undefined,
-          descriptions: "",
-          polygon: "",
-        });
-      }
-      setErrors({}); // Selalu reset error saat modal dibuka
+  const [formData, setFormData] = useState<Partial<ArealFormData>>(
+    initialData || {
+      name: "",
+      location: "",
+      status: "active",
+      parent_id: undefined,
+      descriptions: "",
+      polygon: "",
     }
-  }, [isOpen, initialData]);
+  );
+  const [errors, setErrors] = useState<Record<string, string>>({});
 
   const handleFormSubmit = () => {
     // Reset errors

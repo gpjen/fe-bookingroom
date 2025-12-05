@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import { formatDistanceToNow } from "date-fns";
 import { id as idLocale } from "date-fns/locale";
 import {
@@ -17,6 +18,26 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+
+function ContentWrapper({
+  children,
+  link,
+}: {
+  children: React.ReactNode;
+  link?: string;
+}) {
+  if (link) {
+    return (
+      <Link
+        href={link}
+        className="flex-1 flex items-start gap-3 p-3 group/link"
+      >
+        {children}
+      </Link>
+    );
+  }
+  return <div className="flex-1 flex items-start gap-3 p-3">{children}</div>;
+}
 
 export interface Notification {
   id: string;
@@ -81,20 +102,6 @@ export function NotificationItem({
   const Icon = config.icon;
   const CategoryIcon = categoryInfo.icon;
 
-  const ContentWrapper = ({ children }: { children: React.ReactNode }) => {
-    if (notification.link) {
-      return (
-        <Link
-          href={notification.link}
-          className="flex-1 flex items-start gap-3 p-3 group/link"
-        >
-          {children}
-        </Link>
-      );
-    }
-    return <div className="flex-1 flex items-start gap-3 p-3">{children}</div>;
-  };
-
   return (
     <div
       className={cn(
@@ -102,7 +109,7 @@ export function NotificationItem({
         !notification.isRead && "bg-primary/[0.02] border-l-2 border-l-primary"
       )}
     >
-      <ContentWrapper>
+      <ContentWrapper link={notification.link}>
         {/* Icon - Compact */}
         <div
           className={cn(

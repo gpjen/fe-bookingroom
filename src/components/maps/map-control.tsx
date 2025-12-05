@@ -1,6 +1,7 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import L from "leaflet";
 import { useMap } from "react-leaflet";
@@ -13,20 +14,20 @@ interface MapControlProps {
 
 export function MapControl({ position, children, className }: MapControlProps) {
   const map = useMap();
-  const containerRef = useRef<HTMLDivElement>(document.createElement("div"));
+  const [container, setContainer] = useState<HTMLDivElement | null>(null);
   const controlRef = useRef<L.Control | null>(null);
 
-  useEffect(() => {
-    const container = containerRef.current;
+  useLayoutEffect(() => {
+    const div = document.createElement("div");
     // Add leaflet-bar class for standard styling, but allow custom classes
-    container.className = `leaflet-bar leaflet-control ${className || ""}`;
+    div.className = `leaflet-bar leaflet-control ${className || ""}`;
 
     // Prevent click propagation to the map
-    L.DomEvent.disableClickPropagation(container);
-    L.DomEvent.disableScrollPropagation(container);
+    L.DomEvent.disableClickPropagation(div);
+    L.DomEvent.disableScrollPropagation(div);
 
     const Control = L.Control.extend({
-      onAdd: () => container,
+      onAdd: () => div,
       onRemove: () => {
         // Cleanup if needed
       },
@@ -35,13 +36,18 @@ export function MapControl({ position, children, className }: MapControlProps) {
     const control = new Control({ position });
     control.addTo(map);
     controlRef.current = control;
+    setContainer(div);
 
     return () => {
       if (controlRef.current) {
         controlRef.current.remove();
+        controlRef.current = null;
       }
+      setContainer(null);
     };
   }, [map, position, className]);
 
-  return createPortal(children, containerRef.current);
+  if (!container) return null;
+
+  return createPortal(children, container);
 }

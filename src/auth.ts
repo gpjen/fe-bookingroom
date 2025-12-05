@@ -1,8 +1,8 @@
-import type { NextAuthOptions, Account, TokenSet } from "next-auth";
+import type { NextAuthOptions, TokenSet } from "next-auth";
 import Keycloak from "next-auth/providers/keycloak";
 import { getAccessForUsername } from "@/lib/auth/rbac";
 
-function decodeJwtPayload(jwt?: string): any {
+function decodeJwtPayload(jwt?: string): Record<string, unknown> | undefined {
   if (!jwt) return undefined;
   const parts = jwt.split(".");
   if (parts.length < 2) return undefined;

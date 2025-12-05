@@ -27,16 +27,50 @@ export interface AreaData {
 }
 
 export const MOCK_AREAS: AreaData[] = [
-  { id: "area-1", name: "Area Utara", code: "AU", totalBuildings: 2, totalRooms: 24, availableBeds: 45 },
-  { id: "area-2", name: "Area Selatan", code: "AS", totalBuildings: 2, totalRooms: 18, availableBeds: 32 },
-  { id: "area-3", name: "Area Timur", code: "AT", totalBuildings: 1, totalRooms: 12, availableBeds: 18 },
+  {
+    id: "area-1",
+    name: "LQ",
+    code: "LQ",
+    totalBuildings: 2,
+    totalRooms: 24,
+    availableBeds: 45,
+  },
+  {
+    id: "area-2",
+    name: "LQ Center",
+    code: "LQC",
+    totalBuildings: 2,
+    totalRooms: 18,
+    availableBeds: 32,
+  },
+  {
+    id: "area-3",
+    name: "Tomori",
+    code: "TM",
+    totalBuildings: 1,
+    totalRooms: 12,
+    availableBeds: 18,
+  },
 ];
 
 export const MOCK_BUILDINGS: BuildingData[] = [
-  { 
-    id: "bld-1", 
-    name: "Mess LQ 1", 
-    areaId: "area-1", 
+  {
+    id: "bld-htl",
+    name: "Hotel",
+    areaId: "area-1",
+    code: "HTL",
+    totalRooms: 24,
+    totalBeds: 45,
+    availableBeds: 45,
+    roomTypes: [
+      { type: "VIP", total: 3, available: 2, occupied: 1 },
+      { type: "VVIP", total: 1, available: 1, occupied: 0 },
+    ],
+  },
+  {
+    id: "bld-1",
+    name: "Block 1",
+    areaId: "area-1",
     code: "LQ1",
     totalRooms: 12,
     totalBeds: 36,
@@ -45,12 +79,12 @@ export const MOCK_BUILDINGS: BuildingData[] = [
       { type: "Standard", total: 8, available: 5, occupied: 3 },
       { type: "VIP", total: 3, available: 2, occupied: 1 },
       { type: "VVIP", total: 1, available: 1, occupied: 0 },
-    ]
+    ],
   },
-  { 
-    id: "bld-2", 
-    name: "Mess LQ 2", 
-    areaId: "area-1", 
+  {
+    id: "bld-2",
+    name: "Block 2",
+    areaId: "area-1",
     code: "LQ2",
     totalRooms: 12,
     totalBeds: 32,
@@ -58,12 +92,12 @@ export const MOCK_BUILDINGS: BuildingData[] = [
     roomTypes: [
       { type: "Standard", total: 10, available: 6, occupied: 4 },
       { type: "VIP", total: 2, available: 1, occupied: 1 },
-    ]
+    ],
   },
-  { 
-    id: "bld-3", 
-    name: "Mess Selatan A", 
-    areaId: "area-2", 
+  {
+    id: "bld-3",
+    name: "Block 3",
+    areaId: "area-2",
     code: "SA",
     totalRooms: 10,
     totalBeds: 28,
@@ -71,12 +105,12 @@ export const MOCK_BUILDINGS: BuildingData[] = [
     roomTypes: [
       { type: "Standard", total: 8, available: 5, occupied: 3 },
       { type: "VIP", total: 2, available: 1, occupied: 1 },
-    ]
+    ],
   },
-  { 
-    id: "bld-4", 
-    name: "Mess Selatan B", 
-    areaId: "area-2", 
+  {
+    id: "bld-4",
+    name: "Block 4",
+    areaId: "area-2",
     code: "SB",
     totalRooms: 8,
     totalBeds: 24,
@@ -84,21 +118,17 @@ export const MOCK_BUILDINGS: BuildingData[] = [
     roomTypes: [
       { type: "Standard", total: 6, available: 4, occupied: 2 },
       { type: "VIP", total: 2, available: 1, occupied: 1 },
-    ]
+    ],
   },
-  { 
-    id: "bld-5", 
-    name: "Mess Timur", 
-    areaId: "area-3", 
-    code: "MT",
+  {
+    id: "bld-5",
+    name: "Block 5",
+    areaId: "area-3",
+    code: "TMR01",
     totalRooms: 12,
     totalBeds: 30,
     availableBeds: 18,
-    roomTypes: [
-      { type: "Standard", total: 8, available: 5, occupied: 3 },
-      { type: "VIP", total: 3, available: 2, occupied: 1 },
-      { type: "Suite", total: 1, available: 0, occupied: 1 },
-    ]
+    roomTypes: [{ type: "Standard", total: 8, available: 5, occupied: 3 }],
   },
 ];
 

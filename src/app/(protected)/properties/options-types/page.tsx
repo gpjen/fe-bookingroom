@@ -194,7 +194,7 @@ const CategoryBadge = ({ category }: { category: OptionType["category"] }) => {
 };
 
 // Metadata Display Component
-const MetadataDisplay = ({ metadata }: { metadata: any }) => {
+const MetadataDisplay = ({ metadata }: { metadata: Record<string, unknown> }) => {
   if (!metadata || Object.keys(metadata).length === 0) {
     return (
       <span className="text-xs text-muted-foreground italic">

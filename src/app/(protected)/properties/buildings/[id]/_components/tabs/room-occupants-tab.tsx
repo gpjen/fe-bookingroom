@@ -109,14 +109,14 @@ export function RoomOccupantsTab({
     setSelectedOccupant(null);
   };
 
-  const handleAddOccupant = (data: any) => {
+  const handleAddOccupant = (data: { name: string }) => {
     toast.success("Penghuni Berhasil Ditambahkan", {
       description: `${data.name} telah ditambahkan ke kamar ini.`,
     });
     setIsAddOpen(false);
   };
 
-  const handleMove = (data: any) => {
+  const handleMove = (data: { room?: string }) => {
     toast.success("Pindah Kamar Berhasil", {
       description: `${selectedOccupant?.name} dipindahkan ke ${
         data.room || "kamar baru"

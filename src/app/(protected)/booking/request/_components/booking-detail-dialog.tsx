@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useMemo } from "react";
 
 import {
   Sheet,
@@ -72,35 +72,25 @@ export function BookingDetailDialog({
   onRequestApprove,
   onRequestReject,
 }: BookingDetailDialogProps) {
-  const [occupantEdits, setOccupantEdits] = useState<
-    Record<string, { room: string; bedCode: string }>
-  >({});
-
-  const [isRejecting, setIsRejecting] = useState(false);
-
-  /* ---------------------------------------------
-   * Reset state setiap kali booking berubah
-   * ------------------------------------------- */
-  useEffect(() => {
-    if (!booking) return;
-
+  const initialOccupantEdits = useMemo(() => {
+    if (!booking) return {};
     const initial: Record<string, { room: string; bedCode: string }> = {};
-
     booking.occupants.forEach((occ) => {
       initial[occ.id] = {
         room: occ.roomId || "",
         bedCode: occ.bedId || "",
       };
     });
-
-    setOccupantEdits(initial);
-    setIsRejecting(false);
+    return initial;
   }, [booking]);
+
+  const [occupantEdits, setOccupantEdits] = useState<
+    Record<string, { room: string; bedCode: string }>
+  >(initialOccupantEdits);
 
   if (!booking) return null;
 
   const isPending = booking.status === "request";
-  const isEditing = isPending && !isRejecting;
 
   /* ---------------------------------------------
    * Update occupant assignment
@@ -351,14 +341,7 @@ export function BookingDetailDialog({
                                 ? "Karyawan"
                                 : "Tamu"}
                             </Badge>
-                            {occupant.companion && (
-                              <Badge
-                                variant="secondary"
-                                className="h-6 bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
-                              >
-                                Pendamping: {occupant.companion.name}
-                              </Badge>
-                            )}
+
                           </div>
                           <div>
                             <p className="font-semibold">{occupant.name}</p>
@@ -620,7 +603,7 @@ export function BookingDetailDialog({
                       <FileText className="h-3 w-3" />
                       Catatan Pemohon
                     </p>
-                    <p className="italic">"{booking.notes}"</p>
+                    <p className="italic">&quot;{booking.notes}&quot;</p>
                   </div>
                 )}
               </div>
@@ -808,7 +791,7 @@ function Section({
   children,
 }: {
   title: string;
-  icon: any;
+  icon: React.ComponentType<{ className?: string }>;
   children: React.ReactNode;
 }) {
   return (
@@ -827,7 +810,7 @@ function InfoRow({
   label,
   value,
 }: {
-  icon: any;
+  icon: React.ComponentType<{ className?: string }>;
   label: string;
   value: string;
 }) {
@@ -847,7 +830,7 @@ function InfoBox({
   label,
   value,
 }: {
-  icon: any;
+  icon: React.ComponentType<{ className?: string }>;
   label: string;
   value: string;
 }) {

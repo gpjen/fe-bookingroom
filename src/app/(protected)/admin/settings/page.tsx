@@ -1,13 +1,7 @@
 "use client";
 
 import { Settings } from "lucide-react";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { SettingsForm } from "./_components/settings-form";
 
 export default function SettingsPage() {

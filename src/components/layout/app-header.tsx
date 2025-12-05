@@ -18,11 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
 
-export function AppHeader({
-  userName,
-  email,
-  isLoggedIn,
-}: {
+export function AppHeader({}: {
   userName?: string;
   email?: string;
   isLoggedIn: boolean;

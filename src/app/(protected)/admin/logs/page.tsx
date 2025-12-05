@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { columns } from "./_components/columns";
 import { SystemLog, LogLevel, LogStatus } from "./_components/types";
 import { addDays, subDays, subMinutes } from "date-fns";
@@ -10,11 +10,10 @@ import { DatePickerWithRange } from "@/components/ui/date-picker-with-range";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { DataTable } from "@/components/ui/data-table";
-import { Skeleton } from "@/components/ui/skeleton";
 
 // Mock Data Generator
 const generateMockLogs = (count: number): SystemLog[] => {
-  const actions = [
+  const logActions = [
     "LOGIN",
     "LOGOUT",
     "CREATE_BOOKING",
@@ -26,7 +25,7 @@ const generateMockLogs = (count: number): SystemLog[] => {
     "APPROVE_BOOKING",
     "REJECT_BOOKING",
   ];
-  const modules = ["AUTH", "BOOKING", "ADMIN", "USER", "SYSTEM"];
+  const logModules = ["AUTH", "BOOKING", "ADMIN", "USER", "SYSTEM"];
   const users = [
     { name: "SYSTEM", nik: "SYSTEM", role: "SYSTEM" },
     { name: "Admin System", nik: "SYSTEM", role: "ADMIN" },
@@ -39,8 +38,8 @@ const generateMockLogs = (count: number): SystemLog[] => {
   return Array.from({ length: count })
     .map((_, i) => {
       const user = users[Math.floor(Math.random() * users.length)];
-      const action = actions[Math.floor(Math.random() * actions.length)];
-      const module = modules[Math.floor(Math.random() * modules.length)];
+      const action = logActions[Math.floor(Math.random() * logActions.length)];
+      const logModule = logModules[Math.floor(Math.random() * logModules.length)];
       const status: LogStatus = Math.random() > 0.1 ? "SUCCESS" : "FAILURE";
       const level: LogLevel =
         status === "FAILURE"
@@ -54,8 +53,8 @@ const generateMockLogs = (count: number): SystemLog[] => {
         timestamp: subMinutes(new Date(), Math.floor(Math.random() * 10000)),
         level,
         action,
-        module,
-        message: `User ${user.name} performed ${action} on ${module} module.`,
+        module: logModule,
+        message: `User ${user.name} performed ${action} on ${logModule} module.`,
         user: {
           ...user,
           avatar: `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.name}`,
@@ -69,19 +68,13 @@ const generateMockLogs = (count: number): SystemLog[] => {
 };
 
 export default function LogsPage() {
-  const [logs, setLogs] = useState<SystemLog[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: subDays(new Date(), 7),
     to: new Date(),
   });
 
-  useEffect(() => {
-    const initialLogs = generateMockLogs(50);
-    setLogs(initialLogs);
-    setIsLoading(false);
-  }, []);
+  const logs = useMemo(() => generateMockLogs(50), []);
 
   // Filter logs based on search and date range
   const filteredLogs = logs.filter((log) => {
@@ -130,17 +123,7 @@ export default function LogsPage() {
               <DatePickerWithRange date={dateRange} setDate={setDateRange} />
             </div>
           </div>
-          {isLoading ? (
-            <div className="space-y-4">
-              <Skeleton className="h-12 w-full" />
-              <Skeleton className="h-12 w-full" />
-              <Skeleton className="h-12 w-full" />
-              <Skeleton className="h-12 w-full" />
-              <Skeleton className="h-12 w-full" />
-            </div>
-          ) : (
-            <DataTable columns={columns} data={filteredLogs} />
-          )}
+          <DataTable columns={columns} data={filteredLogs} />
         </div>
       </div>
     </Card>

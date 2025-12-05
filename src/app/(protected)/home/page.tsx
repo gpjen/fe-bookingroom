@@ -1,6 +1,7 @@
 "use client";
 
-import { QuickRequestWidget } from "@/app/(protected)/home/_components/quick-request-widget";
+import { QuickRequestWidget } from "./_components/quick-request-widget";
+import { RoomSearch } from "./_components/room-search";
 
 export default function HomePage() {
   return (
@@ -15,16 +16,16 @@ export default function HomePage() {
         </p>
       </div>
 
-      {/* Content Grid - Placeholder untuk konten yang akan ditentukan */}
+      {/* Content Grid */}
       <div className="grid lg:grid-cols-3 gap-6">
-        {/* Quick Request Widget */}
-        <div className="lg:col-span-1">
-          <QuickRequestWidget />
+        {/* Room Search - Main Content */}
+        <div className="lg:col-span-2 order-2 lg:order-1">
+          <RoomSearch />
         </div>
 
-        {/* Placeholder untuk konten lainnya */}
-        <div className="lg:col-span-2">
-          {/* Area untuk konten tambahan yang akan direview */}
+        {/* Quick Request Widget - Sidebar */}
+        <div className="lg:col-span-1 order-1 lg:order-2">
+          <QuickRequestWidget />
         </div>
       </div>
     </div>

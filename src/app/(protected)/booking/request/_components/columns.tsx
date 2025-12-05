@@ -161,16 +161,24 @@ export const getColumns = ({
     header: "Lokasi Diminta",
     cell: ({ row }) => {
       const booking = row.original;
-      const buildingName =
-        BUILDINGS.find((b) => b.id === booking.buildingId)?.name ||
-        "Tidak ditentukan";
+      // Get unique buildings from occupants
+      const uniqueBuildingIds = [
+        ...new Set(
+          booking.occupants.filter((o) => o.buildingId).map((o) => o.buildingId)
+        ),
+      ];
+      const buildingNames = uniqueBuildingIds
+        .map((id) => BUILDINGS.find((b) => b.id === id)?.name)
+        .filter(Boolean);
       const areaName =
         BUILDINGS.find((b) => b.areaId === booking.areaId)?.area ||
         booking.areaId;
 
       return (
         <div className="flex flex-col space-y-0.5">
-          <span className="font-medium text-sm">{buildingName}</span>
+          <span className="font-medium text-sm">
+            {buildingNames.length > 0 ? buildingNames.join(", ") : "Belum ditentukan"}
+          </span>
           <span className="text-xs text-muted-foreground">{areaName}</span>
         </div>
       );

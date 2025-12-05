@@ -252,7 +252,7 @@ export function BookingDetailDialog({
             </Section>
 
             {/* Main Location Info */}
-            <Section title="Lokasi Utama yang Diminta" icon={MapPin}>
+            <Section title="Lokasi yang Diminta" icon={MapPin}>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <InfoBox
                   icon={MapPin}
@@ -266,8 +266,21 @@ export function BookingDetailDialog({
                   icon={Building}
                   label="Gedung"
                   value={
-                    BUILDINGS.find((b) => b.id === booking.buildingId)?.name ||
-                    "Area Saja"
+                    (() => {
+                      const uniqueBuildingIds = [
+                        ...new Set(
+                          booking.occupants
+                            .filter((o) => o.buildingId)
+                            .map((o) => o.buildingId)
+                        ),
+                      ];
+                      const buildingNames = uniqueBuildingIds
+                        .map((id) => BUILDINGS.find((b) => b.id === id)?.name)
+                        .filter(Boolean);
+                      return buildingNames.length > 0
+                        ? buildingNames.join(", ")
+                        : "Belum ditentukan";
+                    })()
                   }
                 />
               </div>
@@ -338,12 +351,12 @@ export function BookingDetailDialog({
                                 ? "Karyawan"
                                 : "Tamu"}
                             </Badge>
-                            {occupant.isPendamping && (
+                            {occupant.companion && (
                               <Badge
                                 variant="secondary"
                                 className="h-6 bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
                               >
-                                Pendamping
+                                Pendamping: {occupant.companion.name}
                               </Badge>
                             )}
                           </div>

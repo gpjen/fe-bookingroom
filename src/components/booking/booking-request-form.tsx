@@ -21,11 +21,10 @@ import { BookingInfoSection } from "./form-parts/booking-info-section";
 import type { OccupantFormData } from "@/app/(protected)/booking/request/_components/types";
 
 const formSchema = z.object({
-  areaId: z.string().min(1),
-  buildingId: z.string().min(1),
-  purpose: z.string().min(10),
+  areaId: z.string().min(1, "Area wajib dipilih"),
+  purpose: z.string().min(10, "Tujuan minimal 10 karakter"),
   notes: z.string().optional(),
-  occupants: z.array(z.any()).min(1),
+  occupants: z.array(z.any()).min(1, "Minimal 1 penghuni"),
 });
 
 type BookingRequestFormData = z.infer<typeof formSchema>;
@@ -43,7 +42,6 @@ export function BookingRequestForm({
 }: BookingRequestFormProps) {
   const [formData, setFormData] = useState<Partial<BookingRequestFormData>>({
     areaId: "",
-    buildingId: "",
     purpose: "",
     notes: "",
   });
@@ -84,14 +82,12 @@ export function BookingRequestForm({
   const handleSubmit = () => {
     setErrors({});
 
-    // Check guest-companion rule
-    const hasGuest = occupants.some((o) => o.type === "guest");
-    const hasCompanion = occupants.some(
-      (o) => o.type === "employee" && o.isPendamping
-    );
+    // Check guest-companion rule - each guest must have a companion
+    const guests = occupants.filter((o) => o.type === "guest");
+    const guestsWithoutCompanion = guests.filter((o) => !o.companion);
 
-    if (hasGuest && !hasCompanion) {
-      toast.error("Tamu harus memiliki minimal 1 karyawan pendamping");
+    if (guestsWithoutCompanion.length > 0) {
+      toast.error("Setiap tamu harus memiliki pendamping karyawan");
       return;
     }
 
@@ -122,7 +118,6 @@ export function BookingRequestForm({
       // Reset form
       setFormData({
         areaId: "",
-        buildingId: "",
         purpose: "",
         notes: "",
       });
@@ -159,12 +154,8 @@ export function BookingRequestForm({
         <div className="px-6 py-4 space-y-6">
           <LocationSection
             areaId={formData.areaId || ""}
-            buildingId={formData.buildingId || ""}
             onAreaChange={(value) =>
-              setFormData({ ...formData, areaId: value, buildingId: "" })
-            }
-            onBuildingChange={(value) =>
-              setFormData({ ...formData, buildingId: value })
+              setFormData({ ...formData, areaId: value })
             }
             errors={errors}
           />
@@ -174,7 +165,7 @@ export function BookingRequestForm({
               initialData={editingOccupant}
               onSubmit={handleAddOccupant}
               onCancel={handleCancelOccupantForm}
-              buildingId={formData.buildingId || ""}
+              areaId={formData.areaId || ""}
             />
           ) : (
             <OccupantList
@@ -203,9 +194,7 @@ export function BookingRequestForm({
           <div className="flex items-center justify-between w-full">
             <div className="text-sm text-muted-foreground">
               {occupants.length} penghuni •{" "}
-              {formData.areaId && formData.buildingId
-                ? "Lokasi terpilih"
-                : "Pilih lokasi"}
+              {formData.areaId ? "Area terpilih" : "Pilih area"}
             </div>
             <div className="flex gap-3">
               <Button

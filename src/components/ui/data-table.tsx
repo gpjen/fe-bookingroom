@@ -213,21 +213,23 @@ export function DataTable<TData, TValue>({
             <div className="text-sm text-muted-foreground">
               Menampilkan{" "}
               <span className="font-medium text-foreground">
-                {table.getState().pagination.pageIndex *
-                  table.getState().pagination.pageSize +
-                  1}
+                {(table.getFilteredRowModel().rows?.length || 0) > 0
+                  ? table.getState().pagination.pageIndex *
+                      table.getState().pagination.pageSize +
+                    1
+                  : 0}
               </span>{" "}
               -{" "}
               <span className="font-medium text-foreground">
                 {Math.min(
                   (table.getState().pagination.pageIndex + 1) *
                     table.getState().pagination.pageSize,
-                  table.getFilteredRowModel().rows.length
+                  table.getFilteredRowModel().rows?.length || 0
                 )}
               </span>{" "}
               dari{" "}
               <span className="font-medium text-foreground">
-                {table.getFilteredRowModel().rows.length}
+                {table.getFilteredRowModel().rows?.length || 0}
               </span>{" "}
               data
             </div>

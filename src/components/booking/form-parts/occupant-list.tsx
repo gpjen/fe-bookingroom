@@ -96,12 +96,17 @@ export function OccupantList({
                                 ? "Karyawan"
                                 : "Tamu"}
                             </Badge>
-                            {occupant.isPendamping && (
+                            {occupant.companion && (
                               <Badge
                                 variant="outline"
                                 className="bg-blue-50 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
                               >
-                                Pendamping
+                                Pendamping: {occupant.companion.name}
+                              </Badge>
+                            )}
+                            {occupant.buildingName && (
+                              <Badge variant="outline" className="text-xs">
+                                {occupant.buildingName}
                               </Badge>
                             )}
                             {occupant.roomCode && (

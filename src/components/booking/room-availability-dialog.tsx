@@ -102,15 +102,26 @@ interface Floor {
 export interface RoomAvailabilityDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  buildingId: string;
+  areaId: string;
+  buildingId?: string;
   onBedSelect: (
     bedId: string,
     roomId: string,
     roomCode: string,
-    bedCode: string
+    bedCode: string,
+    buildingId: string,
+    buildingName: string
   ) => void;
   currentSelection?: { bedId: string; roomId: string };
   userType?: "employee" | "guest";
+}
+
+// Building data for the dialog
+interface BuildingOption {
+  id: string;
+  name: string;
+  code: string;
+  availableBeds: number;
 }
 
 // Mock data fetcher dengan data yang lebih lengkap
@@ -793,16 +804,36 @@ const RoomCard = ({
   );
 };
 
+// Mock buildings data for the dialog
+const getMockBuildingsForArea = (areaId: string): BuildingOption[] => {
+  const buildingsMap: Record<string, BuildingOption[]> = {
+    "area-1": [
+      { id: "bld-1", name: "Mess LQ 1", code: "LQ1", availableBeds: 24 },
+      { id: "bld-2", name: "Mess LQ 2", code: "LQ2", availableBeds: 21 },
+    ],
+    "area-2": [
+      { id: "bld-3", name: "Mess Selatan A", code: "SA", availableBeds: 18 },
+      { id: "bld-4", name: "Mess Selatan B", code: "SB", availableBeds: 14 },
+    ],
+    "area-3": [
+      { id: "bld-5", name: "Mess Timur", code: "MT", availableBeds: 18 },
+    ],
+  };
+  return buildingsMap[areaId] || [];
+};
+
 export function RoomAvailabilityDialog({
   isOpen,
   onClose,
-  buildingId,
+  areaId,
+  buildingId: initialBuildingId,
   onBedSelect,
   currentSelection,
   userType = "employee",
 }: RoomAvailabilityDialogProps) {
   const [floors, setFloors] = useState<Floor[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [selectedBuildingId, setSelectedBuildingId] = useState<string>(initialBuildingId || "");
   const [selectedBed, setSelectedBed] = useState<string | undefined>(
     currentSelection?.bedId
   );
@@ -810,19 +841,36 @@ export function RoomAvailabilityDialog({
   const [filterGender, setFilterGender] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("available");
 
+  // Get buildings for the selected area
+  const buildings = getMockBuildingsForArea(areaId);
+  const selectedBuilding = buildings.find((b) => b.id === selectedBuildingId);
+
+  // Reset selection when dialog opens
   useEffect(() => {
-    if (buildingId && isOpen) {
+    if (isOpen) {
+      setSelectedBuildingId(initialBuildingId || "");
+      setSelectedBed(currentSelection?.bedId);
+      setFloors([]);
+    }
+  }, [isOpen, initialBuildingId, currentSelection?.bedId]);
+
+  // Fetch floors when building is selected
+  useEffect(() => {
+    if (selectedBuildingId && isOpen) {
       setLoading(true);
-      fetchFloorsData(buildingId, userType).then((data) => {
+      fetchFloorsData(selectedBuildingId, userType).then((data) => {
         setFloors(data);
         setLoading(false);
       });
+    } else {
+      setFloors([]);
     }
-  }, [buildingId, isOpen, userType]);
+  }, [selectedBuildingId, isOpen, userType]);
 
-  useEffect(() => {
-    setSelectedBed(currentSelection?.bedId);
-  }, [currentSelection]);
+  const handleBuildingChange = (buildingId: string) => {
+    setSelectedBuildingId(buildingId);
+    setSelectedBed(undefined); // Reset bed selection when building changes
+  };
 
   const handleBedClick = (bed: BedData) => {
     if (bed.status === "available") {
@@ -831,11 +879,11 @@ export function RoomAvailabilityDialog({
   };
 
   const handleConfirm = () => {
-    if (selectedBed) {
+    if (selectedBed && selectedBuilding) {
       const allBeds = floors.flatMap((f) => f.rooms).flatMap((r) => r.beds);
       const bed = allBeds.find((b) => b.id === selectedBed);
       if (bed) {
-        onBedSelect(bed.id, bed.roomId, bed.roomCode, bed.code);
+        onBedSelect(bed.id, bed.roomId, bed.roomCode, bed.code, selectedBuildingId, selectedBuilding.name);
         onClose();
       }
     }
@@ -918,50 +966,90 @@ export function RoomAvailabilityDialog({
           </div>
         </DialogHeader>
 
-        {/* Filters & Search */}
+        {/* Building Selection */}
         <div className="px-6 pb-4">
-          <Card>
+          <Card className="border-2 border-primary/20">
             <CardContent className="p-4">
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div className="md:col-span-2">
-                  <div className="relative">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    <Input
-                      placeholder="Cari kode atau nama kamar..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-9 h-10"
-                    />
-                  </div>
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <Building className="h-4 w-4 text-primary" />
+                  <span className="font-medium text-sm">Pilih Gedung</span>
                 </div>
-                <Select value={filterGender} onValueChange={setFilterGender}>
-                  <SelectTrigger className="h-10">
-                    <Users className="h-4 w-4 mr-2" />
-                    <SelectValue placeholder="Gender" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Semua Gender</SelectItem>
-                    <SelectItem value="male">Laki-laki</SelectItem>
-                    <SelectItem value="female">Perempuan</SelectItem>
-                    <SelectItem value="mix">Campur</SelectItem>
-                  </SelectContent>
-                </Select>
-                <Select value={filterStatus} onValueChange={setFilterStatus}>
-                  <SelectTrigger className="h-10">
-                    <Filter className="h-4 w-4 mr-2" />
-                    <SelectValue placeholder="Status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="available">Tersedia</SelectItem>
-                    <SelectItem value="full">Penuh</SelectItem>
-                    <SelectItem value="employee">Khusus Karyawan</SelectItem>
-                    <SelectItem value="all">Semua</SelectItem>
-                  </SelectContent>
-                </Select>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {buildings.map((building) => (
+                    <div
+                      key={building.id}
+                      onClick={() => handleBuildingChange(building.id)}
+                      className={cn(
+                        "p-3 rounded-lg border-2 cursor-pointer transition-all",
+                        selectedBuildingId === building.id
+                          ? "border-primary bg-primary/5"
+                          : "border-border hover:border-primary/50"
+                      )}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium">{building.name}</p>
+                          <p className="text-xs text-muted-foreground">{building.code}</p>
+                        </div>
+                        <Badge variant="secondary" className="text-xs">
+                          {building.availableBeds} bed
+                        </Badge>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
             </CardContent>
           </Card>
         </div>
+
+        {/* Filters & Search - Only show when building is selected */}
+        {selectedBuildingId && (
+          <div className="px-6 pb-4">
+            <Card>
+              <CardContent className="p-4">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                  <div className="md:col-span-2">
+                    <div className="relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                      <Input
+                        placeholder="Cari kode atau nama kamar..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="pl-9 h-10"
+                      />
+                    </div>
+                  </div>
+                  <Select value={filterGender} onValueChange={setFilterGender}>
+                    <SelectTrigger className="h-10">
+                      <Users className="h-4 w-4 mr-2" />
+                      <SelectValue placeholder="Gender" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">Semua Gender</SelectItem>
+                      <SelectItem value="male">Laki-laki</SelectItem>
+                      <SelectItem value="female">Perempuan</SelectItem>
+                      <SelectItem value="mix">Campur</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select value={filterStatus} onValueChange={setFilterStatus}>
+                    <SelectTrigger className="h-10">
+                      <Filter className="h-4 w-4 mr-2" />
+                      <SelectValue placeholder="Status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="available">Tersedia</SelectItem>
+                      <SelectItem value="full">Penuh</SelectItem>
+                      <SelectItem value="employee">Khusus Karyawan</SelectItem>
+                      <SelectItem value="all">Semua</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         {/* Main Content */}
         <div className="flex-1 overflow-y-auto px-6 pb-4">

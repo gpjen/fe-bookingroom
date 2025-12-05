@@ -104,8 +104,8 @@ export function generateMockBookingRequests(count: number): BookingRequest[] {
               ? faker.helpers.arrayElement(DEPARTMENTS)
               : undefined,
 
-          // Will be set later based on guest presence
-          isPendamping: undefined,
+          // Companion will be set for guests
+          companion: undefined,
 
           status: occStatus,
 
@@ -143,63 +143,25 @@ export function generateMockBookingRequests(count: number): BookingRequest[] {
           : undefined,
       }));
 
-    // Ensure guests always have employee companions
-    const hasGuests = occupants.some((occ) => occ.type === "guest");
+    // Ensure guests have companion info
+    const guests = occupants.filter((occ) => occ.type === "guest");
     const employees = occupants.filter((occ) => occ.type === "employee");
 
-    if (hasGuests) {
-      if (employees.length === 0) {
-        // No employees, add one as companion
-        const occCheckInDate = occupants[0].inDate;
-        const occDuration = occupants[0].duration || 7;
-        const occCheckOutDate = occupants[0].outDate;
-        const occStatus = occupants[0].status;
-
-        occupants.push({
-          id: faker.string.uuid(),
-          name: faker.person.fullName(),
-          identifier: `${faker.string
-            .fromCharacters("DLC")
-            .substring(0, 1)}${faker.string.numeric(8)}`,
-          type: "employee",
-          gender: faker.person.sex() === "male" ? "L" : "P",
-          phone: faker.phone.number(),
-          company: faker.helpers.arrayElement(COMPANIES),
-          department: faker.helpers.arrayElement(DEPARTMENTS),
-          isPendamping: true,
-          status: occStatus,
-          inDate: occCheckInDate,
-          outDate: occCheckOutDate,
-          duration: occDuration,
-          actualCheckInAt:
-            occStatus === "checked_in" || occStatus === "checked_out"
-              ? addDays(occCheckInDate, faker.number.int({ min: 0, max: 1 }))
-              : undefined,
-          actualCheckOutAt:
-            occStatus === "checked_out"
-              ? addDays(occCheckOutDate!, faker.number.int({ min: -1, max: 0 }))
-              : undefined,
-          roomId:
-            status === "approved" || Math.random() > 0.7
-              ? `R-${faker.number.int({ min: 100, max: 999 })}`
-              : undefined,
-          bedId: undefined,
-        });
-        // Set bedId if roomId exists
-        const lastOcc = occupants[occupants.length - 1];
-        if (lastOcc.roomId) {
-          lastOcc.bedId = `B-${faker.number
-            .int({ min: 1, max: 4 })
-            .toString()
-            .padStart(2, "0")}`;
-        }
-      } else {
-        // Mark at least one employee as pendamping
-        const randomEmployee =
-          employees[faker.number.int({ min: 0, max: employees.length - 1 })];
-        randomEmployee.isPendamping = true;
-      }
-    }
+    // Assign companion info to each guest
+    guests.forEach((guest) => {
+      // Create a companion employee info
+      const companionName = faker.person.fullName();
+      const companionNik = `${faker.string.fromCharacters("DLC").substring(0, 1)}${faker.string.numeric(8)}`;
+      
+      guest.companion = {
+        nik: companionNik,
+        name: companionName,
+        company: faker.helpers.arrayElement(COMPANIES),
+        department: faker.helpers.arrayElement(DEPARTMENTS),
+        email: faker.internet.email({ firstName: companionName.split(" ")[0] }),
+        phone: faker.phone.number(),
+      };
+    });
 
     // Timestamps
     // Use the earliest check-in date for requestedAt logic
@@ -248,9 +210,8 @@ export function generateMockBookingRequests(count: number): BookingRequest[] {
         phone: faker.phone.number(),
       },
 
-      // Main Location Request
+      // Main Location Request (area only, buildings are per-occupant)
       areaId: mainBuilding.areaId,
-      buildingId: mainBuilding.id,
 
       occupants,
 

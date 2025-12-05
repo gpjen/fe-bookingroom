@@ -32,6 +32,7 @@ interface Room {
   price: number;
   isMixGender: boolean;
   isBookable: boolean;
+  isOnlyForEmployee: boolean;
   description: string;
 }
 
@@ -63,6 +64,7 @@ const fetchFloorsData = async (id: string): Promise<Floor[]> => {
             price: 0,
             isMixGender: false,
             isBookable: true,
+            isOnlyForEmployee: false,
             description: "Kamar standar dengan fasilitas dasar.",
           })),
         },
@@ -82,6 +84,7 @@ const fetchFloorsData = async (id: string): Promise<Floor[]> => {
             price: 500000,
             isMixGender: false,
             isBookable: true,
+            isOnlyForEmployee: false,
             description: "Kamar VIP dengan fasilitas lengkap dan pemandangan.",
           })),
         },
@@ -101,6 +104,7 @@ const fetchFloorsData = async (id: string): Promise<Floor[]> => {
             price: 0,
             isMixGender: true,
             isBookable: true,
+            isOnlyForEmployee: true,
             description: "Kamar standar mix gender.",
           })),
         },

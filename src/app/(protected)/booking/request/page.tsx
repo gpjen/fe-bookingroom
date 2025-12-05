@@ -53,9 +53,11 @@ export default function BookingRequestPage() {
       booking.occupants.some((occ) =>
         occ.name.toLowerCase().includes(searchLower)
       ) ||
-      BUILDINGS.find((b) => b.id === booking.buildingId)
-        ?.name.toLowerCase()
-        .includes(searchLower) ||
+      booking.occupants.some((occ) =>
+        BUILDINGS.find((b) => b.id === occ.buildingId)
+          ?.name.toLowerCase()
+          .includes(searchLower)
+      ) ||
       BUILDINGS.find((b) => b.areaId === booking.areaId)
         ?.area.toLowerCase()
         .includes(searchLower);
@@ -67,8 +69,8 @@ export default function BookingRequestPage() {
       !dateRange?.from ||
       booking.occupants.some(
         (occ) =>
-          occ.checkInDate >= dateRange.from! &&
-          (!dateRange.to || occ.checkInDate <= dateRange.to!)
+          occ.inDate >= dateRange.from! &&
+          (!dateRange.to || occ.inDate <= dateRange.to!)
       );
 
     return matchesSearch && matchesStatus && matchesDate;

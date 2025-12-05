@@ -1,22 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { columns } from "./_components/columns";
 import { SystemLog, LogLevel, LogStatus } from "./_components/types";
 import { addDays, subDays, subMinutes } from "date-fns";
 import { DateRange } from "react-day-picker";
-import { Activity, Plus, Search } from "lucide-react";
+import { Activity, Search } from "lucide-react";
 import { DatePickerWithRange } from "@/components/ui/date-picker-with-range";
 import { Input } from "@/components/ui/input";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { DataTable } from "@/components/ui/data-table";
-import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 
 // Mock Data Generator
 const generateMockLogs = (count: number): SystemLog[] => {
@@ -74,15 +68,20 @@ const generateMockLogs = (count: number): SystemLog[] => {
     .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
 };
 
-const initialLogs = generateMockLogs(50);
-
 export default function LogsPage() {
-  const [logs, setLogs] = useState<SystemLog[]>(initialLogs);
+  const [logs, setLogs] = useState<SystemLog[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: subDays(new Date(), 7),
     to: new Date(),
   });
+
+  useEffect(() => {
+    const initialLogs = generateMockLogs(50);
+    setLogs(initialLogs);
+    setIsLoading(false);
+  }, []);
 
   // Filter logs based on search and date range
   const filteredLogs = logs.filter((log) => {
@@ -131,7 +130,17 @@ export default function LogsPage() {
               <DatePickerWithRange date={dateRange} setDate={setDateRange} />
             </div>
           </div>
-          <DataTable columns={columns} data={filteredLogs} />
+          {isLoading ? (
+            <div className="space-y-4">
+              <Skeleton className="h-12 w-full" />
+              <Skeleton className="h-12 w-full" />
+              <Skeleton className="h-12 w-full" />
+              <Skeleton className="h-12 w-full" />
+              <Skeleton className="h-12 w-full" />
+            </div>
+          ) : (
+            <DataTable columns={columns} data={filteredLogs} />
+          )}
         </div>
       </div>
     </Card>

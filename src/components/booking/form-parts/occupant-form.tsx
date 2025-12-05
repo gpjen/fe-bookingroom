@@ -29,7 +29,6 @@ import {
   Bed,
   ChevronRight,
   Trash2,
-  UserCheck,
 } from "lucide-react";
 import { format, differenceInDays } from "date-fns";
 import { id as localeId } from "date-fns/locale";
@@ -47,14 +46,14 @@ interface OccupantFormProps {
   initialData?: OccupantFormData | null;
   onSubmit: (data: OccupantFormData) => void;
   onCancel: () => void;
-  buildingId: string;
+  areaId: string;
 }
 
 export function OccupantForm({
   initialData,
   onSubmit,
   onCancel,
-  buildingId,
+  areaId,
 }: OccupantFormProps) {
   const [occupantData, setOccupantData] = useState<Partial<OccupantFormData>>({
     type: "employee",
@@ -64,7 +63,9 @@ export function OccupantForm({
     phone: "",
     company: "",
     department: "",
-    isPendamping: false,
+    companion: undefined,
+    buildingId: "",
+    buildingName: "",
     roomId: "",
     roomCode: "",
     bedId: "",
@@ -90,7 +91,9 @@ export function OccupantForm({
         phone: "",
         company: "",
         department: "",
-        isPendamping: false,
+        companion: undefined,
+        buildingId: "",
+        buildingName: "",
         roomId: "",
         roomCode: "",
         bedId: "",
@@ -150,7 +153,9 @@ export function OccupantForm({
     bedId: string,
     roomId: string,
     roomCode: string,
-    bedCode: string
+    bedCode: string,
+    buildingId: string,
+    buildingName: string
   ) => {
     setOccupantData({
       ...occupantData,
@@ -158,6 +163,8 @@ export function OccupantForm({
       roomId,
       roomCode,
       bedCode,
+      buildingId,
+      buildingName,
     });
     setIsAvailabilityOpen(false);
   };
@@ -193,10 +200,12 @@ export function OccupantForm({
       phone: occupantData.phone,
       company: occupantData.company,
       department: occupantData.department,
-      isPendamping: occupantData.isPendamping,
+      companion: occupantData.companion,
       inDate: occupantData.inDate!,
       outDate: occupantData.outDate!,
       duration,
+      buildingId: occupantData.buildingId,
+      buildingName: occupantData.buildingName,
       roomId: occupantData.roomId,
       roomCode: occupantData.roomCode,
       bedId: occupantData.bedId,
@@ -503,7 +512,7 @@ export function OccupantForm({
               </CardContent>
             </Card>
 
-            {/* Room & Bed Selection */}
+            {/* Room & Bed Selection - gedung dipilih di dalam dialog */}
             <div className="space-y-3">
               <Label className="font-medium">
                 Pilih Kamar & Bed (Opsional)
@@ -515,6 +524,14 @@ export function OccupantForm({
                     {occupantData.roomCode && occupantData.bedCode ? (
                       <div className="flex items-center gap-3">
                         <div className="flex items-center gap-2">
+                          {occupantData.buildingName && (
+                            <>
+                              <Badge className="bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300 border-0">
+                                {occupantData.buildingName}
+                              </Badge>
+                              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+                            </>
+                          )}
                           <Badge className="bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300 border-0">
                             Kamar {occupantData.roomCode}
                           </Badge>
@@ -530,6 +547,8 @@ export function OccupantForm({
                           onClick={() =>
                             setOccupantData({
                               ...occupantData,
+                              buildingId: "",
+                              buildingName: "",
                               roomId: "",
                               roomCode: "",
                               bedId: "",
@@ -542,7 +561,7 @@ export function OccupantForm({
                       </div>
                     ) : (
                       <span className="text-sm text-muted-foreground">
-                        Belum ada kamar dipilih
+                        Belum ada kamar dipilih (pilih gedung lalu bed)
                       </span>
                     )}
                   </div>
@@ -552,44 +571,20 @@ export function OccupantForm({
                   variant="outline"
                   size="sm"
                   onClick={() => {
-                    if (!buildingId) {
-                      toast.error("Silakan pilih gedung terlebih dahulu");
+                    if (!areaId) {
+                      toast.error("Area belum dipilih");
                       return;
                     }
                     setIsAvailabilityOpen(true);
                   }}
                   className="gap-2"
+                  disabled={!areaId}
                 >
                   <Bed className="h-4 w-4" />
                   {occupantData.roomCode ? "Ganti Bed" : "Pilih Bed"}
                 </Button>
               </div>
             </div>
-
-            {/* Companion Toggle */}
-            {occupantData.type === "employee" && (
-              <div className="flex items-center justify-between p-3 border rounded-lg">
-                <div className="flex items-center gap-3">
-                  <div className="p-2 rounded-full bg-blue-100 dark:bg-blue-900">
-                    <UserCheck className="h-4 w-4 text-blue-600 dark:text-blue-400" />
-                  </div>
-                  <div>
-                    <Label className="font-medium cursor-pointer">
-                      Pendamping Tamu
-                    </Label>
-                    <p className="text-xs text-muted-foreground">
-                      Tandai sebagai pendamping untuk tamu
-                    </p>
-                  </div>
-                </div>
-                <Switch
-                  checked={occupantData.isPendamping}
-                  onCheckedChange={(checked) =>
-                    setOccupantData({ ...occupantData, isPendamping: checked })
-                  }
-                />
-              </div>
-            )}
           </div>
 
           <Separator className="my-6" />
@@ -614,7 +609,8 @@ export function OccupantForm({
       <RoomAvailabilityDialog
         isOpen={isAvailabilityOpen}
         onClose={() => setIsAvailabilityOpen(false)}
-        buildingId={buildingId}
+        areaId={areaId}
+        buildingId={occupantData.buildingId}
         onBedSelect={handleBedSelect}
         currentSelection={
           occupantData.bedId && occupantData.roomId

@@ -53,7 +53,7 @@ const MOCK_ACCESS: (UserAccess & { username?: string })[] = [
   },
   {
     userId: "staff@obalab.local",
-    username: "D123456",
+    username: "D12345",
     roles: ["staff"],
     companies: ["hpal"],
   },
@@ -85,8 +85,8 @@ export function getMockAccessForUser(email?: string, name?: string) {
 }
 
 export function getAccessForUsername(username?: string) {
-  const key = (username || "").toUpperCase();
-  const found = MOCK_ACCESS.find((u) => u.username === key);
+  const key = (username || "").toLowerCase();
+  const found = MOCK_ACCESS.find((u) => u.username?.toLowerCase() === key);
   if (found) {
     return {
       permissions: resolvePermissions(found.roles, found.explicitPermissions),

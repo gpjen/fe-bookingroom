@@ -80,7 +80,7 @@ export default function HomeContent() {
                 const currentLocale = localeMap[lang] || "en";
                 signIn(
                   "keycloak",
-                  { callbackUrl: "/dashboard" },
+                  { callbackUrl: "/home" },
                   {
                     kc_locale: currentLocale,
                     ui_locales: currentLocale,

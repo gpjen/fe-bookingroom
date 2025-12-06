@@ -71,13 +71,22 @@ export default function HomeContent() {
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
             <Button
-              onClick={() =>
+              onClick={() => {
+                const localeMap: Record<string, string> = {
+                  zh: "zh-CN",
+                  id: "id",
+                  en: "en",
+                };
+                const currentLocale = localeMap[lang] || "en";
                 signIn(
                   "keycloak",
                   { callbackUrl: "/dashboard" },
-                  { kc_locale: lang === "zh" ? "zh-CN" : lang }
-                )
-              }
+                  {
+                    kc_locale: currentLocale,
+                    ui_locales: currentLocale,
+                  }
+                );
+              }}
               className={`h-14 w-full md:w-[250px] cursor-pointer px-8 inline-flex items-center justify-center gap-2 text-lg font-semibold rounded-xl transition-all shadow-lg bg-primary text-primary-foreground hover:opacity-90 group`}
             >
               <span>{t("login")}</span>

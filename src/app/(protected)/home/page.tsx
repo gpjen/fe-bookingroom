@@ -2,6 +2,7 @@
 
 import { QuickRequestWidget } from "./_components/quick-request-widget";
 import { RoomSearch } from "./_components/room-search";
+import { BookingGuide } from "./_components/booking-guide";
 
 export default function HomePage() {
   return (
@@ -26,6 +27,8 @@ export default function HomePage() {
         {/* Quick Request Widget - Sidebar */}
         <div className="lg:col-span-1 order-1 lg:order-2">
           <QuickRequestWidget />
+
+          <BookingGuide />
         </div>
       </div>
     </div>

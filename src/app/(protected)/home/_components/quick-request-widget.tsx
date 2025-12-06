@@ -4,13 +4,7 @@ import { useState, useMemo } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import {
-  Plus,
-  FileText,
-  Clock,
-  CheckCircle,
-  ArrowRight,
-} from "lucide-react";
+import { Plus, FileText, Clock, CheckCircle, ArrowRight } from "lucide-react";
 import { MOCK_BOOKING_REQUESTS } from "@/app/(protected)/booking/request/_components/mock-data";
 import { BookingRequestForm } from "@/components/booking/booking-request-form";
 import { format } from "date-fns";
@@ -34,28 +28,38 @@ export function QuickRequestWidget() {
   // Stats
   const stats = useMemo(() => {
     return {
-      pending: MOCK_BOOKING_REQUESTS.filter((r) => r.status === "request").length,
-      approved: MOCK_BOOKING_REQUESTS.filter((r) => r.status === "approved").length,
+      pending: MOCK_BOOKING_REQUESTS.filter((r) => r.status === "request")
+        .length,
+      approved: MOCK_BOOKING_REQUESTS.filter((r) => r.status === "approved")
+        .length,
     };
   }, []);
 
   const getStatusBadge = (status: string) => {
-    const config: Record<string, { label: string; className: string; icon: typeof Clock }> = {
+    const config: Record<
+      string,
+      { label: string; className: string; icon: typeof Clock }
+    > = {
       request: {
         label: "Menunggu",
-        className: "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400",
+        className:
+          "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400",
         icon: Clock,
       },
       approved: {
         label: "Disetujui",
-        className: "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400",
+        className:
+          "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400",
         icon: CheckCircle,
       },
     };
     const c = config[status] || config.request;
     const Icon = c.icon;
     return (
-      <Badge variant="outline" className={`text-[10px] h-5 gap-1 ${c.className}`}>
+      <Badge
+        variant="outline"
+        className={`text-[10px] h-5 gap-1 ${c.className}`}
+      >
         <Icon className="h-3 w-3" />
         {c.label}
       </Badge>
@@ -64,14 +68,18 @@ export function QuickRequestWidget() {
 
   return (
     <>
-      <Card className="border-0 shadow-sm">
+      <Card className="border-l-4 border-l-primary shadow-sm">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between">
             <CardTitle className="text-base font-semibold flex items-center gap-2">
               <FileText className="h-5 w-5 text-primary" />
               Permintaan Saya
             </CardTitle>
-            <Button size="sm" onClick={() => setIsFormOpen(true)} className="h-8 gap-1.5">
+            <Button
+              size="sm"
+              onClick={() => setIsFormOpen(true)}
+              className="h-8 gap-1.5"
+            >
               <Plus className="h-4 w-4" />
               Buat Baru
             </Button>
@@ -98,7 +106,9 @@ export function QuickRequestWidget() {
 
           {/* Recent Requests */}
           <div className="space-y-2">
-            <p className="text-xs font-medium text-muted-foreground">Permintaan Terbaru</p>
+            <p className="text-xs font-medium text-muted-foreground">
+              Permintaan Terbaru
+            </p>
             {recentRequests.length > 0 ? (
               <div className="space-y-2">
                 {recentRequests.map((request) => (
@@ -107,9 +117,14 @@ export function QuickRequestWidget() {
                     className="flex items-center justify-between p-2.5 rounded-lg border bg-card hover:bg-accent/50 transition-colors cursor-pointer"
                   >
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold truncate">{request.bookingCode}</p>
+                      <p className="text-sm font-semibold truncate">
+                        {request.bookingCode}
+                      </p>
                       <p className="text-xs text-muted-foreground truncate">
-                        {request.occupants.length} Penghuni • {format(request.requestedAt, "dd MMM yy", { locale: localeId })}
+                        {request.occupants.length} Penghuni •{" "}
+                        {format(request.requestedAt, "dd MMM yy", {
+                          locale: localeId,
+                        })}
                       </p>
                     </div>
                     {getStatusBadge(request.status)}

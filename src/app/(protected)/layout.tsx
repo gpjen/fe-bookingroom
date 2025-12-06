@@ -20,13 +20,17 @@ export default async function ProtectedLayout({
 
   const access = getAccessForUsername(session.user.username);
 
+  if (!access) {
+    redirect("/no-access");
+  }
+
   return (
     <SidebarProvider defaultOpen={true}>
       <div className="relative flex min-h-screen w-full">
         <AppSidebar
           userName={session.user.name || ""}
           email={session.user.email || ""}
-          userPermissions={access.permissions}
+          userPermissions={access?.permissions || []}
         />
         <SidebarInset className="flex-1">
           <AppHeader

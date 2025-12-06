@@ -140,9 +140,9 @@ export const authOptions: NextAuthOptions = {
       session.user.given_name = token.given_name;
 
       const access = getAccessForUsername(token.preferred_username);
-      session.user.appRoles = access.roles;
-      session.user.permissions = access.permissions;
-      session.user.companies = access.companies;
+      session.user.appRoles = access?.roles || [];
+      session.user.permissions = access?.permissions || [];
+      session.user.companies = access?.companies || [];
 
       console.log(
         "Session Callback: Final session object:",

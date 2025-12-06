@@ -18,38 +18,42 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "@/components/ui/carousel";
 import {
   Search,
   Building2,
-  MapPin,
-  BedDouble,
   Users,
-  Wifi,
-  Tv,
-  Wind,
-  Bath,
-  ChevronRight,
-  ChevronDown,
-  Crown,
-  Star,
   Calendar as CalendarIcon,
-  User,
-  Clock,
   Briefcase,
   UserPlus,
   SlidersHorizontal,
   Sparkles,
   Minus,
   Plus,
+  X,
+  Filter,
   CheckCircle,
   XCircle,
   AlertCircle,
+  MapPin,
+  BedDouble,
+  Mars,
+  Venus,
+  User,
+  LogIn,
+  LogOut,
 } from "lucide-react";
 import {
   AREAS,
@@ -60,63 +64,23 @@ import {
   type RoomType,
   type RoomAvailability,
 } from "./mock-data";
+import { RoomAvailabilityTimeline } from "./room-availability-timeline";
 import { cn } from "@/lib/utils";
-import { format, addDays, differenceInDays, isBefore, startOfDay } from "date-fns";
+import {
+  format,
+  addDays,
+  differenceInDays,
+  isBefore,
+  startOfDay,
+} from "date-fns";
 import { id as localeId } from "date-fns/locale";
 
-// Compact Counter Component
-function CompactCounter({
-  value,
-  onChange,
-  min = 0,
-  max = 50,
-  icon,
-  label,
-}: {
-  value: number;
-  onChange: (v: number) => void;
-  min?: number;
-  max?: number;
-  icon: React.ReactNode;
-  label: string;
-}) {
-  return (
-    <div className="flex items-center gap-1.5">
-      <div className="flex items-center gap-1 text-xs text-muted-foreground">
-        {icon}
-        <span className="hidden sm:inline">{label}</span>
-      </div>
-      <div className="flex items-center border rounded-md">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 rounded-r-none"
-          onClick={() => onChange(Math.max(min, value - 1))}
-          disabled={value <= min}
-        >
-          <Minus className="h-3 w-3" />
-        </Button>
-        <span className="w-8 text-center font-semibold text-sm">{value}</span>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 rounded-l-none"
-          onClick={() => onChange(Math.min(max, value + 1))}
-          disabled={value >= max}
-        >
-          <Plus className="h-3 w-3" />
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-// Date Picker Component (Single Date)
 function DatePicker({
   date,
   onSelect,
   label,
   minDate,
+  maxDate,
 }: {
   date: Date | undefined;
   onSelect: (date: Date | undefined) => void;
@@ -133,7 +97,7 @@ function DatePicker({
         <Button
           variant="outline"
           className={cn(
-            "h-9 justify-start text-left font-normal px-3",
+            "h-9 w-full justify-start text-left font-normal px-3",
             !date && "text-muted-foreground"
           )}
         >
@@ -155,189 +119,28 @@ function DatePicker({
   );
 }
 
-// Room Card Component
-function RoomCard({
-  room,
-  totalPeople,
-}: {
-  room: RoomAvailability;
-  totalPeople: number;
-}) {
-  const canFitAll = room.availableBeds >= totalPeople;
-
-  const getRoomTypeStyle = (type: RoomType) => {
-    const config = {
-      vvip: { icon: <Crown className="h-4 w-4" />, bg: "bg-gradient-to-r from-amber-500 to-yellow-400", text: "text-white" },
-      vip: { icon: <Star className="h-4 w-4" />, bg: "bg-gradient-to-r from-violet-500 to-purple-400", text: "text-white" },
-      standard: { icon: null, bg: "bg-slate-200 dark:bg-slate-700", text: "text-slate-700 dark:text-slate-200" },
-    };
-    return config[type];
-  };
-
-  const typeStyle = getRoomTypeStyle(room.type);
-
-  const getBedStatusStyle = (status: string) => {
-    const config = {
-      available: { icon: <CheckCircle className="h-3.5 w-3.5" />, color: "text-emerald-600", bg: "bg-emerald-50 dark:bg-emerald-900/20", label: "Kosong" },
-      occupied: { icon: <XCircle className="h-3.5 w-3.5" />, color: "text-slate-500", bg: "bg-slate-50 dark:bg-slate-900/20", label: "Terisi" },
-      reserved: { icon: <AlertCircle className="h-3.5 w-3.5" />, color: "text-amber-600", bg: "bg-amber-50 dark:bg-amber-900/20", label: "Dipesan" },
-      maintenance: { icon: <AlertCircle className="h-3.5 w-3.5" />, color: "text-gray-400", bg: "bg-gray-50 dark:bg-gray-900/20", label: "Perbaikan" },
-    };
-    return config[status as keyof typeof config];
-  };
-
-  return (
-    <Card className={cn(
-      "overflow-hidden transition-all hover:shadow-lg",
-      canFitAll && "ring-2 ring-emerald-500/50"
-    )}>
-      <CardContent className="p-0">
-        <div className="flex flex-col md:flex-row">
-          {/* Left: Room Info */}
-          <div className="flex-1 p-4 space-y-4">
-            {/* Header */}
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <h3 className="text-xl font-bold">{room.code}</h3>
-                  <Badge className={cn("gap-1", typeStyle.bg, typeStyle.text)}>
-                    {typeStyle.icon}
-                    {room.type.toUpperCase()}
-                  </Badge>
-                </div>
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">
-                  <span className="flex items-center gap-1">
-                    <MapPin className="h-3.5 w-3.5" />
-                    {room.areaName}
-                  </span>
-                  <span className="flex items-center gap-1">
-                    <Building2 className="h-3.5 w-3.5" />
-                    {room.buildingName}
-                  </span>
-                  <span>Lantai {room.floor}</span>
-                </div>
-              </div>
-              <div className={cn(
-                "text-center px-4 py-2 rounded-lg",
-                canFitAll ? "bg-emerald-100 dark:bg-emerald-900/30" : "bg-amber-100 dark:bg-amber-900/30"
-              )}>
-                <p className={cn(
-                  "text-2xl font-bold",
-                  canFitAll ? "text-emerald-600" : "text-amber-600"
-                )}>
-                  {room.availableBeds}
-                </p>
-                <p className="text-xs text-muted-foreground">dari {room.capacity}</p>
-              </div>
-            </div>
-
-            {/* Facilities */}
-            <div>
-              <p className="text-xs font-medium text-muted-foreground mb-2">FASILITAS</p>
-              <div className="flex flex-wrap gap-1.5">
-                {room.facilities.map((f) => (
-                  <Badge key={f} variant="secondary" className="text-xs font-normal gap-1">
-                    {f === "AC" && <Wind className="h-3 w-3" />}
-                    {f === "TV" && <Tv className="h-3 w-3" />}
-                    {f === "WiFi" && <Wifi className="h-3 w-3" />}
-                    {f === "Kamar Mandi Dalam" && <Bath className="h-3 w-3" />}
-                    {f}
-                  </Badge>
-                ))}
-              </div>
-            </div>
-
-            {/* Bed Status */}
-            <div>
-              <p className="text-xs font-medium text-muted-foreground mb-2">STATUS BED</p>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {room.beds.map((bed) => {
-                  const style = getBedStatusStyle(bed.status);
-                  return (
-                    <div key={bed.id} className={cn("p-2 rounded-lg", style.bg)}>
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="font-bold text-sm">{bed.code}</span>
-                        <span className={cn("flex items-center gap-0.5 text-xs", style.color)}>
-                          {style.icon}
-                        </span>
-                      </div>
-                      {bed.status === "occupied" && bed.occupantName && (
-                        <div className="text-[10px] text-muted-foreground">
-                          <div className="flex items-center gap-1 truncate">
-                            <User className="h-2.5 w-2.5 shrink-0" />
-                            <span className="truncate">{bed.occupantName}</span>
-                          </div>
-                          {bed.occupantCheckOut && (
-                            <div className="flex items-center gap-1 mt-0.5">
-                              <Clock className="h-2.5 w-2.5 shrink-0" />
-                              Out: {format(bed.occupantCheckOut, "dd/MM", { locale: localeId })}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                      {bed.status === "reserved" && bed.reservedFrom && (
-                        <div className="text-[10px] text-muted-foreground flex items-center gap-1">
-                          <CalendarIcon className="h-2.5 w-2.5 shrink-0" />
-                          {format(bed.reservedFrom, "dd/MM", { locale: localeId })}
-                          {bed.reservedTo && <>-{format(bed.reservedTo, "dd/MM", { locale: localeId })}</>}
-                        </div>
-                      )}
-                      {bed.status === "available" && (
-                        <p className="text-[10px] text-emerald-600 font-medium">Tersedia</p>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-
-          {/* Right: Action */}
-          <div className={cn(
-            "flex md:flex-col items-center justify-center gap-3 p-4 md:w-[120px] border-t md:border-t-0 md:border-l",
-            canFitAll ? "bg-emerald-50/50 dark:bg-emerald-900/10" : "bg-amber-50/50 dark:bg-amber-900/10"
-          )}>
-            <Button
-              className={cn(
-                "w-full gap-1",
-                canFitAll ? "bg-emerald-600 hover:bg-emerald-700" : "bg-amber-600 hover:bg-amber-700"
-              )}
-            >
-              Pilih
-              <ChevronRight className="h-4 w-4" />
-            </Button>
-            {!canFitAll && (
-              <p className="text-xs text-muted-foreground text-center">
-                {room.availableBeds} dari {totalPeople} orang
-              </p>
-            )}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
 export function RoomSearch() {
-  // Search inputs
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
   const [endDate, setEndDate] = useState<Date | undefined>(undefined);
   const [employeeCount, setEmployeeCount] = useState<number>(1);
   const [guestCount, setGuestCount] = useState<number>(0);
+  const [selectedArea, setSelectedArea] = useState<string>("");
   const [hasSearched, setHasSearched] = useState(false);
 
-  // Filters
-  const [selectedArea, setSelectedArea] = useState<string>("all");
   const [selectedBuilding, setSelectedBuilding] = useState<string>("all");
   const [selectedType, setSelectedType] = useState<string>("all");
   const [isFilterOpen, setIsFilterOpen] = useState(false);
 
+  const [selectedRoom, setSelectedRoom] = useState<RoomAvailability | null>(
+    null
+  );
+
   const totalPeople = employeeCount + guestCount;
   const tomorrow = addDays(startOfDay(new Date()), 1);
-  
-  const duration = startDate && endDate ? differenceInDays(endDate, startDate) + 1 : 0;
 
-  // Auto-adjust end date when start date changes
+  const duration =
+    startDate && endDate ? differenceInDays(endDate, startDate) + 1 : 0;
+
   const handleStartDateChange = (date: Date | undefined) => {
     setStartDate(date);
     setHasSearched(false);
@@ -348,10 +151,9 @@ export function RoomSearch() {
 
   const handleEndDateChange = (date: Date | undefined) => {
     if (date && startDate) {
-      // Limit max 31 days
       const days = differenceInDays(date, startDate);
-      if (days > 30) {
-        setEndDate(addDays(startDate, 30));
+      if (days > 93) {
+        setEndDate(addDays(startDate, 93));
       } else {
         setEndDate(date);
       }
@@ -362,15 +164,15 @@ export function RoomSearch() {
   };
 
   const filteredBuildings = useMemo(() => {
-    if (selectedArea === "all") return BUILDINGS;
+    if (!selectedArea || selectedArea === "all") return [];
     return BUILDINGS.filter((b) => b.areaId === selectedArea);
   }, [selectedArea]);
 
   const filteredRooms = useMemo(() => {
-    if (!hasSearched) return [];
+    if (!hasSearched || !selectedArea) return [];
 
     let rooms = filterRooms(MOCK_ROOMS, {
-      areaId: selectedArea === "all" ? undefined : selectedArea,
+      areaId: selectedArea,
       buildingId: selectedBuilding === "all" ? undefined : selectedBuilding,
       type: selectedType === "all" ? undefined : (selectedType as RoomType),
       onlyAvailable: true,
@@ -380,233 +182,701 @@ export function RoomSearch() {
     return rooms;
   }, [hasSearched, selectedArea, selectedBuilding, selectedType]);
 
-  const stats = useMemo(() => {
-    const total = filteredRooms.length;
-    const totalAvailableBeds = filteredRooms.reduce((acc, r) => acc + r.availableBeds, 0);
-    const canAccommodate = totalAvailableBeds >= totalPeople;
-    return { total, totalAvailableBeds, canAccommodate };
-  }, [filteredRooms, totalPeople]);
-
   const handleSearch = () => {
-    if (!startDate || !endDate || totalPeople === 0) return;
+    if (!startDate || !endDate || totalPeople === 0 || !selectedArea) return;
     setHasSearched(true);
   };
 
-  const canSearch = startDate && endDate && totalPeople > 0 && duration > 0 && duration <= 31;
+  const canSearch =
+    startDate &&
+    endDate &&
+    totalPeople > 0 &&
+    duration > 0 &&
+    duration <= 94 &&
+    !!selectedArea;
 
   const activeFiltersCount = [
-    selectedArea !== "all",
     selectedBuilding !== "all",
     selectedType !== "all",
   ].filter(Boolean).length;
 
+  const clearFilters = () => {
+    setSelectedBuilding("all");
+    setSelectedType("all");
+  };
+
   return (
     <div className="space-y-6">
-      {/* Search Bar - Single Row */}
-      <Card className="border-0 shadow-lg">
-        <CardContent className="p-4">
-          <div className="flex flex-col lg:flex-row lg:items-end gap-4">
-            {/* Dates */}
-            <div className="flex flex-1 items-end gap-2">
-              <div className="flex-1 space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Check-in</Label>
-                <DatePicker
-                  date={startDate}
-                  onSelect={handleStartDateChange}
-                  label="Pilih tanggal"
-                  minDate={tomorrow}
-                />
-              </div>
-              <span className="pb-2 text-muted-foreground">→</span>
-              <div className="flex-1 space-y-1.5">
-                <Label className="text-xs text-muted-foreground">Check-out</Label>
-                <DatePicker
-                  date={endDate}
-                  onSelect={handleEndDateChange}
-                  label="Pilih tanggal"
-                  minDate={startDate ? addDays(startDate, 1) : tomorrow}
-                  maxDate={startDate ? addDays(startDate, 30) : undefined}
-                />
-              </div>
+      {/* Search Bar */}
+      <Card className="relative overflow-hidden">
+        <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-primary to-primary/50" />
+        <CardContent className="p-6">
+          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 items-end">
+            {/* Area Select */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium flex items-center gap-1">
+                Area Lokasi <span className="text-destructive">*</span>
+              </Label>
+              <Select
+                value={selectedArea}
+                onValueChange={(v) => {
+                  setSelectedArea(v);
+                  setHasSearched(false);
+                  setSelectedBuilding("all");
+                }}
+              >
+                <SelectTrigger className="h-10 w-full">
+                  <SelectValue placeholder="Pilih Area" />
+                </SelectTrigger>
+                <SelectContent>
+                  {AREAS.map((area) => (
+                    <SelectItem key={area.id} value={area.id}>
+                      {area.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Check-in Date */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Check-in</Label>
+              <DatePicker
+                date={startDate}
+                onSelect={handleStartDateChange}
+                label="Pilih tanggal"
+                minDate={tomorrow}
+              />
+            </div>
+
+            {/* Check-out Date */}
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Check-out</Label>
+              <DatePicker
+                date={endDate}
+                onSelect={handleEndDateChange}
+                label="Pilih tanggal"
+                minDate={startDate ? addDays(startDate, 1) : tomorrow}
+                maxDate={startDate ? addDays(startDate, 93) : undefined}
+              />
             </div>
 
             {/* People Count */}
-            <div className="flex items-end gap-4">
-              <CompactCounter
-                value={employeeCount}
-                onChange={(v) => { setEmployeeCount(v); setHasSearched(false); }}
-                icon={<Briefcase className="h-4 w-4 text-blue-500" />}
-                label="Karyawan"
-              />
-              <CompactCounter
-                value={guestCount}
-                onChange={(v) => { setGuestCount(v); setHasSearched(false); }}
-                icon={<UserPlus className="h-4 w-4 text-amber-500" />}
-                label="Tamu"
-              />
-            </div>
+            <div className="space-y-2">
+              <Label className="text-sm font-medium">Jumlah Orang</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="h-10 w-full justify-start text-left font-normal"
+                  >
+                    <Users className="mr-2 h-4 w-4" />
+                    <span className="flex items-center gap-2">
+                      <span className="flex items-center gap-1">
+                        <Briefcase className="h-3 w-3 text-blue-500" />
+                        {employeeCount}
+                      </span>
+                      <span className="text-muted-foreground">•</span>
+                      <span className="flex items-center gap-1">
+                        <UserPlus className="h-3 w-3 text-amber-500" />
+                        {guestCount}
+                      </span>
+                    </span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-80" align="start">
+                  <div className="space-y-4">
+                    <div className="space-y-2">
+                      <Label className="text-sm font-medium">
+                        Jumlah Orang
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        Tentukan jumlah karyawan dan tamu
+                      </p>
+                    </div>
 
-            {/* Search Button */}
+                    {/* Karyawan */}
+                    <div className="flex items-center justify-between p-3 border rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <Briefcase className="h-4 w-4 text-blue-500" />
+                        <span className="font-medium">Karyawan</span>
+                      </div>
+                      <div className="flex items-center border rounded-md">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 rounded-r-none"
+                          onClick={() => {
+                            setEmployeeCount(Math.max(0, employeeCount - 1));
+                            setHasSearched(false);
+                          }}
+                          disabled={employeeCount <= 0}
+                        >
+                          <Minus className="h-3 w-3" />
+                        </Button>
+                        <span className="w-10 text-center font-semibold">
+                          {employeeCount}
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 rounded-l-none"
+                          onClick={() => {
+                            setEmployeeCount(Math.min(50, employeeCount + 1));
+                            setHasSearched(false);
+                          }}
+                          disabled={employeeCount >= 50}
+                        >
+                          <Plus className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Tamu */}
+                    <div className="flex items-center justify-between p-3 border rounded-lg">
+                      <div className="flex items-center gap-2">
+                        <UserPlus className="h-4 w-4 text-amber-500" />
+                        <span className="font-medium">Tamu</span>
+                      </div>
+                      <div className="flex items-center border rounded-md">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 rounded-r-none"
+                          onClick={() => {
+                            setGuestCount(Math.max(0, guestCount - 1));
+                            setHasSearched(false);
+                          }}
+                          disabled={guestCount <= 0}
+                        >
+                          <Minus className="h-3 w-3" />
+                        </Button>
+                        <span className="w-10 text-center font-semibold">
+                          {guestCount}
+                        </span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 rounded-l-none"
+                          onClick={() => {
+                            setGuestCount(Math.min(50, guestCount + 1));
+                            setHasSearched(false);
+                          }}
+                          disabled={guestCount >= 50}
+                        >
+                          <Plus className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="pt-3 border-t">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">Total:</span>
+                        <span className="font-semibold">
+                          {totalPeople} Orang
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+          </div>
+
+          {/* Action Row */}
+          <div className="mt-6 flex flex-col md:flex-row items-center justify-between gap-4 border-t pt-4">
+            {startDate && endDate ? (
+              <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                <Badge variant="secondary" className="font-normal">
+                  {format(startDate, "dd MMM", { locale: localeId })} -{" "}
+                  {format(endDate, "dd MMM", { locale: localeId })}
+                </Badge>
+                <span className="flex items-center gap-1 font-medium">
+                  {duration} Malam
+                </span>
+                <span className="flex items-center gap-1">
+                  <Users className="h-4 w-4" />
+                  {totalPeople} Orang
+                </span>
+              </div>
+            ) : (
+              <div className="text-sm text-muted-foreground italic">
+                Masukan area dan tanggal untuk mencari
+              </div>
+            )}
+
             <Button
               size="lg"
               onClick={handleSearch}
               disabled={!canSearch}
-              className="gap-2 px-6"
+              className="w-full md:w-auto gap-2 px-8 font-bold shadow-md hover:shadow-lg transition-all"
             >
               <Search className="h-4 w-4" />
-              Cari
+              Cari Kamar
             </Button>
           </div>
-
-          {/* Duration Info */}
-          {startDate && endDate && (
-            <div className="flex items-center gap-4 mt-3 pt-3 border-t text-sm text-muted-foreground">
-              <span>
-                <strong>{format(startDate, "dd MMM yyyy", { locale: localeId })}</strong> s/d{" "}
-                <strong>{format(endDate, "dd MMM yyyy", { locale: localeId })}</strong>
-              </span>
-              <Badge variant="outline">{duration} malam</Badge>
-              <span className="flex items-center gap-1">
-                <Users className="h-4 w-4" />
-                <strong>{totalPeople}</strong> orang
-              </span>
-            </div>
-          )}
         </CardContent>
       </Card>
 
       {/* Results */}
       {hasSearched && (
-        <div className="space-y-4">
-          {/* Results Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-            <div>
-              <h3 className="text-lg font-bold flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-primary" />
-                Hasil Pencarian
-              </h3>
-              <p className="text-sm text-muted-foreground">
-                Ditemukan {stats.total} kamar dengan {stats.totalAvailableBeds} bed tersedia
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <Badge variant="outline" className="gap-1.5">
-                <Building2 className="h-3.5 w-3.5" />
-                {stats.total} Kamar
-              </Badge>
-              <Badge
-                variant="outline"
-                className={cn(
-                  "gap-1.5",
-                  stats.canAccommodate ? "bg-emerald-50 text-emerald-700" : "bg-rose-50 text-rose-700"
-                )}
-              >
-                <BedDouble className="h-3.5 w-3.5" />
-                {stats.totalAvailableBeds} Bed
-              </Badge>
-            </div>
-          </div>
+        <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          {/* Results Header with Filter */}
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gradient-to-r from-primary/5 to-primary/10 p-6 rounded-xl border border-primary/20">
+              <div>
+                <h3 className="text-xl font-bold flex items-center gap-2 text-primary">
+                  <Sparkles className="h-5 w-5" />
+                  Hasil Ketersediaan
+                </h3>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Menampilkan status ketersediaan di{" "}
+                  <span className="font-semibold text-foreground">
+                    {AREAS.find((a) => a.id === selectedArea)?.name}
+                  </span>
+                </p>
+              </div>
 
-          {/* Optional Filters */}
-          <Collapsible open={isFilterOpen} onOpenChange={setIsFilterOpen}>
-            <CollapsibleTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-2">
-                <SlidersHorizontal className="h-4 w-4" />
+              <Button
+                variant={isFilterOpen ? "default" : "outline"}
+                size="sm"
+                onClick={() => setIsFilterOpen(!isFilterOpen)}
+                className="gap-2 relative"
+              >
+                <Filter className="h-4 w-4" />
                 Filter
                 {activeFiltersCount > 0 && (
-                  <Badge className="h-5 w-5 p-0 justify-center text-[10px]">
+                  <Badge
+                    variant="secondary"
+                    className="h-5 w-5 p-0 justify-center text-[10px] ml-1 bg-destructive text-destructive-foreground"
+                  >
                     {activeFiltersCount}
                   </Badge>
                 )}
-                <ChevronDown className={cn("h-4 w-4 transition-transform", isFilterOpen && "rotate-180")} />
               </Button>
-            </CollapsibleTrigger>
-            <CollapsibleContent className="pt-3">
-              <div className="grid grid-cols-3 gap-3 p-3 rounded-lg border bg-muted/30">
-                <Select
-                  value={selectedArea}
-                  onValueChange={(v) => {
-                    setSelectedArea(v);
-                    setSelectedBuilding("all");
-                  }}
-                >
-                  <SelectTrigger className="h-9">
-                    <SelectValue placeholder="Area" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Semua Area</SelectItem>
-                    {AREAS.map((area) => (
-                      <SelectItem key={area.id} value={area.id}>
-                        {area.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select value={selectedBuilding} onValueChange={setSelectedBuilding}>
-                  <SelectTrigger className="h-9">
-                    <SelectValue placeholder="Gedung" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Semua Gedung</SelectItem>
-                    {filteredBuildings.map((b) => (
-                      <SelectItem key={b.id} value={b.id}>
-                        {b.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Select value={selectedType} onValueChange={setSelectedType}>
-                  <SelectTrigger className="h-9">
-                    <SelectValue placeholder="Tipe" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Semua Tipe</SelectItem>
-                    {ROOM_TYPES.map((t) => (
-                      <SelectItem key={t.value} value={t.value}>
-                        {t.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </CollapsibleContent>
-          </Collapsible>
-
-          {/* Room List */}
-          <ScrollArea className="h-[600px]">
-            <div className="grid gap-4 pr-4">
-              {filteredRooms.length > 0 ? (
-                filteredRooms.map((room) => (
-                  <RoomCard key={room.id} room={room} totalPeople={totalPeople} />
-                ))
-              ) : (
-                <Card className="border-dashed">
-                  <CardContent className="flex flex-col items-center justify-center py-16">
-                    <Search className="h-12 w-12 text-muted-foreground/30 mb-4" />
-                    <p className="text-lg font-medium">Tidak ada kamar ditemukan</p>
-                    <p className="text-sm text-muted-foreground">Coba ubah filter pencarian</p>
-                  </CardContent>
-                </Card>
-              )}
             </div>
-          </ScrollArea>
+
+            {/* Filter Panel */}
+            {isFilterOpen && (
+              <Card className="border-2 border-primary/20 shadow-lg animate-in fade-in slide-in-from-top-4 duration-300">
+                <CardContent className="p-6 space-y-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="p-2 bg-primary/10 rounded-lg">
+                        <SlidersHorizontal className="h-4 w-4 text-primary" />
+                      </div>
+                      <div>
+                        <h4 className="font-semibold">Filter Pencarian</h4>
+                        <p className="text-xs text-muted-foreground">
+                          Persempit hasil dengan filter tambahan
+                        </p>
+                      </div>
+                    </div>
+                    {activeFiltersCount > 0 && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={clearFilters}
+                        className="gap-2 text-muted-foreground hover:text-foreground"
+                      >
+                        <X className="h-3 w-3" />
+                        Hapus Filter
+                      </Button>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <Building2 className="h-4 w-4 text-primary" />
+                        <Label className="font-medium">Gedung</Label>
+                      </div>
+                      <Select
+                        value={selectedBuilding}
+                        onValueChange={setSelectedBuilding}
+                      >
+                        <SelectTrigger className="h-11">
+                          <SelectValue placeholder="Semua Gedung" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">
+                            <div className="flex items-center gap-2">
+                              <Badge
+                                variant="secondary"
+                                className="text-xs font-normal"
+                              >
+                                Semua Gedung
+                              </Badge>
+                            </div>
+                          </SelectItem>
+                          {filteredBuildings.map((b) => (
+                            <SelectItem key={b.id} value={b.id}>
+                              <div className="flex items-center gap-2">
+                                <span>{b.name}</span>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {selectedBuilding !== "all" && (
+                        <p className="text-xs text-muted-foreground flex items-center gap-1">
+                          <Filter className="h-3 w-3" />
+                          Filter aktif:{" "}
+                          {
+                            filteredBuildings.find(
+                              (b) => b.id === selectedBuilding
+                            )?.name
+                          }
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="h-4 w-4 text-primary" />
+                        <Label className="font-medium">Tipe Kamar</Label>
+                      </div>
+                      <Select
+                        value={selectedType}
+                        onValueChange={setSelectedType}
+                      >
+                        <SelectTrigger className="h-11">
+                          <SelectValue placeholder="Semua Tipe" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">
+                            <div className="flex items-center gap-2">
+                              <Badge
+                                variant="secondary"
+                                className="text-xs font-normal"
+                              >
+                                Semua Tipe
+                              </Badge>
+                            </div>
+                          </SelectItem>
+                          {ROOM_TYPES.map((t) => (
+                            <SelectItem key={t.value} value={t.value}>
+                              {t.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {selectedType !== "all" && (
+                        <p className="text-xs text-muted-foreground flex items-center gap-1">
+                          <Filter className="h-3 w-3" />
+                          Filter aktif:{" "}
+                          {
+                            ROOM_TYPES.find((t) => t.value === selectedType)
+                              ?.label
+                          }
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="pt-4 border-t">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">
+                        Hasil setelah filter:
+                      </span>
+                      <span className="font-semibold">
+                        {filteredRooms.length} kamar tersedia
+                      </span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+
+          {/* Timeline View */}
+          <RoomAvailabilityTimeline
+            rooms={filteredRooms}
+            startDate={startDate}
+            endDate={endDate}
+            onRoomDetail={setSelectedRoom}
+          />
         </div>
       )}
 
       {/* Initial State */}
       {!hasSearched && (
-        <Card className="border-dashed">
-          <CardContent className="flex flex-col items-center justify-center py-16">
-            <div className="p-4 rounded-full bg-primary/10 mb-4">
-              <BedDouble className="h-10 w-10 text-primary" />
+        <div className="flex flex-col items-center justify-center py-16 text-center">
+          <div className="relative">
+            <div className="absolute inset-0 bg-primary/10 blur-3xl rounded-full" />
+            <div className="relative bg-gradient-to-br from-primary/10 to-primary/5 p-6 rounded-2xl mb-6 border border-primary/20">
+              <Search className="h-12 w-12 text-primary" />
             </div>
-            <p className="text-lg font-medium">Mulai Pencarian Kamar</p>
-            <p className="text-sm text-muted-foreground text-center max-w-md mt-1">
-              Pilih tanggal check-in, check-out dan jumlah orang untuk mencari kamar yang tersedia
-            </p>
-          </CardContent>
-        </Card>
+          </div>
+          <h3 className="text-xl font-bold text-foreground mb-2">
+            Mulai Pencarian Kamar
+          </h3>
+          <p className="max-w-md text-muted-foreground">
+            Tentukan area lokasi, tanggal check-in/out, dan jumlah orang untuk
+            melihat ketersediaan kamar secara real-time.
+          </p>
+        </div>
       )}
+
+      {/* Detail Dialog */}
+      <Dialog
+        open={!!selectedRoom}
+        onOpenChange={(open) => !open && setSelectedRoom(null)}
+      >
+        <DialogContent className="w-full md:max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
+          <DialogHeader className="border-b pb-4">
+            <DialogTitle className="text-2xl font-bold flex items-center gap-3">
+              <div className="p-2 bg-primary/10 rounded-lg">
+                <Building2 className="h-5 w-5 text-primary" />
+              </div>
+              Detail Ruangan
+            </DialogTitle>
+          </DialogHeader>
+
+          {selectedRoom && (
+            <div className="flex-1 overflow-y-auto px-1">
+              <div className="space-y-6 py-4">
+                {/* Header Info */}
+                <div className="flex items-start justify-between gap-4 p-4 bg-gradient-to-r from-primary/5 to-primary/10 rounded-xl border border-primary/20">
+                  <div>
+                    <h2 className="text-3xl font-bold text-primary mb-2">
+                      {selectedRoom.code}
+                    </h2>
+                    <div className="flex flex-col gap-2 text-sm">
+                      <span className="flex items-center gap-2 text-muted-foreground">
+                        <Building2 className="h-4 w-4" />
+                        <span className="font-medium text-foreground">
+                          {selectedRoom.buildingName}
+                        </span>
+                      </span>
+                      <span className="flex items-center gap-2 text-muted-foreground">
+                        <MapPin className="h-4 w-4" />
+                        <span className="font-medium text-foreground">
+                          {selectedRoom.areaName}
+                        </span>
+                      </span>
+                    </div>
+                  </div>
+                  <Badge
+                    variant="outline"
+                    className="text-base font-semibold px-4 py-2 bg-background"
+                  >
+                    {ROOM_TYPES.find((t) => t.value === selectedRoom.type)
+                      ?.label || selectedRoom.type}
+                  </Badge>
+                </div>
+
+                {/* Main Content Grid */}
+                <div className="grid lg:grid-cols-2 gap-6">
+                  {/* Left: Carousel */}
+                  <div className="space-y-4">
+                    <div className="relative rounded-xl overflow-hidden bg-muted/20 border-2 shadow-lg">
+                      <Carousel className="w-full">
+                        <CarouselContent>
+                          {selectedRoom.images.map((img, idx) => (
+                            <CarouselItem key={idx}>
+                              <div className="p-1">
+                                <img
+                                  src={img}
+                                  alt={`Room ${selectedRoom.code} - Image ${
+                                    idx + 1
+                                  }`}
+                                  className="w-full aspect-video object-cover rounded-lg"
+                                />
+                              </div>
+                            </CarouselItem>
+                          ))}
+                        </CarouselContent>
+                        <CarouselPrevious className="left-2" />
+                        <CarouselNext className="right-2" />
+                      </Carousel>
+                    </div>
+                  </div>
+
+                  {/* Right: Details */}
+                  <div className="space-y-6">
+                    {/* Category & Gender Badges */}
+                    <div className="space-y-3">
+                      <Label className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
+                        Kategori Ruangan
+                      </Label>
+                      <div className="flex flex-wrap gap-3">
+                        <div className="flex items-center gap-2 px-4 py-3 bg-blue-50 dark:bg-blue-950/30 border-2 border-blue-200 dark:border-blue-800 rounded-xl">
+                          {selectedRoom.allocation === "employee" ? (
+                            <Briefcase className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                          ) : (
+                            <User className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                          )}
+                          <span className="font-semibold text-sm">
+                            {selectedRoom.allocation === "employee"
+                              ? "Khusus Karyawan"
+                              : "Khusus Tamu"}
+                          </span>
+                        </div>
+
+                        <div className="flex items-center gap-2 px-4 py-3 bg-purple-50 dark:bg-purple-950/30 border-2 border-purple-200 dark:border-purple-800 rounded-xl">
+                          {selectedRoom.gender === "male" ? (
+                            <Mars className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                          ) : selectedRoom.gender === "female" ? (
+                            <Venus className="h-5 w-5 text-pink-600 dark:text-pink-400" />
+                          ) : (
+                            <Users className="h-5 w-5 text-purple-600 dark:text-purple-400" />
+                          )}
+                          <span className="font-semibold text-sm">
+                            {selectedRoom.gender === "male"
+                              ? "Pria"
+                              : selectedRoom.gender === "female"
+                              ? "Wanita"
+                              : "Campur"}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Facilities */}
+                    <div className="space-y-3">
+                      <Label className="text-xs text-muted-foreground uppercase tracking-wider font-semibold flex items-center gap-2">
+                        <Sparkles className="h-3.5 w-3.5" />
+                        Fasilitas Tersedia
+                      </Label>
+                      <div className="flex flex-wrap gap-2">
+                        {selectedRoom.facilities.map((f) => (
+                          <Badge
+                            key={f}
+                            variant="outline"
+                            className="bg-background px-3 py-1.5 text-sm font-medium border-2"
+                          >
+                            {f}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Bed Status Section */}
+                <div className="space-y-4 pt-4 border-t-2">
+                  <div className="flex items-center justify-between">
+                    <h3 className="font-bold text-lg flex items-center gap-2">
+                      <BedDouble className="h-5 w-5 text-primary" />
+                      Status Ruangan Sekarang
+                    </h3>
+                    <Badge variant="secondary" className="text-sm">
+                      {selectedRoom.availableBeds} / {selectedRoom.beds.length}{" "}
+                      Tersedia
+                    </Badge>
+                  </div>
+
+                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+                    {selectedRoom.beds.map((bed) => (
+                      <div
+                        key={bed.id}
+                        className={cn(
+                          "group relative p-4 rounded-xl border-2 text-sm flex flex-col gap-2 transition-all hover:shadow-lg",
+                          bed.status === "available"
+                            ? "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-700 hover:border-emerald-400"
+                            : bed.status === "occupied"
+                            ? "bg-slate-50 dark:bg-slate-950/30 border-slate-300 dark:border-slate-700"
+                            : bed.status === "reserved"
+                            ? "bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-700"
+                            : "bg-gray-50 dark:bg-gray-950/30 border-gray-300 dark:border-gray-700"
+                        )}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-lg">
+                            Bed {bed.code}
+                          </span>
+                          {bed.status === "available" ? (
+                            <CheckCircle className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                          ) : bed.status === "occupied" ? (
+                            <XCircle className="h-5 w-5 text-slate-600 dark:text-slate-400" />
+                          ) : bed.status === "reserved" ? (
+                            <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
+                          ) : (
+                            <AlertCircle className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                          )}
+                        </div>
+
+                        <div className="flex items-center gap-1.5">
+                          <div
+                            className={cn(
+                              "w-2 h-2 rounded-full",
+                              bed.status === "available"
+                                ? "bg-emerald-500"
+                                : bed.status === "occupied"
+                                ? "bg-slate-500"
+                                : bed.status === "reserved"
+                                ? "bg-amber-500"
+                                : "bg-gray-500"
+                            )}
+                          />
+                          <span className="text-xs font-semibold">
+                            {bed.status === "available"
+                              ? "Tersedia"
+                              : bed.status === "occupied"
+                              ? "Terisi"
+                              : bed.status === "reserved"
+                              ? "Dipesan"
+                              : "Maintenance"}
+                          </span>
+                        </div>
+
+                        {bed.status === "occupied" && bed.occupantName && (
+                          <div className="mt-2 pt-2 border-t border-slate-200 dark:border-slate-800">
+                            <div
+                              className="text-sm font-bold truncate tracking-wide"
+                              title={bed.occupantName}
+                            >
+                              {(() => {
+                                if (!bed.occupantName) return "";
+                                return bed.occupantName
+                                  .split(" ")
+                                  .map((part) => {
+                                    if (part.length <= 2) return part;
+                                    return (
+                                      part[0] +
+                                      "*".repeat(part.length - 2) +
+                                      part[part.length - 1]
+                                    );
+                                  })
+                                  .join(" ");
+                              })()}
+                            </div>
+                            <div className="text-[10px] text-muted-foreground mt-1 space-y-0.5">
+                              {bed.occupantCheckIn && (
+                                <div className="flex items-center gap-1.5">
+                                  <LogIn className="h-3 w-3 text-emerald-600" />
+                                  <span>
+                                    {format(bed.occupantCheckIn, "d MMM yyyy", {
+                                      locale: localeId,
+                                    })}
+                                  </span>
+                                </div>
+                              )}
+                              {bed.occupantCheckOut && (
+                                <div className="flex items-center gap-1.5">
+                                  <LogOut className="h-3 w-3 text-destructive" />
+                                  <span>
+                                    {format(
+                                      bed.occupantCheckOut,
+                                      "d MMM yyyy",
+                                      { locale: localeId }
+                                    )}
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

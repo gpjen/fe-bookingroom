@@ -8,12 +8,12 @@ const ROLES: Record<string, Role> = {
   admin: {
     name: "admin",
     permissions: [
+      "home:read",
       "dashboard:read",
       "booking:read",
-      "booking-calendar:read",
-      "booking-all:read",
-      "booking-mine:read",
       "booking-request:read",
+      "booking-occupant:read",
+      "booking-mine:read",
       "building:read",
       "reports:read",
       "property:read",
@@ -25,43 +25,17 @@ const ROLES: Record<string, Role> = {
       "admin-roles:read",
       "admin-settings:read",
       "admin-logs:read",
-    ],
-  },
-  manager: {
-    name: "manager",
-    permissions: [
-      "dashboard:read",
-      "booking:read",
-      "booking-calendar:read",
-      "booking-all:read",
-      "booking-mine:read",
-      "booking-request:read",
-      "building:read",
-      "reports:read",
-      "property:read",
-      "companies:read",
-      "area:read",
-      "options-type:read",
-      "admin:read",
-      "admin-users:read",
-      "admin-roles:read",
-      "admin-settings:read",
-      "admin-logs:read",
+      "notifications:read",
     ],
   },
   staff: {
     name: "staff",
     permissions: [
-      "dashboard:read",
-      "booking-calendar:read",
+      "home:read",
       "booking:read",
       "booking-mine:read",
-      "booking-request:read",
+      "notifications:read",
     ],
-  },
-  viewer: {
-    name: "viewer",
-    permissions: ["dashboard:read", "booking:read", "booking-mine:read"],
   },
 };
 
@@ -72,14 +46,14 @@ export const COMPANIES: Company[] = [
 
 const MOCK_ACCESS: (UserAccess & { username?: string })[] = [
   {
-    userId: "superadmin@obalab.local",
+    userId: "gandijen@gmail.com",
     username: "D0525000109",
     roles: ["super-admin"],
     companies: ["dcm", "hpal"],
   },
   {
     userId: "staff@obalab.local",
-    username: "d12345",
+    username: "D123456",
     roles: ["staff"],
     companies: ["hpal"],
   },
@@ -108,12 +82,6 @@ export function getMockAccessForUser(email?: string, name?: string) {
       roles: found.roles,
     };
   }
-  // default staff access
-  return {
-    permissions: resolvePermissions(["viewer"]),
-    companies: ["hpal", "dcm"],
-    roles: ["viewer"],
-  };
 }
 
 export function getAccessForUsername(username?: string) {
@@ -126,9 +94,4 @@ export function getAccessForUsername(username?: string) {
       roles: found.roles,
     };
   }
-  return {
-    permissions: resolvePermissions(["viewer"]),
-    companies: ["hpal", "dcm"],
-    roles: ["viewer"],
-  };
 }

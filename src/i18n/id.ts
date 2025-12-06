@@ -13,5 +13,21 @@ const messages = {
   notFoundTitle: "Halaman Tidak Ditemukan",
   notFoundDesc: "Maaf, halaman yang Anda cari tidak dapat ditemukan.",
   backToHome: "Kembali ke Beranda",
+  noAccessTitle: "Akses Tidak Diizinkan",
+  noAccessDesc:
+    "Anda tidak memiliki izin untuk mengakses sistem ini. Silakan hubungi tim IT untuk bantuan lebih lanjut.",
+  accessDenied: "Akses Ditolak",
+  contactIT: "Hubungi IT Support",
+  helpdesk: "Portal Helpdesk",
+  logoutSystem: "Logout dari Sistem",
+  status: "Status",
+  permission: "Izin",
+  account: "Akun",
+  noAccess: "Tidak Ada Akses",
+  required: "Diperlukan",
+  inactive: "Tidak Aktif",
+  secureAccess: "Manajemen Gedung • Kontrol Akses Aman",
+  errorMistake:
+    "Jika Anda merasa ini adalah kesalahan, segera hubungi administrator sistem",
 };
 export default messages;

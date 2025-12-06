@@ -1,7 +1,9 @@
 import { faker } from "@faker-js/faker";
-import { addDays } from "date-fns";
+import { addDays, subDays } from "date-fns";
 
 export type RoomType = "standard" | "vip" | "vvip";
+export type RoomAllocation = "employee" | "guest";
+export type RoomGender = "male" | "female" | "mix";
 export type RoomStatus = "available" | "partial" | "full" | "maintenance";
 export type BedStatus = "available" | "occupied" | "reserved" | "maintenance";
 
@@ -27,11 +29,14 @@ export interface RoomAvailability {
   areaName: string;
   floor: number;
   type: RoomType;
+  allocation: RoomAllocation;
+  gender: RoomGender;
   capacity: number;
   availableBeds: number;
   status: RoomStatus;
   beds: BedAvailability[];
   facilities: string[];
+  images: string[];
 }
 
 export interface BedAvailability {
@@ -39,6 +44,7 @@ export interface BedAvailability {
   code: string;
   status: BedStatus;
   occupantName?: string;
+  occupantCheckIn?: Date;
   occupantCheckOut?: Date;
   reservedFrom?: Date;
   reservedTo?: Date;
@@ -62,7 +68,10 @@ export const BUILDINGS: Building[] = [
   { id: "b8", name: "Block A10", areaId: "area-4", areaName: "P2" },
 ];
 
-export const ROOM_TYPES: { value: RoomType; label: string }[] = [
+export const ROOM_TYPES: {
+  value: RoomType;
+  label: string;
+}[] = [
   { value: "standard", label: "Standard" },
   { value: "vip", label: "VIP" },
   { value: "vvip", label: "VVIP" },
@@ -86,10 +95,27 @@ export function generateRoomAvailability(): RoomAvailability[] {
     const roomCount = faker.number.int({ min: 15, max: 25 });
 
     for (let i = 1; i <= roomCount; i++) {
-      const roomCode = `${building.name.replace("Block ", "")}-${i.toString().padStart(2, "0")}`;
-      const type: RoomType = faker.helpers.arrayElement(["standard", "standard", "standard", "vip", "vvip"]);
-      const capacity = type === "vvip" ? 1 : type === "vip" ? 2 : faker.number.int({ min: 2, max: 4 });
+      const roomCode = `${building.name.replace("Block ", "")}-${i
+        .toString()
+        .padStart(2, "0")}`;
+      const type: RoomType = faker.helpers.arrayElement([
+        "standard",
+        "standard",
+        "standard",
+        "vip",
+        "vvip",
+      ]);
+      // Remove category logic
+
+      const capacity =
+        type === "vvip"
+          ? 1
+          : type === "vip"
+          ? 2
+          : faker.number.int({ min: 2, max: 4 });
       const floor = Math.ceil(i / 8);
+
+      const isRoomMaintenance = Math.random() < 0.05; // 5% chance entire room is maintenance
 
       const beds: BedAvailability[] = [];
       let availableBeds = 0;
@@ -99,22 +125,41 @@ export function generateRoomAvailability(): RoomAvailability[] {
         const rand = Math.random();
         let status: BedStatus = "available";
         let occupantName: string | undefined;
+        let occupantCheckIn: Date | undefined;
         let occupantCheckOut: Date | undefined;
         let reservedFrom: Date | undefined;
         let reservedTo: Date | undefined;
 
-        if (rand < 0.5) {
-          status = "occupied";
-          occupantName = faker.person.fullName();
-          occupantCheckOut = addDays(new Date(), faker.number.int({ min: 1, max: 30 }));
-        } else if (rand < 0.65) {
-          status = "reserved";
-          reservedFrom = addDays(new Date(), faker.number.int({ min: 1, max: 7 }));
-          reservedTo = addDays(reservedFrom, faker.number.int({ min: 3, max: 14 }));
-        } else if (rand < 0.7) {
+        if (isRoomMaintenance) {
           status = "maintenance";
         } else {
-          availableBeds++;
+          const today = new Date();
+          const isOccupied = rand < 0.5;
+
+          if (isOccupied) {
+            status = "occupied";
+            occupantName = faker.person.fullName();
+            occupantCheckIn = subDays(
+              today,
+              faker.number.int({ min: 1, max: 14 })
+            );
+            occupantCheckOut = addDays(
+              today,
+              faker.number.int({ min: 1, max: 14 })
+            );
+          } else if (rand < 0.65) {
+            status = "reserved";
+            reservedFrom = addDays(
+              new Date(),
+              faker.number.int({ min: 1, max: 7 })
+            );
+            reservedTo = addDays(
+              reservedFrom,
+              faker.number.int({ min: 3, max: 14 })
+            );
+          } else {
+            availableBeds++;
+          }
         }
 
         beds.push({
@@ -129,13 +174,12 @@ export function generateRoomAvailability(): RoomAvailability[] {
       }
 
       let roomStatus: RoomStatus = "available";
-      if (availableBeds === 0) {
+      if (isRoomMaintenance) {
+        roomStatus = "maintenance";
+      } else if (availableBeds === 0) {
         roomStatus = "full";
       } else if (availableBeds < capacity) {
         roomStatus = "partial";
-      }
-      if (beds.every((b) => b.status === "maintenance")) {
-        roomStatus = "maintenance";
       }
 
       const facilityCount = type === "vvip" ? 7 : type === "vip" ? 5 : 3;
@@ -150,6 +194,18 @@ export function generateRoomAvailability(): RoomAvailability[] {
         areaName: building.areaName,
         floor,
         type,
+        allocation: faker.helpers.arrayElement(["employee", "guest"]),
+        gender: faker.helpers.arrayElement(["male", "female", "mix"]),
+        images: faker.helpers.arrayElements(
+          [
+            "https://images.unsplash.com/photo-1590490360182-c33d57733427?w=800&q=80",
+            "https://images.unsplash.com/photo-1566665797739-1674de7a421a?w=800&q=80",
+            "https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?w=800&q=80",
+            "https://images.unsplash.com/photo-1596394516093-501ba68a0ba6?w=800&q=80",
+            "https://images.unsplash.com/photo-1611892440504-42a792e24d32?w=800&q=80",
+          ],
+          faker.number.int({ min: 2, max: 4 })
+        ),
         capacity,
         availableBeds,
         status: roomStatus,
@@ -175,7 +231,8 @@ export function filterRooms(
 ): RoomAvailability[] {
   return rooms.filter((room) => {
     if (filters.areaId && room.areaId !== filters.areaId) return false;
-    if (filters.buildingId && room.buildingId !== filters.buildingId) return false;
+    if (filters.buildingId && room.buildingId !== filters.buildingId)
+      return false;
     if (filters.type && room.type !== filters.type) return false;
     if (filters.onlyAvailable && room.availableBeds === 0) return false;
     return true;

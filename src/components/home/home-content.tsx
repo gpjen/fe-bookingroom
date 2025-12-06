@@ -20,7 +20,7 @@ function Feature({ icon, title }: { icon: React.ReactNode; title: string }) {
 }
 
 export default function HomeContent() {
-  const { t } = useLang();
+  const { t, lang } = useLang();
 
   return (
     <main className="relative min-h-screen">
@@ -71,7 +71,13 @@ export default function HomeContent() {
           {/* CTA Buttons */}
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-4">
             <Button
-              onClick={() => signIn("keycloak")}
+              onClick={() =>
+                signIn(
+                  "keycloak",
+                  { callbackUrl: "/dashboard" },
+                  { kc_locale: lang === "zh" ? "zh-CN" : lang }
+                )
+              }
               className={`h-14 w-full md:w-[250px] cursor-pointer px-8 inline-flex items-center justify-center gap-2 text-lg font-semibold rounded-xl transition-all shadow-lg bg-primary text-primary-foreground hover:opacity-90 group`}
             >
               <span>{t("login")}</span>

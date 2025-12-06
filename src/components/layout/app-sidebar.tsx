@@ -106,13 +106,6 @@ const menuConfig: MenuItem[] = [
         permissions: ["booking-occupant-status:read"],
       },
       {
-        href: "/booking/calendar",
-        label: "Calendar View",
-        icon: CalendarCheck2,
-        active: true,
-        permissions: ["booking-calendar:read"],
-      },
-      {
         href: "/booking/mine",
         label: "Pemesanan Saya",
         icon: DoorOpen,
@@ -226,6 +219,7 @@ const menuConfig: MenuItem[] = [
     icon: Bell,
     active: true,
     badge: "3",
+    permissions: ["notifications:read"],
   },
 ];
 

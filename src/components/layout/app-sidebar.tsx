@@ -61,6 +61,7 @@ import {
   GroupMenuItem as TypesGroupMenuItem,
 } from "@/types/sidebar-types";
 import { performLogout } from "@/lib/auth/logout-utils";
+import { usePermissions } from "@/providers/permissions-provider";
 
 // Menu Configuration
 const menuConfig: MenuItem[] = [
@@ -413,13 +414,10 @@ const UserMenuDropdown = ({
   </DropdownMenu>
 );
 
-export function AppSidebar({
-  userName,
-  email,
-  userPermissions,
-}: AppSidebarProps) {
+export function AppSidebar({ userName, email }: AppSidebarProps) {
   const pathname = usePathname();
   const { state, setOpen } = useSidebar();
+  const { permissions } = usePermissions();
   const userInitials =
     userName
       ?.split(" ")
@@ -428,7 +426,7 @@ export function AppSidebar({
       .toUpperCase() || "U";
 
   // Filter menu items based on user permissions
-  const visibleMenuItems = filterMenuItems(menuConfig, userPermissions);
+  const visibleMenuItems = filterMenuItems(menuConfig, permissions);
 
   // Expand sidebar if a submenu is active on initial render
   useEffect(() => {

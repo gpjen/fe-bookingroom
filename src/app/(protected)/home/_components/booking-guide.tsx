@@ -1,4 +1,12 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import {
   Info,
   CheckCircle2,
@@ -8,94 +16,128 @@ import {
   Mars,
   Venus,
   Users,
+  BookOpen,
+  Shield,
+  Calendar,
+  Sparkles,
+  ChevronRight,
 } from "lucide-react";
 
 export function BookingGuide() {
   return (
-    <Card className="mt-6 border-l-4 border-l-yellow-500 shadow-sm">
-      <CardHeader className="pb-3">
-        <CardTitle className="text-lg flex items-center gap-2">
-          <Info className="h-5 w-5 text-primary" />
-          Panduan & Aturan Booking
+    <Card className="mt-5 border shadow-sm">
+      <CardHeader className="pb-4 pt-6">
+        <CardTitle className="text-lg font-semibold flex items-center gap-2">
+          <BookOpen className="h-5 w-5 text-primary" />
+          Panduan Booking Kamar
         </CardTitle>
+        <p className="text-sm text-muted-foreground">
+          Cara pemesanan dan ketentuan yang berlaku
+        </p>
       </CardHeader>
-      <CardContent className="space-y-4 text-sm">
-        {/* Reservation Steps */}
-        <div className="space-y-2">
-          <h4 className="font-semibold text-foreground flex items-center gap-2">
-            <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-            Cara Pemesanan
-          </h4>
-          <ol className="list-decimal list-inside space-y-1 text-muted-foreground ml-1">
-            <li>
-              Pilih <strong>Area</strong> dan tentukan{" "}
-              <strong>Tanggal Check-in/out</strong>.
-            </li>
-            <li>
-              Masukkan jumlah <strong>Karyawan</strong> atau{" "}
-              <strong>Tamu</strong>.
-            </li>
-            <li>
-              Sistem akan menyarankan kamar yang sesuai (Karyawan bisa di kamar
-              Tamu, tapi Tamu <strong>wajib</strong> di kamar Tamu).
-            </li>
-            <li>
-              Klik <strong>Request Booking</strong> pada menu samping untuk
-              memproses surat.
-            </li>
-          </ol>
-        </div>
 
-        {/* Allocation Rules */}
-        <div className="space-y-2">
-          <h4 className="font-semibold text-foreground flex items-center gap-2">
-            <AlertCircle className="h-4 w-4 text-amber-600" />
-            Aturan Alokasi Kamar
-          </h4>
-          <div className="grid gap-2">
-            <div className="flex items-start gap-2 p-2 bg-muted/50 rounded-lg">
-              <Briefcase className="h-4 w-4 text-blue-500 mt-0.5 shrink-0" />
-              <div>
-                <span className="font-medium block text-xs uppercase tracking-wider mb-0.5">
-                  Karyawan
-                </span>
-                <p className="text-muted-foreground text-xs leading-relaxed">
-                  Bisa menempati tipe <strong>Standard</strong> (Khusus
-                  Karyawan) maupun <strong>VIP/VVIP</strong> (jika tersedia).
-                </p>
-              </div>
-            </div>
-            <div className="flex items-start gap-2 p-2 bg-muted/50 rounded-lg">
-              <User className="h-4 w-4 text-amber-500 mt-0.5 shrink-0" />
-              <div>
-                <span className="font-medium block text-xs uppercase tracking-wider mb-0.5">
-                  Tamu (Non-Karyawan)
-                </span>
-                <p className="text-muted-foreground text-xs leading-relaxed">
-                  Hanya diperbolehkan menempati kamar yang di khususkan untuk
-                  Tamu.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
+      <CardContent className="p-6 pt-0 space-y-4">
+        <Alert className="bg-amber-50 border-amber-200">
+          <AlertCircle className="h-4 w-4 text-amber-600" />
+          <AlertDescription className="text-sm">
+            Ketersediaan kamar mengikuti konfigurasi admin.
+          </AlertDescription>
+        </Alert>
 
-        {/* Gender Rules */}
-        <div className="space-y-2">
-          <h4 className="font-semibold text-foreground">Ketentuan Gender</h4>
-          <div className="flex flex-wrap gap-2">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-blue-50 text-blue-700 border border-blue-100 text-xs font-medium dark:bg-blue-950/30 dark:text-blue-300 dark:border-blue-800">
-              <Mars className="h-3.5 w-3.5" /> Khusus Pria
-            </span>
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-pink-50 text-pink-700 border border-pink-100 text-xs font-medium dark:bg-pink-950/30 dark:text-pink-300 dark:border-pink-800">
-              <Venus className="h-3.5 w-3.5" /> Khusus Wanita
-            </span>
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-purple-50 text-purple-700 border border-purple-100 text-xs font-medium dark:bg-purple-950/30 dark:text-purple-300 dark:border-purple-800">
-              <Users className="h-3.5 w-3.5" /> Campur (Keluarga)
-            </span>
-          </div>
+        <Accordion type="single" collapsible className="w-full space-y-2">
+          <AccordionItem value="item-1" className="border rounded-lg">
+            <AccordionTrigger className="px-4 hover:no-underline">
+              <div className="flex items-center gap-3">
+                <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                <span className="font-medium">Cara Pemesanan</span>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="px-4 pb-4 space-y-3">
+              <StepItem number="1" title="Pilih Area & Tanggal" />
+              <StepItem number="2" title="Masukkan Jumlah Orang" />
+              <StepItem number="3" title="Lihat Ketersediaan" />
+              <StepItem number="4" title="Request Booking" />
+            </AccordionContent>
+          </AccordionItem>
+
+          <AccordionItem value="item-2" className="border rounded-lg">
+            <AccordionTrigger className="px-4 hover:no-underline">
+              <div className="flex items-center gap-3">
+                <Shield className="h-4 w-4 text-blue-600" />
+                <span className="font-medium">Aturan Alokasi</span>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="px-4 pb-4 space-y-3">
+              <RuleItem
+                icon={<Briefcase className="h-4 w-4" />}
+                title="Karyawan"
+              />
+              <RuleItem
+                icon={<User className="h-4 w-4" />}
+                title="Tamu (Non-Karyawan)"
+              />
+            </AccordionContent>
+          </AccordionItem>
+
+          <AccordionItem value="item-3" className="border rounded-lg">
+            <AccordionTrigger className="px-4 hover:no-underline">
+              <div className="flex items-center gap-3">
+                <Users className="h-4 w-4 text-purple-600" />
+                <span className="font-medium">Ketentuan Gender</span>
+              </div>
+            </AccordionTrigger>
+            <AccordionContent className="px-4 pb-4 space-y-2">
+              <GenderItem
+                icon={<Mars className="h-4 w-4" />}
+                label="Khusus Pria"
+              />
+              <GenderItem
+                icon={<Venus className="h-4 w-4" />}
+                label="Khusus Wanita"
+              />
+              <GenderItem
+                icon={<Users className="h-4 w-4" />}
+                label="Campur (Keluarga)"
+              />
+            </AccordionContent>
+          </AccordionItem>
+        </Accordion>
+
+        <div className="pt-4 text-xs text-muted-foreground flex items-start gap-2">
+          <Info className="h-3 w-3 mt-0.5 shrink-0" />
+          <p>Untuk bantuan, hubungi tim HR atau Administrator.</p>
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function StepItem({ number, title }: { number: string; title: string }) {
+  return (
+    <div className="flex items-center gap-3 p-2">
+      <div className="flex-shrink-0 w-6 h-6 bg-primary/10 text-primary text-xs font-medium rounded-full flex items-center justify-center">
+        {number}
+      </div>
+      <span className="text-sm">{title}</span>
+      <ChevronRight className="h-3 w-3 text-muted-foreground ml-auto" />
+    </div>
+  );
+}
+
+function RuleItem({ icon, title }: { icon: React.ReactNode; title: string }) {
+  return (
+    <div className="flex items-center gap-3 p-2 bg-muted/30 rounded">
+      {icon}
+      <span className="text-sm">{title}</span>
+    </div>
+  );
+}
+
+function GenderItem({ icon, label }: { icon: React.ReactNode; label: string }) {
+  return (
+    <div className="flex items-center gap-2 p-2">
+      {icon}
+      <span className="text-sm">{label}</span>
+    </div>
   );
 }

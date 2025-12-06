@@ -10,6 +10,7 @@ import { BookingRequestForm } from "@/components/booking/booking-request-form";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import Link from "next/link";
+import { PermissionGate } from "@/components/auth/permission-gate";
 
 export function QuickRequestWidget() {
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -75,14 +76,17 @@ export function QuickRequestWidget() {
               <FileText className="h-5 w-5 text-primary" />
               Permintaan Saya
             </CardTitle>
-            <Button
-              size="sm"
-              onClick={() => setIsFormOpen(true)}
-              className="h-8 gap-1.5"
-            >
-              <Plus className="h-4 w-4" />
-              Buat Baru
-            </Button>
+
+            <PermissionGate permissions={["booking-request:create"]}>
+              <Button
+                size="sm"
+                onClick={() => setIsFormOpen(true)}
+                className="h-8 gap-1.5"
+              >
+                <Plus className="h-4 w-4" />
+                Request
+              </Button>
+            </PermissionGate>
           </div>
         </CardHeader>
         <CardContent className="space-y-4">

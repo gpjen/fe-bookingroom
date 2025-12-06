@@ -1,6 +1,5 @@
 import type { NextAuthOptions, TokenSet } from "next-auth";
 import Keycloak from "next-auth/providers/keycloak";
-import { getAccessForUsername } from "@/lib/auth/rbac";
 
 function decodeJwtPayload(jwt?: string): Record<string, unknown> | undefined {
   if (!jwt) return undefined;
@@ -138,11 +137,6 @@ export const authOptions: NextAuthOptions = {
       session.user.email = token.email;
       session.user.username = token.preferred_username;
       session.user.given_name = token.given_name;
-
-      const access = getAccessForUsername(token.preferred_username);
-      session.user.appRoles = access?.roles || [];
-      session.user.permissions = access?.permissions || [];
-      session.user.companies = access?.companies || [];
 
       console.log(
         "Session Callback: Final session object:",

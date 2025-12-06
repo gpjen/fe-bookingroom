@@ -152,8 +152,8 @@ export function RoomSearch() {
   const handleEndDateChange = (date: Date | undefined) => {
     if (date && startDate) {
       const days = differenceInDays(date, startDate);
-      if (days > 93) {
-        setEndDate(addDays(startDate, 93));
+      if (days > 90) {
+        setEndDate(addDays(startDate, 90));
       } else {
         setEndDate(date);
       }
@@ -192,7 +192,7 @@ export function RoomSearch() {
     endDate &&
     totalPeople > 0 &&
     duration > 0 &&
-    duration <= 94 &&
+    duration <= 91 &&
     !!selectedArea;
 
   const activeFiltersCount = [
@@ -257,7 +257,7 @@ export function RoomSearch() {
                 onSelect={handleEndDateChange}
                 label="Pilih tanggal"
                 minDate={startDate ? addDays(startDate, 1) : tomorrow}
-                maxDate={startDate ? addDays(startDate, 93) : undefined}
+                maxDate={startDate ? addDays(startDate, 90) : undefined}
               />
             </div>
 

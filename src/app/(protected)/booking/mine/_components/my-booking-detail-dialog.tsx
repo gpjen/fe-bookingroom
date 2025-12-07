@@ -37,6 +37,7 @@ import {
   AlertCircle,
   Ban,
   UserX,
+  Download,
 } from "lucide-react";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
@@ -48,6 +49,7 @@ import type {
   OccupantStatus,
 } from "@/app/(protected)/booking/request/_components/types";
 import { BUILDINGS } from "@/app/(protected)/booking/request/_components/mock-data";
+import { TicketDownloadDialog } from "./ticket-download-dialog";
 
 interface MyBookingDetailDialogProps {
   booking: BookingRequest | null;
@@ -71,6 +73,7 @@ export function MyBookingDetailDialog({
   const [selectedOccupant, setSelectedOccupant] =
     useState<BookingOccupant | null>(null);
   const [cancelReason, setCancelReason] = useState("");
+  const [downloadDialogOpen, setDownloadDialogOpen] = useState(false);
 
   if (!booking) return null;
 
@@ -174,15 +177,6 @@ export function MyBookingDetailDialog({
   const statusConfig = getStatusConfig(booking.status);
   const StatusIcon = statusConfig.icon;
 
-  // Get unique buildings from occupants
-  const uniqueBuildingIds = [
-    ...new Set(
-      booking.occupants.filter((o) => o.buildingId).map((o) => o.buildingId)
-    ),
-  ];
-  const buildings = uniqueBuildingIds
-    .map((id) => BUILDINGS.find((b) => b.id === id))
-    .filter(Boolean);
   const areaName =
     BUILDINGS.find((b) => b.areaId === booking.areaId)?.area || "-";
 
@@ -236,37 +230,10 @@ export function MyBookingDetailDialog({
                 </div>
               )}
 
-              {/* Location Info */}
-              <Section title="Lokasi" icon={MapPin}>
-                <div className="grid grid-cols-2 gap-3">
-                  <InfoBox icon={MapPin} label="Area" value={areaName} />
-                  <InfoBox
-                    icon={Building}
-                    label="Gedung"
-                    value={
-                      buildings.length > 0
-                        ? buildings.map((b) => b?.name).join(", ")
-                        : "Belum ditentukan"
-                    }
-                  />
-                </div>
-              </Section>
-
-              {/* Purpose */}
-              <Section title="Tujuan" icon={FileText}>
-                <div className="p-3 bg-muted/50 rounded-lg">
-                  <p className="text-sm font-medium">{booking.purpose}</p>
-                  {booking.notes && (
-                    <p className="text-xs text-muted-foreground mt-2 italic">
-                      Catatan: {booking.notes}
-                    </p>
-                  )}
-                </div>
-              </Section>
-
               {/* Request Info */}
               <Section title="Informasi Pengajuan" icon={Clock}>
                 <div className="grid grid-cols-2 gap-3">
+                  <InfoBox icon={MapPin} label="Area" value={areaName} />
                   <InfoBox
                     icon={Calendar}
                     label="Tanggal Pengajuan"
@@ -295,6 +262,18 @@ export function MyBookingDetailDialog({
                     </div>
                   </div>
                 )}
+              </Section>
+
+              {/* Purpose */}
+              <Section title="Tujuan" icon={FileText}>
+                <div className="p-3 bg-muted/50 rounded-lg">
+                  <p className="text-sm font-medium">{booking.purpose}</p>
+                  {booking.notes && (
+                    <p className="text-xs text-muted-foreground mt-2 italic">
+                      Catatan: {booking.notes}
+                    </p>
+                  )}
+                </div>
               </Section>
 
               {/* Approval Info */}
@@ -541,6 +520,15 @@ export function MyBookingDetailDialog({
                   Batalkan Permintaan
                 </Button>
               )}
+              {booking.status === "approved" && (
+                <Button
+                  onClick={() => setDownloadDialogOpen(true)}
+                  className="bg-emerald-600 hover:bg-emerald-700"
+                >
+                  <Download className="h-4 w-4 mr-2" />
+                  Unduh Tiket
+                </Button>
+              )}
               <Button
                 variant="outline"
                 className={canCancelRequest ? "" : "w-full"}
@@ -638,6 +626,12 @@ export function MyBookingDetailDialog({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <TicketDownloadDialog
+        booking={booking}
+        open={downloadDialogOpen}
+        onOpenChange={setDownloadDialogOpen}
+      />
     </>
   );
 }

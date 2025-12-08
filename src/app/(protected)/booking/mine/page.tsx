@@ -164,13 +164,10 @@ const getColumns = ({ onView }: ColumnsProps): ColumnDef<BookingRequest>[] => [
     cell: ({ row }) => {
       const occupants = row.original.occupants;
       const count = occupants.length;
-      const types = occupants.reduce(
-        (acc, curr) => {
-          acc[curr.type] = (acc[curr.type] || 0) + 1;
-          return acc;
-        },
-        {} as Record<string, number>
-      );
+      const types = occupants.reduce((acc, curr) => {
+        acc[curr.type] = (acc[curr.type] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>);
 
       const summary = Object.entries(types)
         .map(([type, cnt]) => {
@@ -188,56 +185,16 @@ const getColumns = ({ onView }: ColumnsProps): ColumnDef<BookingRequest>[] => [
     },
   },
   {
-    accessorKey: "location",
-    header: "Lokasi",
+    accessorKey: "area",
+    header: "Area",
     cell: ({ row }) => {
       const booking = row.original;
-      // Get unique buildings from occupants
-      const uniqueBuildingIds = [
-        ...new Set(
-          booking.occupants.filter((o) => o.buildingId).map((o) => o.buildingId)
-        ),
-      ];
-      const buildingNames = uniqueBuildingIds
-        .map((id) => BUILDINGS.find((b) => b.id === id)?.name)
-        .filter(Boolean);
       const areaName =
         BUILDINGS.find((b) => b.areaId === booking.areaId)?.area || "-";
 
       return (
         <div className="flex flex-col space-y-0.5">
-          <span className="font-medium text-sm">
-            {buildingNames.length > 0 ? buildingNames.join(", ") : "Belum ditentukan"}
-          </span>
-          <span className="text-xs text-muted-foreground">
-            {areaName}
-          </span>
-        </div>
-      );
-    },
-  },
-  {
-    accessorKey: "dateRange",
-    header: "Periode",
-    cell: ({ row }) => {
-      const occupants = row.original.occupants;
-      if (occupants.length === 0) return <span>-</span>;
-
-      const earliestDate = occupants.reduce(
-        (min, occ) => (occ.inDate < min ? occ.inDate : min),
-        occupants[0].inDate
-      );
-      const latestDate = occupants.reduce(
-        (max, occ) => (occ.outDate && occ.outDate > max ? occ.outDate : max),
-        occupants[0].outDate || occupants[0].inDate
-      );
-
-      return (
-        <div className="flex flex-col space-y-0.5">
-          <span className="text-sm font-medium">
-            {format(earliestDate, "dd MMM", { locale: localeId })} -{" "}
-            {format(latestDate, "dd MMM yyyy", { locale: localeId })}
-          </span>
+          <span className="font-medium text-sm">{areaName}</span>
         </div>
       );
     },
@@ -250,7 +207,9 @@ const getColumns = ({ onView }: ColumnsProps): ColumnDef<BookingRequest>[] => [
 
       return (
         <div className="flex flex-col max-w-[200px]">
-          <span className="text-sm font-medium truncate">{booking.purpose}</span>
+          <span className="text-sm font-medium truncate">
+            {booking.purpose}
+          </span>
           {booking.notes && (
             <span className="text-xs text-muted-foreground truncate italic">
               &quot;{booking.notes}&quot;
@@ -269,7 +228,6 @@ const getColumns = ({ onView }: ColumnsProps): ColumnDef<BookingRequest>[] => [
   },
   {
     id: "actions",
-    header: () => <div className="text-right">Aksi</div>,
     cell: ({ row }) => {
       const booking = row.original;
 
@@ -291,7 +249,9 @@ const getColumns = ({ onView }: ColumnsProps): ColumnDef<BookingRequest>[] => [
 ];
 
 export default function MyBookingsPage() {
-  const [bookings, setBookings] = useState<BookingRequest[]>(MOCK_BOOKING_REQUESTS);
+  const [bookings, setBookings] = useState<BookingRequest[]>(
+    MOCK_BOOKING_REQUESTS
+  );
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
@@ -304,38 +264,40 @@ export default function MyBookingsPage() {
 
   // Filter bookings
   const filteredBookings = useMemo(() => {
-    return bookings.filter((booking) => {
-      const searchLower = searchQuery.toLowerCase();
-      const matchesSearch =
-        booking.bookingCode.toLowerCase().includes(searchLower) ||
-        booking.purpose.toLowerCase().includes(searchLower) ||
-        booking.occupants.some((occ) =>
-          occ.name.toLowerCase().includes(searchLower)
-        ) ||
-        booking.occupants.some((occ) =>
-          BUILDINGS.find((b) => b.id === occ.buildingId)
-            ?.name.toLowerCase()
-            .includes(searchLower)
-        ) ||
-        BUILDINGS.find((b) => b.areaId === booking.areaId)
-          ?.area.toLowerCase()
-          .includes(searchLower);
+    return bookings
+      .filter((booking) => {
+        const searchLower = searchQuery.toLowerCase();
+        const matchesSearch =
+          booking.bookingCode.toLowerCase().includes(searchLower) ||
+          booking.purpose.toLowerCase().includes(searchLower) ||
+          booking.occupants.some((occ) =>
+            occ.name.toLowerCase().includes(searchLower)
+          ) ||
+          booking.occupants.some((occ) =>
+            BUILDINGS.find((b) => b.id === occ.buildingId)
+              ?.name.toLowerCase()
+              .includes(searchLower)
+          ) ||
+          BUILDINGS.find((b) => b.areaId === booking.areaId)
+            ?.area.toLowerCase()
+            .includes(searchLower);
 
-      const matchesStatus =
-        statusFilter === "all" || booking.status === statusFilter;
+        const matchesStatus =
+          statusFilter === "all" || booking.status === statusFilter;
 
-      const matchesDate =
-        !dateRange?.from ||
-        booking.occupants.some((occ) => {
-          const checkIn = occ.inDate;
-          return (
-            checkIn >= dateRange.from! &&
-            (!dateRange.to || checkIn <= dateRange.to)
-          );
-        });
+        const matchesDate =
+          !dateRange?.from ||
+          booking.occupants.some((occ) => {
+            const checkIn = occ.inDate;
+            return (
+              checkIn >= dateRange.from! &&
+              (!dateRange.to || checkIn <= dateRange.to)
+            );
+          });
 
-      return matchesSearch && matchesStatus && matchesDate;
-    }).sort((a, b) => b.requestedAt.getTime() - a.requestedAt.getTime());
+        return matchesSearch && matchesStatus && matchesDate;
+      })
+      .sort((a, b) => b.requestedAt.getTime() - a.requestedAt.getTime());
   }, [bookings, searchQuery, statusFilter, dateRange]);
 
   const handleView = (booking: BookingRequest) => {
@@ -607,7 +569,9 @@ export default function MyBookingsPage() {
                             <SelectItem value="request">Menunggu</SelectItem>
                             <SelectItem value="approved">Disetujui</SelectItem>
                             <SelectItem value="rejected">Ditolak</SelectItem>
-                            <SelectItem value="cancelled">Dibatalkan</SelectItem>
+                            <SelectItem value="cancelled">
+                              Dibatalkan
+                            </SelectItem>
                             <SelectItem value="expired">Kedaluwarsa</SelectItem>
                           </SelectContent>
                         </Select>

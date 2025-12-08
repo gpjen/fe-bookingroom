@@ -38,6 +38,7 @@ import {
   Ban,
   UserX,
   Download,
+  LayoutGrid,
 } from "lucide-react";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
@@ -416,7 +417,7 @@ export function MyBookingDetailDialog({
                               </div>
                             </div>
 
-                            {/* Room Assignment */}
+                            {/* Building & Room Assignment */}
                             {booking.status === "approved" &&
                               occupant.status !== "cancelled" && (
                                 <div className="mt-3 pt-3 border-t">
@@ -424,10 +425,19 @@ export function MyBookingDetailDialog({
                                     <div className="flex items-center gap-1.5">
                                       <Building className="h-3.5 w-3.5 text-muted-foreground" />
                                       <span className="text-muted-foreground">
+                                        Gedung:
+                                      </span>
+                                      <span className="font-medium">
+                                        {occupant.buildingName || "-"}
+                                      </span>
+                                    </div>
+                                    <div className="flex items-center gap-1.5">
+                                      <LayoutGrid className="h-3.5 w-3.5 text-muted-foreground" />
+                                      <span className="text-muted-foreground">
                                         Ruangan:
                                       </span>
                                       <span className="font-medium">
-                                        {occupant.roomId || "-"}
+                                        {occupant.roomCode || "-"}
                                       </span>
                                     </div>
                                     <div className="flex items-center gap-1.5">
@@ -436,7 +446,7 @@ export function MyBookingDetailDialog({
                                         Kasur:
                                       </span>
                                       <span className="font-medium">
-                                        {occupant.bedId || "-"}
+                                        {occupant.bedCode || "-"}
                                       </span>
                                     </div>
                                   </div>

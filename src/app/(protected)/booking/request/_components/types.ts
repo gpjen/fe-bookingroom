@@ -67,7 +67,8 @@ export interface BookingOccupant {
   // Status fields (set by system, optional for form)
   status?: OccupantStatus;
   cancelledAt?: Date;
-  cancelReason?: string;
+  cancelledReason?: string;
+  cancelledBy?: string;
 
   // Planned stay dates
   inDate: Date;
@@ -132,5 +133,8 @@ export interface BookingRequest {
   approvedBy?: string;
 
   updatedAt?: Date;
+
   cancelledAt?: Date;
+  cancelledReason?: string;
+  cancelledBy?: string;
 }

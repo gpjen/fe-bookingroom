@@ -42,7 +42,7 @@ import {
 } from "lucide-react";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
-import { cn, formatDate } from "@/lib/utils";
+import { cn, formatDate, formatDateTime } from "@/lib/utils";
 import type {
   BookingRequest,
   BookingOccupant,
@@ -231,6 +231,42 @@ export function MyBookingDetailDialog({
                 </div>
               )}
 
+              {/* Approved Info */}
+              {booking.status === "approved" && (
+                <div className="p-3 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-lg">
+                  <div className="flex items-start gap-3">
+                    <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-semibold text-emerald-800 dark:text-emerald-300 text-sm">
+                        Disetujui oleh {booking.approvedBy || "Admin"}
+                      </p>
+                      <p className="text-xs text-emerald-600 dark:text-emerald-500 mt-1">
+                        {booking.approvedAt &&
+                          formatDateTime(booking.approvedAt)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Cancelled Info */}
+              {booking.status === "cancelled" && (
+                <div className="p-3 bg-gray-50 dark:bg-gray-950/30 border border-gray-200 dark:border-gray-800 rounded-lg">
+                  <div className="flex items-start gap-3">
+                    <XCircle className="h-5 w-5 text-gray-600 dark:text-gray-400 flex-shrink-0 mt-0.5" />
+                    <div>
+                      <p className="font-semibold text-gray-800 dark:text-gray-300 text-sm">
+                        Dibatalkan oleh {booking.cancelledBy || "Admin"}
+                      </p>
+                      <p className="text-xs text-gray-600 dark:text-gray-500 mt-1">
+                        {booking.cancelledAt &&
+                          formatDateTime(booking.cancelledAt)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Request Info */}
               <Section title="Informasi Pengajuan" icon={Clock}>
                 <div className="grid grid-cols-2 gap-3">
@@ -276,27 +312,6 @@ export function MyBookingDetailDialog({
                   )}
                 </div>
               </Section>
-
-              {/* Approval Info */}
-              {booking.status === "approved" && booking.approvedAt && (
-                <Section title="Informasi Persetujuan" icon={CheckCircle2}>
-                  <div className="p-3 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-lg">
-                    <div className="flex items-start gap-3">
-                      <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0 mt-0.5" />
-                      <div>
-                        <p className="font-semibold text-emerald-800 dark:text-emerald-300 text-sm">
-                          Disetujui oleh {booking.approvedBy || "Admin"}
-                        </p>
-                        <p className="text-xs text-emerald-600 dark:text-emerald-500 mt-1">
-                          {format(booking.approvedAt, "dd MMM yyyy, HH:mm", {
-                            locale: id,
-                          })}
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                </Section>
-              )}
 
               {/* Occupants */}
               <Section title="Daftar Penghuni" icon={Users}>
@@ -417,9 +432,8 @@ export function MyBookingDetailDialog({
                               </div>
                             </div>
 
-                            {/* Building & Room Assignment */}
-                            {booking.status === "approved" &&
-                              occupant.status !== "cancelled" && (
+                            {/* Building & Room Assignment - Show if any location data exists */}
+                            {(occupant.buildingName || occupant.roomCode || occupant.bedCode) && (
                                 <div className="mt-3 pt-3 border-t">
                                   <div className="flex items-center gap-4 text-xs">
                                     <div className="flex items-center gap-1.5">
@@ -455,12 +469,12 @@ export function MyBookingDetailDialog({
 
                             {/* Cancel Reason */}
                             {occupant.status === "cancelled" &&
-                              occupant.cancelReason && (
+                              occupant.cancelledReason && (
                                 <div className="mt-3 p-2 bg-gray-100 dark:bg-gray-800 rounded text-xs">
                                   <p className="text-muted-foreground">
                                     Alasan pembatalan:{" "}
                                     <span className="text-foreground">
-                                      {occupant.cancelReason}
+                                      {occupant.cancelledReason}
                                     </span>
                                   </p>
                                 </div>

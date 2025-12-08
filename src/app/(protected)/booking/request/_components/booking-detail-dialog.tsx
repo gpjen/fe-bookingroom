@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 
 import {
   Sheet,
@@ -45,7 +45,7 @@ import { toast } from "sonner";
 import { cn, formatDate } from "@/lib/utils";
 
 import { BookingRequest, OccupantStatus } from "./types";
-import { BUILDINGS } from "./mock-data";
+import { BUILDINGS, ROOMS, BEDS } from "./mock-data";
 
 interface BookingDetailDialogProps {
   booking: BookingRequest | null;
@@ -72,21 +72,38 @@ export function BookingDetailDialog({
   onRequestApprove,
   onRequestReject,
 }: BookingDetailDialogProps) {
+  // State for occupant location edits (building, room, bed)
   const initialOccupantEdits = useMemo(() => {
     if (!booking) return {};
-    const initial: Record<string, { room: string; bedCode: string }> = {};
+    const initial: Record<string, { buildingId: string; roomId: string; bedId: string }> = {};
     booking.occupants.forEach((occ) => {
       initial[occ.id] = {
-        room: occ.roomId || "",
-        bedCode: occ.bedId || "",
+        buildingId: occ.buildingId || "",
+        roomId: occ.roomId || "",
+        bedId: occ.bedId || "",
       };
     });
     return initial;
   }, [booking]);
 
   const [occupantEdits, setOccupantEdits] = useState<
-    Record<string, { room: string; bedCode: string }>
+    Record<string, { buildingId: string; roomId: string; bedId: string }>
   >(initialOccupantEdits);
+
+  // Reset occupantEdits when booking changes
+  useEffect(() => {
+    setOccupantEdits(initialOccupantEdits);
+  }, [initialOccupantEdits]);
+
+  // Helper to get available rooms for a building
+  const getRoomsForBuilding = (buildingId: string) => {
+    return ROOMS.filter((r) => r.buildingId === buildingId);
+  };
+
+  // Helper to get available beds for a room
+  const getBedsForRoom = (roomId: string) => {
+    return BEDS.filter((b) => b.roomId === roomId);
+  };
 
   if (!booking) return null;
 
@@ -97,13 +114,33 @@ export function BookingDetailDialog({
    * ------------------------------------------- */
   const handleOccupantChange = (
     id: string,
-    field: "room" | "bedCode",
+    field: "buildingId" | "roomId" | "bedId",
     value: string
   ) => {
-    setOccupantEdits((prev) => ({
-      ...prev,
-      [id]: { ...prev[id], [field]: value },
-    }));
+    setOccupantEdits((prev) => {
+      const current = prev[id] || { buildingId: "", roomId: "", bedId: "" };
+      
+      // When building changes, reset room and bed
+      if (field === "buildingId") {
+        return {
+          ...prev,
+          [id]: { buildingId: value, roomId: "", bedId: "" },
+        };
+      }
+      
+      // When room changes, reset bed
+      if (field === "roomId") {
+        return {
+          ...prev,
+          [id]: { ...current, roomId: value, bedId: "" },
+        };
+      }
+      
+      return {
+        ...prev,
+        [id]: { ...current, [field]: value },
+      };
+    });
   };
 
   /* ---------------------------------------------
@@ -111,22 +148,38 @@ export function BookingDetailDialog({
    * ------------------------------------------- */
   const handleApprove = () => {
     const hasUnassigned = booking.occupants.some(
-      (occ) => !occupantEdits[occ.id]?.room || !occupantEdits[occ.id]?.bedCode
+      (occ) => 
+        !occupantEdits[occ.id]?.buildingId || 
+        !occupantEdits[occ.id]?.roomId || 
+        !occupantEdits[occ.id]?.bedId
     );
 
     if (hasUnassigned) {
-      toast.error("Semua tamu harus memiliki ruangan dan bed.");
+      toast.error("Semua penghuni harus memiliki gedung, ruangan, dan kasur.");
       return;
     }
 
     const updatedBooking: BookingRequest = {
       ...booking,
-      occupants: booking.occupants.map((occ) => ({
-        ...occ,
-        roomId: occupantEdits[occ.id].room,
-        bedId: occupantEdits[occ.id].bedCode,
-        status: "scheduled" as OccupantStatus,
-      })),
+      occupants: booking.occupants.map((occ) => {
+        const edit = occupantEdits[occ.id];
+        const building = BUILDINGS.find((b) => b.id === edit.buildingId);
+        const room = ROOMS.find((r) => r.id === edit.roomId);
+        const bed = BEDS.find((b) => b.id === edit.bedId);
+
+        return {
+          ...occ,
+          buildingId: edit.buildingId,
+          buildingName: building?.name || "",
+          roomId: edit.roomId,
+          roomCode: room?.code || "",
+          bedId: edit.bedId,
+          bedCode: bed?.code || "",
+          areaId: building?.areaId || "",
+          areaName: building?.area || "",
+          status: "scheduled" as OccupantStatus,
+        };
+      }),
     };
 
     onConfirm(updatedBooking);
@@ -243,34 +296,13 @@ export function BookingDetailDialog({
 
             {/* Main Location Info */}
             <Section title="Lokasi yang Diminta" icon={MapPin}>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3">
                 <InfoBox
                   icon={MapPin}
                   label="Area"
                   value={
                     BUILDINGS.find((b) => b.areaId === booking.areaId)?.area ||
                     booking.areaId
-                  }
-                />
-                <InfoBox
-                  icon={Building}
-                  label="Gedung"
-                  value={
-                    (() => {
-                      const uniqueBuildingIds = [
-                        ...new Set(
-                          booking.occupants
-                            .filter((o) => o.buildingId)
-                            .map((o) => o.buildingId)
-                        ),
-                      ];
-                      const buildingNames = uniqueBuildingIds
-                        .map((id) => BUILDINGS.find((b) => b.id === id)?.name)
-                        .filter(Boolean);
-                      return buildingNames.length > 0
-                        ? buildingNames.join(", ")
-                        : "Belum ditentukan";
-                    })()
                   }
                 />
               </div>
@@ -324,9 +356,12 @@ export function BookingDetailDialog({
                 {booking.occupants.map((occupant) => {
                   const isEditing = actionType === "approve";
                   const currentEdit = occupantEdits[occupant.id] || {
-                    room: "",
-                    bedCode: "",
+                    buildingId: "",
+                    roomId: "",
+                    bedId: "",
                   };
+                  const availableRooms = getRoomsForBuilding(currentEdit.buildingId);
+                  const availableBeds = getBedsForRoom(currentEdit.roomId);
 
                   return (
                     <div
@@ -451,99 +486,148 @@ export function BookingDetailDialog({
                       {/* Room Assignment Section */}
                       <div className="pt-3 mt-1 border-t">
                         {isEditing ? (
-                          <div className="grid grid-cols-2 gap-3">
-                            <div className="space-y-1.5">
-                              <Label
-                                htmlFor={`room-${occupant.id}`}
-                                className="text-xs"
-                              >
-                                Ruangan
-                              </Label>
-                              <Select
-                                value={currentEdit.room}
-                                onValueChange={(value) => {
-                                  handleOccupantChange(
-                                    occupant.id,
-                                    "room",
-                                    value
-                                  );
-                                  // Clear bed selection when room changes
-                                  // In the future, this will trigger an API call to fetch available beds for the selected room
-                                  handleOccupantChange(
-                                    occupant.id,
-                                    "bedCode",
-                                    ""
-                                  );
-                                }}
-                              >
-                                <SelectTrigger className="h-8 text-xs w-full">
-                                  <SelectValue placeholder="Pilih Kamar" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {Array.from({ length: 5 }).map((_, i) => (
-                                    <SelectItem
-                                      key={i}
-                                      value={`R-10${i + 1}`}
-                                      className="text-xs"
-                                    >
-                                      R-10{i + 1}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-                            <div className="space-y-1.5">
-                              <Label
-                                htmlFor={`bed-${occupant.id}`}
-                                className="text-xs"
-                              >
-                                Kasur
-                              </Label>
-                              <Select
-                                value={currentEdit.bedCode}
-                                onValueChange={(value) =>
-                                  handleOccupantChange(
-                                    occupant.id,
-                                    "bedCode",
-                                    value
-                                  )
-                                }
-                                disabled={!currentEdit.room}
-                              >
-                                <SelectTrigger className="h-8 text-xs w-full">
-                                  <SelectValue
-                                    placeholder={
-                                      currentEdit.room
-                                        ? "Pilih Kasur"
-                                        : "Pilih Ruangan Dulu"
-                                    }
-                                  />
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {["B-01", "B-02", "B-03", "B-04"].map(
-                                    (bed) => (
+                          <div className="space-y-3">
+                            {/* Show current assignment from requester if any */}
+                            {(occupant.buildingName || occupant.roomCode || occupant.bedCode) && (
+                              <div className="p-2 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded text-xs">
+                                <p className="text-blue-700 dark:text-blue-300 font-medium mb-1">
+                                  Permintaan dari pemohon:
+                                </p>
+                                <div className="flex items-center gap-3 text-blue-600 dark:text-blue-400">
+                                  <span>Gedung: {occupant.buildingName || "-"}</span>
+                                  <span>Ruangan: {occupant.roomCode || "-"}</span>
+                                  <span>Kasur: {occupant.bedCode || "-"}</span>
+                                </div>
+                              </div>
+                            )}
+                            
+                            <div className="grid grid-cols-3 gap-3">
+                              {/* Building Select */}
+                              <div className="space-y-1.5">
+                                <Label
+                                  htmlFor={`building-${occupant.id}`}
+                                  className="text-xs"
+                                >
+                                  Gedung <span className="text-red-500">*</span>
+                                </Label>
+                                <Select
+                                  value={currentEdit.buildingId}
+                                  onValueChange={(value) =>
+                                    handleOccupantChange(occupant.id, "buildingId", value)
+                                  }
+                                >
+                                  <SelectTrigger className="h-8 text-xs w-full">
+                                    <SelectValue placeholder="Pilih Gedung" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {BUILDINGS.map((building) => (
                                       <SelectItem
-                                        key={bed}
-                                        value={bed}
+                                        key={building.id}
+                                        value={building.id}
                                         className="text-xs"
                                       >
-                                        {bed}
+                                        {building.name} ({building.area})
                                       </SelectItem>
-                                    )
-                                  )}
-                                </SelectContent>
-                              </Select>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+
+                              {/* Room Select */}
+                              <div className="space-y-1.5">
+                                <Label
+                                  htmlFor={`room-${occupant.id}`}
+                                  className="text-xs"
+                                >
+                                  Ruangan <span className="text-red-500">*</span>
+                                </Label>
+                                <Select
+                                  value={currentEdit.roomId}
+                                  onValueChange={(value) =>
+                                    handleOccupantChange(occupant.id, "roomId", value)
+                                  }
+                                  disabled={!currentEdit.buildingId}
+                                >
+                                  <SelectTrigger className="h-8 text-xs w-full">
+                                    <SelectValue
+                                      placeholder={
+                                        currentEdit.buildingId
+                                          ? "Pilih Ruangan"
+                                          : "Pilih Gedung Dulu"
+                                      }
+                                    />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {availableRooms.map((room) => (
+                                      <SelectItem
+                                        key={room.id}
+                                        value={room.id}
+                                        className="text-xs"
+                                      >
+                                        {room.code} - {room.name}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+
+                              {/* Bed Select */}
+                              <div className="space-y-1.5">
+                                <Label
+                                  htmlFor={`bed-${occupant.id}`}
+                                  className="text-xs"
+                                >
+                                  Kasur <span className="text-red-500">*</span>
+                                </Label>
+                                <Select
+                                  value={currentEdit.bedId}
+                                  onValueChange={(value) =>
+                                    handleOccupantChange(occupant.id, "bedId", value)
+                                  }
+                                  disabled={!currentEdit.roomId}
+                                >
+                                  <SelectTrigger className="h-8 text-xs w-full">
+                                    <SelectValue
+                                      placeholder={
+                                        currentEdit.roomId
+                                          ? "Pilih Kasur"
+                                          : "Pilih Ruangan Dulu"
+                                      }
+                                    />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {availableBeds.map((bed) => (
+                                      <SelectItem
+                                        key={bed.id}
+                                        value={bed.id}
+                                        className="text-xs"
+                                      >
+                                        Kasur {bed.code}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
                             </div>
                           </div>
                         ) : (
-                          <div className="flex items-center gap-4">
+                          <div className="flex items-center gap-4 flex-wrap">
                             <div className="flex items-center gap-2 text-xs">
                               <Building className="h-3.5 w-3.5 text-muted-foreground" />
+                              <span className="text-muted-foreground">
+                                Gedung:
+                              </span>
+                              <span className="font-medium">
+                                {occupant.buildingName || "-"}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2 text-xs">
+                              <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
                               <span className="text-muted-foreground">
                                 Ruangan:
                               </span>
                               <span className="font-medium">
-                                {occupant.roomId || "-"}
+                                {occupant.roomCode || "-"}
                               </span>
                             </div>
                             <div className="flex items-center gap-2 text-xs">
@@ -552,7 +636,7 @@ export function BookingDetailDialog({
                                 Kasur:
                               </span>
                               <span className="font-medium">
-                                {occupant.bedId || "-"}
+                                {occupant.bedCode || "-"}
                               </span>
                             </div>
                           </div>
@@ -609,105 +693,152 @@ export function BookingDetailDialog({
               </div>
             </Section>
 
-            {/* Approval History */}
-            {booking.approvedAt && (
-              <Section title="Riwayat Approval" icon={UserCheck}>
-                <div className="space-y-2">
-                  {booking.approvedAt && (
-                    <div className="flex items-start gap-3 p-3 bg-green-500/10 rounded-lg border border-green-500/20">
-                      <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" />
-                      <div className="flex-1 min-w-0 text-sm">
-                        <p className="font-semibold">
-                          Disetujui oleh {booking.approvedBy}
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          {format(booking.approvedAt, "dd MMM yyyy, HH:mm", {
-                            locale: id,
-                          })}
-                        </p>
-                      </div>
-                    </div>
-                  )}
+            {/* Status History - Approved */}
+            {booking.status === "approved" && booking.approvedAt && (
+              <Section title="Riwayat Status" icon={UserCheck}>
+                <div className="flex items-start gap-3 p-3 bg-green-500/10 rounded-lg border border-green-500/20">
+                  <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1 min-w-0 text-sm">
+                    <p className="font-semibold text-green-700 dark:text-green-300">
+                      Disetujui oleh {booking.approvedBy || "Admin"}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {format(booking.approvedAt, "dd MMM yyyy, HH:mm", {
+                        locale: id,
+                      })}
+                    </p>
+                  </div>
                 </div>
               </Section>
             )}
 
-            {/* Admin Section */}
-            {(isAction || booking.adminNotes || booking.rejectReason) && (
-              <Section title="Area Administrator" icon={UserCheck}>
-                {isAction ? (
-                  <div className="space-y-3">
-                    {actionType === "reject" && (
-                      <div>
-                        <Label htmlFor="rejectReason" className="text-sm">
-                          Alasan Penolakan{" "}
-                          <span className="text-red-500">*</span>
-                        </Label>
-                        <Input
-                          id="rejectReason"
-                          placeholder="Contoh: Kapasitas Penuh"
-                          className="mt-1.5"
-                          value={rejectReason}
-                          onChange={(e) =>
-                            onRejectReasonChange?.(e.target.value)
-                          }
-                        />
-                      </div>
-                    )}
-                    <div>
-                      <Label htmlFor="adminNotes" className="text-sm">
-                        Catatan Administrator
-                      </Label>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Opsional
-                      </p>
-                    </div>
-                    <Textarea
-                      id="adminNotes"
-                      placeholder={
-                        actionType === "reject"
-                          ? "Tuliskan detail alasan penolakan..."
-                          : "Tambahkan catatan..."
-                      }
-                      value={adminNotes}
-                      onChange={(e) => onAdminNotesChange(e.target.value)}
-                      className={cn(
-                        "resize-none text-sm",
-                        actionType === "reject" &&
-                          !adminNotes &&
-                          "border-red-500/50"
-                      )}
-                      rows={3}
-                    />
-                    {actionType === "reject" && !rejectReason && (
-                      <p className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1.5 mt-2">
-                        <AlertCircle className="h-3 w-3" />
-                        Alasan penolakan wajib diisi
-                      </p>
-                    )}
-                  </div>
-                ) : booking.adminNotes || booking.rejectReason ? (
-                  <div className="space-y-3">
+            {/* Status History - Rejected */}
+            {booking.status === "rejected" && (
+              <Section title="Riwayat Status" icon={XCircle}>
+                <div className="flex items-start gap-3 p-3 bg-red-500/10 rounded-lg border border-red-500/20">
+                  <XCircle className="h-4 w-4 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1 min-w-0 text-sm">
+                    <p className="font-semibold text-red-700 dark:text-red-300">
+                      Ditolak oleh Admin
+                    </p>
                     {booking.rejectReason && (
-                      <div className="p-3 bg-red-500/10 border border-red-500/20 rounded-lg text-sm">
-                        <p className="text-xs text-red-600 dark:text-red-400 font-semibold mb-1">
-                          Alasan Penolakan:
-                        </p>
-                        <p className="text-red-700 dark:text-red-300">
-                          {booking.rejectReason}
-                        </p>
-                      </div>
+                      <p className="text-sm text-red-600 dark:text-red-400 mt-1">
+                        Alasan: {booking.rejectReason}
+                      </p>
                     )}
                     {booking.adminNotes && (
-                      <div className="p-3 bg-muted/50 rounded-lg text-sm">
-                        <p className="text-xs text-muted-foreground mb-1.5">
-                          Catatan Admin:
-                        </p>
-                        <p>{booking.adminNotes}</p>
-                      </div>
+                      <p className="text-xs text-muted-foreground mt-1 italic">
+                        Catatan: {booking.adminNotes}
+                      </p>
                     )}
                   </div>
-                ) : null}
+                </div>
+              </Section>
+            )}
+
+            {/* Status History - Cancelled by Requester */}
+            {booking.status === "cancelled" && (
+              <Section title="Riwayat Status" icon={XCircle}>
+                <div className="flex items-start gap-3 p-3 bg-gray-500/10 rounded-lg border border-gray-500/20">
+                  <XCircle className="h-4 w-4 text-gray-600 dark:text-gray-400 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1 min-w-0 text-sm">
+                    <p className="font-semibold text-gray-700 dark:text-gray-300">
+                      Dibatalkan oleh {booking.cancelledBy || "Pemohon"}
+                    </p>
+                    {booking.cancelledAt && (
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        {format(booking.cancelledAt, "dd MMM yyyy, HH:mm", {
+                          locale: id,
+                        })}
+                      </p>
+                    )}
+                    {booking.cancelledReason && (
+                      <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                        Alasan: {booking.cancelledReason}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </Section>
+            )}
+
+            {/* Status History - Expired */}
+            {booking.status === "expired" && (
+              <Section title="Riwayat Status" icon={AlertCircle}>
+                <div className="flex items-start gap-3 p-3 bg-orange-500/10 rounded-lg border border-orange-500/20">
+                  <AlertCircle className="h-4 w-4 text-orange-600 dark:text-orange-400 mt-0.5 flex-shrink-0" />
+                  <div className="flex-1 min-w-0 text-sm">
+                    <p className="font-semibold text-orange-700 dark:text-orange-300">
+                      Permintaan Kedaluwarsa
+                    </p>
+                    {booking.expiresAt && (
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Kedaluwarsa pada {format(booking.expiresAt, "dd MMM yyyy, HH:mm", {
+                          locale: id,
+                        })}
+                      </p>
+                    )}
+                    <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">
+                      Permintaan tidak diproses dalam batas waktu yang ditentukan
+                    </p>
+                  </div>
+                </div>
+              </Section>
+            )}
+
+            {/* Admin Section - Only for action mode */}
+            {isAction && (
+              <Section title="Area Administrator" icon={UserCheck}>
+                <div className="space-y-3">
+                  {actionType === "reject" && (
+                    <div>
+                      <Label htmlFor="rejectReason" className="text-sm">
+                        Alasan Penolakan{" "}
+                        <span className="text-red-500">*</span>
+                      </Label>
+                      <Input
+                        id="rejectReason"
+                        placeholder="Contoh: Kapasitas Penuh"
+                        className="mt-1.5"
+                        value={rejectReason}
+                        onChange={(e) =>
+                          onRejectReasonChange?.(e.target.value)
+                        }
+                      />
+                    </div>
+                  )}
+                  <div>
+                    <Label htmlFor="adminNotes" className="text-sm">
+                      Catatan Administrator
+                    </Label>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Opsional
+                    </p>
+                  </div>
+                  <Textarea
+                    id="adminNotes"
+                    placeholder={
+                      actionType === "reject"
+                        ? "Tuliskan detail alasan penolakan..."
+                        : "Tambahkan catatan..."
+                    }
+                    value={adminNotes}
+                    onChange={(e) => onAdminNotesChange(e.target.value)}
+                    className={cn(
+                      "resize-none text-sm",
+                      actionType === "reject" &&
+                        !adminNotes &&
+                        "border-red-500/50"
+                    )}
+                    rows={3}
+                  />
+                  {actionType === "reject" && !rejectReason && (
+                    <p className="text-xs text-red-600 dark:text-red-400 flex items-center gap-1.5 mt-2">
+                      <AlertCircle className="h-3 w-3" />
+                      Alasan penolakan wajib diisi
+                    </p>
+                  )}
+                </div>
               </Section>
             )}
           </div>

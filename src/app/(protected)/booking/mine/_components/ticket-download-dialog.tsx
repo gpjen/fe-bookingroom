@@ -65,11 +65,7 @@ function TicketDownloadItem({
 
   useEffect(() => {
     // Generate QR Code: BookingCode + OccupantID JSON string for better parsing
-    const data = JSON.stringify({
-      b: booking.bookingCode,
-      o: occupant.id,
-      t: occupant.type,
-    });
+    const data = occupant.id;
 
     QRCode.toDataURL(data, { width: 200, margin: 1 })
       .then((url) => setQrCodeUrl(url))

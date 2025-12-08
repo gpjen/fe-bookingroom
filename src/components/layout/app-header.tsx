@@ -44,7 +44,7 @@ export function AppHeader({}: {
           <BreadcrumbList>
             <BreadcrumbItem>
               <Link
-                href="/dashboard"
+                href="/home"
                 className="text-muted-foreground hover:text-foreground transition-colors"
               >
                 <div className="flex items-center gap-1">

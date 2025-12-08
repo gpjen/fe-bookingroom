@@ -46,6 +46,8 @@ async function refreshAccessToken(token: TokenSet): Promise<TokenSet> {
 }
 
 export const authOptions: NextAuthOptions = {
+  // @ts-expect-error - trustHost is valid in runtime but missing in type definition in some versions
+  trustHost: true,
   providers: [
     Keycloak({
       clientId: process.env.KEYCLOAK_CLIENT_ID!,

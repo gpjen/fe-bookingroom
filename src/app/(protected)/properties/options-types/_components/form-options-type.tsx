@@ -290,7 +290,7 @@ export function FormOptionsType({
             fieldName={field.name}
             label={field.label}
             required={field.required}
-            values={value as string[]}
+            values={(value as string[]) ?? []}
             onAdd={handleArrayAdd}
             onRemove={handleArrayRemove}
             error={error}
@@ -414,7 +414,7 @@ function ArrayField({
   fieldName,
   label,
   required,
-  values,
+  values = [],
   onAdd,
   onRemove,
   error,

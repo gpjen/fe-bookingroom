@@ -55,6 +55,12 @@ export const MOCK_ACCESS: (UserAccess & { username?: string })[] = [
     roles: ["staff"],
     companies: ["hpal"],
   },
+  {
+    userId: "novi.ikhtiarullah@hpalnickel.com",
+    username: "l0721001028",
+    roles: ["super-admin"],
+    companies: ["dcm", "hpal"],
+  },
 ];
 
 export function resolvePermissions(

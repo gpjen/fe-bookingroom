@@ -154,6 +154,73 @@ export default function OccupantStatusPage() {
             <QrCode className="h-4 w-4" />
             Scan QR
           </Button>
+
+          {/* Dev Tool: Download Mock QRs */}
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={async () => {
+              try {
+                const QRCode = (await import("qrcode")).default;
+
+                // Find candidates
+                // 1. Scheduled Object (Ready to Check-in)
+                const scheduled =
+                  occupants.find((o) => o.id === "fixed-test-scheduled-id") ||
+                  occupants.find((o) => o.status === "scheduled");
+                // 2. Checked-In Object (Ready to Check-out)
+                const checkedIn =
+                  occupants.find((o) => o.id === "fixed-test-checked-in-id") ||
+                  occupants.find((o) => o.status === "checked_in");
+                // 3. Checked-In Object (Not Ready - Future Checkout)
+                const future = occupants.find(
+                  (o) => o.id === "fixed-test-future-checkout-id"
+                );
+
+                const targets = [scheduled, checkedIn, future].filter(
+                  Boolean
+                ) as OccupantWithBooking[];
+
+                if (targets.length === 0) {
+                  toast.error("Tidak ada data mock yang sesuai");
+                  return;
+                }
+
+                toast.info(`Men-generate ${targets.length} QR Code test...`);
+
+                // Generate and download
+                for (const occ of targets) {
+                  // QR Data is just the unique Occupant ID now
+                  const qrData = occ.id;
+                  const url = await QRCode.toDataURL(qrData, {
+                    width: 400,
+                    margin: 2,
+                  });
+
+                  const link = document.createElement("a");
+                  link.href = url;
+                  link.download = `TEST-QR-${occ.status?.toUpperCase()}-${
+                    occ.name
+                  }.png`;
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+
+                  // Small delay between downloads
+                  await new Promise((r) => setTimeout(r, 500));
+                }
+
+                toast.success("Berhasil download QR test");
+              } catch (err) {
+                console.error(err);
+                toast.error("Gagal generate QR");
+              }
+            }}
+          >
+            <Download className="h-4 w-4 mr-2" />
+            Download Test QR
+          </Button>
+
           <Button variant="outline" size="sm" onClick={handleRefresh}>
             <RefreshCw className="h-4 w-4 mr-2" />
             Muat Ulang

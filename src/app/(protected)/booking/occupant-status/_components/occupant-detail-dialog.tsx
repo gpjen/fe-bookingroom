@@ -9,6 +9,7 @@ import {
 } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { CompactProfileCard } from "@/components/common/compact-profile-card";
 import {
   User,
   Building,
@@ -23,6 +24,7 @@ import {
   LogOut,
   CheckCircle2,
   XCircle,
+  Users,
 } from "lucide-react";
 import { format } from "date-fns";
 import { id } from "date-fns/locale";
@@ -87,7 +89,7 @@ export function OccupantDetailDialog({
 
   return (
     <Sheet open={true} onOpenChange={onClose}>
-      <SheetContent className="!max-w-none !w-full md:!w-[550px] lg:!w-[600px] overflow-y-auto px-6">
+      <SheetContent className="!max-w-none !w-full md:!w-[600px] lg:!w-[700px] overflow-y-auto p-4">
         <SheetHeader className="pb-4 border-b">
           <div className="flex items-start justify-between gap-4">
             <div className="flex-1 min-w-0">
@@ -163,13 +165,32 @@ export function OccupantDetailDialog({
 
           {/* Requester Info */}
           <Section title="Informasi Pemohon" icon={User}>
-            <div className="p-3 bg-muted/30 rounded-lg text-sm">
-              <p className="font-medium">{occupant.requesterName}</p>
-              <p className="text-muted-foreground text-xs">
-                {occupant.requesterNik}
-              </p>
-            </div>
+            <CompactProfileCard
+              label="Pemohon"
+              name={occupant.requesterName}
+              identifier={occupant.requesterNik}
+              company={occupant.requesterCompany}
+              department={occupant.requesterDepartment}
+              phone={occupant.requesterPhone}
+              email={occupant.requesterEmail}
+              variant="blue"
+            />
           </Section>
+
+          {/* Companion Info (if exists) */}
+          {occupant.companionName && (
+            <Section title="Informasi Pendamping (PIC)" icon={Users}>
+              <CompactProfileCard
+                label="PIC"
+                name={occupant.companionName}
+                identifier={occupant.companionNik || "-"}
+                company={occupant.companionCompany || "-"}
+                department={occupant.companionDepartment || "-"}
+                phone={occupant.companionPhone}
+                variant="amber"
+              />
+            </Section>
+          )}
 
           {/* Location */}
           <Section title="Lokasi Penempatan" icon={Building}>

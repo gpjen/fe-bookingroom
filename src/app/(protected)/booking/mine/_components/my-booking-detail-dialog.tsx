@@ -51,6 +51,7 @@ import type {
 } from "@/app/(protected)/booking/request/_components/types";
 import { BUILDINGS } from "@/app/(protected)/booking/request/_components/mock-data";
 import { TicketDownloadDialog } from "./ticket-download-dialog";
+import { CompactProfileCard } from "@/components/common/compact-profile-card";
 
 interface MyBookingDetailDialogProps {
   booking: BookingRequest | null;
@@ -313,6 +314,35 @@ export function MyBookingDetailDialog({
                 </div>
               </Section>
 
+              {/* Requester Info */}
+              {/* <Section title="Informasi Pemohon" icon={Users}>
+                <CompactProfileCard
+                  label="Pemohon"
+                  name={booking.requester.name}
+                  identifier={booking.requester.nik}
+                  company={booking.requester.company}
+                  department={booking.requester.department}
+                  phone={booking.requester.phone}
+                  email={booking.requester.email}
+                  variant="blue"
+                />
+              </Section> */}
+
+              {/* Companion Info (if exists) */}
+              {booking.companion && (
+                <Section title="Informasi Pendamping (PIC)" icon={Users}>
+                  <CompactProfileCard
+                    label="PIC"
+                    name={booking.companion.name}
+                    identifier={booking.companion.nik || "-"}
+                    company="-" // Companion info in booking request might not have company/dept yet unless updated
+                    department="-"
+                    phone={booking.companion.phone}
+                    variant="amber"
+                  />
+                </Section>
+              )}
+
               {/* Occupants */}
               <Section title="Daftar Penghuni" icon={Users}>
                 <div className="space-y-3">
@@ -433,39 +463,41 @@ export function MyBookingDetailDialog({
                             </div>
 
                             {/* Building & Room Assignment - Show if any location data exists */}
-                            {(occupant.buildingName || occupant.roomCode || occupant.bedCode) && (
-                                <div className="mt-3 pt-3 border-t">
-                                  <div className="flex items-center gap-4 text-xs">
-                                    <div className="flex items-center gap-1.5">
-                                      <Building className="h-3.5 w-3.5 text-muted-foreground" />
-                                      <span className="text-muted-foreground">
-                                        Gedung:
-                                      </span>
-                                      <span className="font-medium">
-                                        {occupant.buildingName || "-"}
-                                      </span>
-                                    </div>
-                                    <div className="flex items-center gap-1.5">
-                                      <LayoutGrid className="h-3.5 w-3.5 text-muted-foreground" />
-                                      <span className="text-muted-foreground">
-                                        Ruangan:
-                                      </span>
-                                      <span className="font-medium">
-                                        {occupant.roomCode || "-"}
-                                      </span>
-                                    </div>
-                                    <div className="flex items-center gap-1.5">
-                                      <Bed className="h-3.5 w-3.5 text-muted-foreground" />
-                                      <span className="text-muted-foreground">
-                                        Kasur:
-                                      </span>
-                                      <span className="font-medium">
-                                        {occupant.bedCode || "-"}
-                                      </span>
-                                    </div>
+                            {(occupant.buildingName ||
+                              occupant.roomCode ||
+                              occupant.bedCode) && (
+                              <div className="mt-3 pt-3 border-t">
+                                <div className="flex items-center gap-4 text-xs">
+                                  <div className="flex items-center gap-1.5">
+                                    <Building className="h-3.5 w-3.5 text-muted-foreground" />
+                                    <span className="text-muted-foreground">
+                                      Gedung:
+                                    </span>
+                                    <span className="font-medium">
+                                      {occupant.buildingName || "-"}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-1.5">
+                                    <LayoutGrid className="h-3.5 w-3.5 text-muted-foreground" />
+                                    <span className="text-muted-foreground">
+                                      Ruangan:
+                                    </span>
+                                    <span className="font-medium">
+                                      {occupant.roomCode || "-"}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center gap-1.5">
+                                    <Bed className="h-3.5 w-3.5 text-muted-foreground" />
+                                    <span className="text-muted-foreground">
+                                      Kasur:
+                                    </span>
+                                    <span className="font-medium">
+                                      {occupant.bedCode || "-"}
+                                    </span>
                                   </div>
                                 </div>
-                              )}
+                              </div>
+                            )}
 
                             {/* Cancel Reason */}
                             {occupant.status === "cancelled" &&

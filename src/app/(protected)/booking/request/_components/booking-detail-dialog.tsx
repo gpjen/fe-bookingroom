@@ -43,6 +43,7 @@ import { id } from "date-fns/locale";
 
 import { toast } from "sonner";
 import { cn, formatDate } from "@/lib/utils";
+import { CompactProfileCard } from "@/components/common/compact-profile-card";
 
 import { BookingRequest, OccupantStatus } from "./types";
 import { BUILDINGS, ROOMS, BEDS } from "./mock-data";
@@ -75,7 +76,10 @@ export function BookingDetailDialog({
   // State for occupant location edits (building, room, bed)
   const initialOccupantEdits = useMemo(() => {
     if (!booking) return {};
-    const initial: Record<string, { buildingId: string; roomId: string; bedId: string }> = {};
+    const initial: Record<
+      string,
+      { buildingId: string; roomId: string; bedId: string }
+    > = {};
     booking.occupants.forEach((occ) => {
       initial[occ.id] = {
         buildingId: occ.buildingId || "",
@@ -86,9 +90,10 @@ export function BookingDetailDialog({
     return initial;
   }, [booking]);
 
-  const [occupantEdits, setOccupantEdits] = useState<
-    Record<string, { buildingId: string; roomId: string; bedId: string }>
-  >(initialOccupantEdits);
+  const [occupantEdits, setOccupantEdits] =
+    useState<
+      Record<string, { buildingId: string; roomId: string; bedId: string }>
+    >(initialOccupantEdits);
 
   // Reset occupantEdits when booking changes
   useEffect(() => {
@@ -119,7 +124,7 @@ export function BookingDetailDialog({
   ) => {
     setOccupantEdits((prev) => {
       const current = prev[id] || { buildingId: "", roomId: "", bedId: "" };
-      
+
       // When building changes, reset room and bed
       if (field === "buildingId") {
         return {
@@ -127,7 +132,7 @@ export function BookingDetailDialog({
           [id]: { buildingId: value, roomId: "", bedId: "" },
         };
       }
-      
+
       // When room changes, reset bed
       if (field === "roomId") {
         return {
@@ -135,7 +140,7 @@ export function BookingDetailDialog({
           [id]: { ...current, roomId: value, bedId: "" },
         };
       }
-      
+
       return {
         ...prev,
         [id]: { ...current, [field]: value },
@@ -148,9 +153,9 @@ export function BookingDetailDialog({
    * ------------------------------------------- */
   const handleApprove = () => {
     const hasUnassigned = booking.occupants.some(
-      (occ) => 
-        !occupantEdits[occ.id]?.buildingId || 
-        !occupantEdits[occ.id]?.roomId || 
+      (occ) =>
+        !occupantEdits[occ.id]?.buildingId ||
+        !occupantEdits[occ.id]?.roomId ||
         !occupantEdits[occ.id]?.bedId
     );
 
@@ -249,7 +254,7 @@ export function BookingDetailDialog({
 
   return (
     <Sheet open={true} onOpenChange={onCancel}>
-      <SheetContent className="!max-w-none !w-full md:!w-[600px] lg:!w-[800px] overflow-y-auto px-4">
+      <SheetContent className="!max-w-none !w-full md:!w-[600px] lg:!w-[700px] overflow-y-auto px-4">
         {/* Header */}
         <SheetHeader className="px-6 pt-6 pb-4 border-b space-y-3 flex-shrink-0">
           <div className="flex items-start justify-between gap-4">
@@ -310,45 +315,33 @@ export function BookingDetailDialog({
 
             {/* Requester Info */}
             <Section title="Informasi Pemohon" icon={User}>
-              <div className="p-4 bg-muted/40 rounded-lg space-y-4">
-                <div className="flex items-center gap-4">
-                  <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold">
-                    {booking.requester.name.charAt(0).toUpperCase()}
-                  </div>
-
-                  <div className="flex-1 min-w-0">
-                    <p className="font-semibold text-sm truncate">
-                      {booking.requester.name}
-                    </p>
-                    <p className="text-xs text-muted-foreground truncate">
-                      {booking.requester.nik}
-                    </p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  <InfoRow
-                    icon={Mail}
-                    label="Email"
-                    value={booking.requester.email}
-                  />
-                  <InfoRow
-                    icon={Phone}
-                    label="Telepon"
-                    value={booking.requester.phone}
-                  />
-                  <InfoRow
-                    icon={Briefcase}
-                    label="Perusahaan"
-                    value={booking.requester.company}
-                  />
-                  <InfoRow
-                    icon={Users}
-                    label="Departemen"
-                    value={booking.requester.department}
-                  />
-                </div>
-              </div>
+              <CompactProfileCard
+                label="Pemohon"
+                name={booking.requester.name}
+                identifier={booking.requester.nik}
+                company={booking.requester.company}
+                department={booking.requester.department}
+                phone={booking.requester.phone}
+                email={booking.requester.email}
+                variant="blue"
+              />
             </Section>
+
+            {/* Companion Info (if exists) */}
+            {booking.companion && (
+              <Section title="Informasi Pendamping (PIC)" icon={Users}>
+                <CompactProfileCard
+                  label="PIC"
+                  name={booking.companion.name}
+                  identifier={booking.companion.nik}
+                  company={booking.companion.company || "-"}
+                  department={booking.companion.department || "-"}
+                  phone={booking.companion.phone}
+                  email={booking.companion.email}
+                  variant="amber"
+                />
+              </Section>
+            )}
 
             {/* Occupants Info */}
             <Section title="Daftar Penghuni / Tamu" icon={Users}>
@@ -360,7 +353,9 @@ export function BookingDetailDialog({
                     roomId: "",
                     bedId: "",
                   };
-                  const availableRooms = getRoomsForBuilding(currentEdit.buildingId);
+                  const availableRooms = getRoomsForBuilding(
+                    currentEdit.buildingId
+                  );
                   const availableBeds = getBedsForRoom(currentEdit.roomId);
 
                   return (
@@ -376,7 +371,6 @@ export function BookingDetailDialog({
                                 ? "Karyawan"
                                 : "Tamu"}
                             </Badge>
-
                           </div>
                           <div>
                             <p className="font-semibold">{occupant.name}</p>
@@ -488,19 +482,25 @@ export function BookingDetailDialog({
                         {isEditing ? (
                           <div className="space-y-3">
                             {/* Show current assignment from requester if any */}
-                            {(occupant.buildingName || occupant.roomCode || occupant.bedCode) && (
+                            {(occupant.buildingName ||
+                              occupant.roomCode ||
+                              occupant.bedCode) && (
                               <div className="p-2 bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800 rounded text-xs">
                                 <p className="text-blue-700 dark:text-blue-300 font-medium mb-1">
                                   Permintaan dari pemohon:
                                 </p>
                                 <div className="flex items-center gap-3 text-blue-600 dark:text-blue-400">
-                                  <span>Gedung: {occupant.buildingName || "-"}</span>
-                                  <span>Ruangan: {occupant.roomCode || "-"}</span>
+                                  <span>
+                                    Gedung: {occupant.buildingName || "-"}
+                                  </span>
+                                  <span>
+                                    Ruangan: {occupant.roomCode || "-"}
+                                  </span>
                                   <span>Kasur: {occupant.bedCode || "-"}</span>
                                 </div>
                               </div>
                             )}
-                            
+
                             <div className="grid grid-cols-3 gap-3">
                               {/* Building Select */}
                               <div className="space-y-1.5">
@@ -513,7 +513,11 @@ export function BookingDetailDialog({
                                 <Select
                                   value={currentEdit.buildingId}
                                   onValueChange={(value) =>
-                                    handleOccupantChange(occupant.id, "buildingId", value)
+                                    handleOccupantChange(
+                                      occupant.id,
+                                      "buildingId",
+                                      value
+                                    )
                                   }
                                 >
                                   <SelectTrigger className="h-8 text-xs w-full">
@@ -539,12 +543,17 @@ export function BookingDetailDialog({
                                   htmlFor={`room-${occupant.id}`}
                                   className="text-xs"
                                 >
-                                  Ruangan <span className="text-red-500">*</span>
+                                  Ruangan{" "}
+                                  <span className="text-red-500">*</span>
                                 </Label>
                                 <Select
                                   value={currentEdit.roomId}
                                   onValueChange={(value) =>
-                                    handleOccupantChange(occupant.id, "roomId", value)
+                                    handleOccupantChange(
+                                      occupant.id,
+                                      "roomId",
+                                      value
+                                    )
                                   }
                                   disabled={!currentEdit.buildingId}
                                 >
@@ -582,7 +591,11 @@ export function BookingDetailDialog({
                                 <Select
                                   value={currentEdit.bedId}
                                   onValueChange={(value) =>
-                                    handleOccupantChange(occupant.id, "bedId", value)
+                                    handleOccupantChange(
+                                      occupant.id,
+                                      "bedId",
+                                      value
+                                    )
                                   }
                                   disabled={!currentEdit.roomId}
                                 >
@@ -773,13 +786,15 @@ export function BookingDetailDialog({
                     </p>
                     {booking.expiresAt && (
                       <p className="text-xs text-muted-foreground mt-0.5">
-                        Kedaluwarsa pada {format(booking.expiresAt, "dd MMM yyyy, HH:mm", {
+                        Kedaluwarsa pada{" "}
+                        {format(booking.expiresAt, "dd MMM yyyy, HH:mm", {
                           locale: id,
                         })}
                       </p>
                     )}
                     <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">
-                      Permintaan tidak diproses dalam batas waktu yang ditentukan
+                      Permintaan tidak diproses dalam batas waktu yang
+                      ditentukan
                     </p>
                   </div>
                 </div>
@@ -793,17 +808,14 @@ export function BookingDetailDialog({
                   {actionType === "reject" && (
                     <div>
                       <Label htmlFor="rejectReason" className="text-sm">
-                        Alasan Penolakan{" "}
-                        <span className="text-red-500">*</span>
+                        Alasan Penolakan <span className="text-red-500">*</span>
                       </Label>
                       <Input
                         id="rejectReason"
                         placeholder="Contoh: Kapasitas Penuh"
                         className="mt-1.5"
                         value={rejectReason}
-                        onChange={(e) =>
-                          onRejectReasonChange?.(e.target.value)
-                        }
+                        onChange={(e) => onRejectReasonChange?.(e.target.value)}
                       />
                     </div>
                   )}

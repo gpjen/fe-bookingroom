@@ -4,31 +4,22 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
-  Camera,
   QrCode,
   Loader2,
-  CheckCircle2,
-  XCircle,
-  User,
-  Building,
-  Calendar,
   LogIn,
   LogOut,
-  Keyboard,
-  Video,
   VideoOff,
+  AlertTriangle,
+  Image as ImageIcon,
+  Camera,
+  X,
 } from "lucide-react";
-import { format } from "date-fns";
+import { format, isBefore, startOfDay } from "date-fns";
 import { id } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import type { OccupantWithBooking } from "./mock-data";
@@ -42,33 +33,15 @@ interface QrScannerDialogProps {
   onCheckOut: (occupant: OccupantWithBooking) => void;
 }
 
-type ScanResult = {
-  status: "idle" | "scanning" | "found" | "not_found" | "error";
-  occupant?: OccupantWithBooking;
-  message?: string;
-};
-
-const getStatusConfig = (status: OccupantStatus) => {
-  const configs: Record<OccupantStatus, { label: string; className: string }> = {
-    scheduled: {
-      label: "Terjadwal",
-      className: "bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-900/30 dark:text-blue-400",
-    },
-    checked_in: {
-      label: "Check-In",
-      className: "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-900/30 dark:text-emerald-400",
-    },
-    checked_out: {
-      label: "Check-Out",
-      className: "bg-slate-100 text-slate-800 border-slate-300 dark:bg-slate-900/30 dark:text-slate-400",
-    },
-    cancelled: {
-      label: "Dibatalkan",
-      className: "bg-gray-100 text-gray-800 border-gray-300 dark:bg-gray-900/30 dark:text-gray-400",
-    },
-  };
-  return configs[status];
-};
+type ScanModalState =
+  | { type: "idle" }
+  | { type: "processing" }
+  | {
+      type: "success";
+      action: "checkin" | "checkout";
+      occupant: OccupantWithBooking;
+    }
+  | { type: "error"; message: string; occupant?: OccupantWithBooking };
 
 export function QrScannerDialog({
   open,
@@ -77,442 +50,422 @@ export function QrScannerDialog({
   onCheckIn,
   onCheckOut,
 }: QrScannerDialogProps) {
-  const [manualCode, setManualCode] = useState("");
-  const [scanResult, setScanResult] = useState<ScanResult>({ status: "idle" });
-  const [activeTab, setActiveTab] = useState<"camera" | "manual">("camera");
+  const [modalState, setModalState] = useState<ScanModalState>({
+    type: "idle",
+  });
   const [cameraActive, setCameraActive] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
-  
-  const inputRef = useRef<HTMLInputElement>(null);
+
   const scannerRef = useRef<HTMLDivElement>(null);
   const html5QrCodeRef = useRef<unknown>(null);
+  const lastScannedCodeRef = useRef<string | null>(null);
+  const processingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Find occupant by various inputs
-  const findOccupant = useCallback((input: string): OccupantWithBooking | undefined => {
-    const trimmed = input.trim();
-    
-    // Try to parse as JSON first (format: {b: bookingCode, o: occupantId, t: type})
+  // Find occupant helper - Priorities: 1. Exact ID Match (Primary), 2. JSON
+  const findOccupant = useCallback(
+    (input: string): OccupantWithBooking | undefined => {
+      const trimmed = input.trim();
+
+      // 1. Direct ID Match (UUID or simple string ID)
+      // This is the preferred format now: just the ID string
+      const exactMatch = occupants.find((o) => o.id === trimmed);
+      if (exactMatch) return exactMatch;
+
+      // 2. Legacy/JSON Support (just in case)
+      try {
+        const qrData = JSON.parse(trimmed);
+        if (qrData.o) return occupants.find((occ) => occ.id === qrData.o);
+      } catch {}
+
+      return undefined;
+    },
+    [occupants]
+  );
+
+  // Logic to process a found occupant
+  const processOccupant = useCallback(
+    (occupant: OccupantWithBooking) => {
+      const status = occupant.status as OccupantStatus;
+      const today = startOfDay(new Date());
+      const outDate = startOfDay(occupant.outDate || new Date());
+
+      if (status === "scheduled") {
+        // Auto Check-In
+        onCheckIn(occupant);
+        setModalState({ type: "success", action: "checkin", occupant });
+      } else if (status === "checked_in") {
+        // Auto Check-Out Check
+        if (isBefore(today, outDate)) {
+          setModalState({
+            type: "error",
+            message: `Belum waktunya Check-Out. Jadwal: ${format(
+              occupant.outDate!,
+              "dd MMM yyyy",
+              { locale: id }
+            )}`,
+            occupant,
+          });
+        } else {
+          onCheckOut(occupant);
+          setModalState({ type: "success", action: "checkout", occupant });
+        }
+      } else if (status === "checked_out") {
+        setModalState({
+          type: "error",
+          message: "Penghuni sudah melakukan Check-Out sebelumnya.",
+          occupant,
+        });
+      } else if (status === "cancelled") {
+        setModalState({
+          type: "error",
+          message: "Booking ini telah dibatalkan.",
+          occupant,
+        });
+      }
+    },
+    [onCheckIn, onCheckOut]
+  );
+
+  // Handle Scan Code
+  const handleScan = useCallback(
+    (decodedText: string) => {
+      if (
+        lastScannedCodeRef.current === decodedText &&
+        modalState.type !== "idle"
+      )
+        return;
+
+      if (modalState.type !== "idle" && modalState.type !== "processing")
+        return;
+
+      setModalState({ type: "processing" });
+      lastScannedCodeRef.current = decodedText;
+
+      if (processingTimeoutRef.current)
+        clearTimeout(processingTimeoutRef.current);
+
+      processingTimeoutRef.current = setTimeout(() => {
+        const occupant = findOccupant(decodedText);
+        if (occupant) {
+          processOccupant(occupant);
+        } else {
+          setModalState({
+            type: "error",
+            message: `Data tidak ditemukan (ID: ${decodedText.substring(
+              0,
+              15
+            )}...)`,
+          });
+        }
+      }, 500);
+    },
+    [findOccupant, processOccupant, modalState.type]
+  );
+
+  // Handle File Upload Scan
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
     try {
-      const qrData = JSON.parse(trimmed);
-      if (qrData.o) {
-        // Find by occupant ID from JSON
-        const found = occupants.find((occ) => occ.id === qrData.o);
-        if (found) return found;
-      }
-      if (qrData.b) {
-        // Find by booking code from JSON (return first match)
-        const found = occupants.find(
-          (occ) => occ.bookingCode.toLowerCase() === qrData.b.toLowerCase()
-        );
-        if (found) return found;
-      }
-    } catch {
-      // Not JSON, continue with other checks
+      setModalState({ type: "processing" });
+      const { Html5Qrcode } = await import("html5-qrcode");
+      const html5QrCode = new Html5Qrcode("qr-file-reader");
+
+      const decodedText = await html5QrCode.scanFile(file, true);
+      handleScan(decodedText);
+
+      // Clear input so same file can be selected again if needed
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    } catch (err) {
+      console.error("File scan error", err);
+      setModalState({
+        type: "error",
+        message: "Tidak dapat membaca QR Code dari gambar ini.",
+      });
+      if (fileInputRef.current) fileInputRef.current.value = "";
     }
+  };
 
-    // Check if input is a UUID (occupant ID) - simple UUID pattern check
-    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (uuidPattern.test(trimmed)) {
-      const found = occupants.find((occ) => occ.id === trimmed);
-      if (found) return found;
-    }
-
-    // Try exact match on booking code
-    const foundByCode = occupants.find(
-      (occ) => occ.bookingCode.toLowerCase() === trimmed.toLowerCase()
-    );
-    if (foundByCode) return foundByCode;
-
-    // Try partial match on booking code
-    const foundByPartialCode = occupants.find(
-      (occ) => occ.bookingCode.toLowerCase().includes(trimmed.toLowerCase())
-    );
-    if (foundByPartialCode) return foundByPartialCode;
-
-    // Try match on identifier (NIK/ID)
-    const foundByIdentifier = occupants.find(
-      (occ) => occ.identifier.toLowerCase() === trimmed.toLowerCase()
-    );
-    if (foundByIdentifier) return foundByIdentifier;
-
-    return undefined;
-  }, [occupants]);
-
-  // Initialize camera scanner
+  // Camera Management
   const startCamera = useCallback(async () => {
     if (!scannerRef.current || html5QrCodeRef.current) return;
-
     try {
       setCameraError(null);
       const { Html5Qrcode } = await import("html5-qrcode");
-      
-      const html5QrCode = new Html5Qrcode("qr-reader");
+      const html5QrCode = new Html5Qrcode("qr-camera-reader");
       html5QrCodeRef.current = html5QrCode;
 
       await html5QrCode.start(
         { facingMode: "environment" },
-        {
-          fps: 10,
-          qrbox: { width: 250, height: 250 },
-        },
-        (decodedText) => {
-          // QR code scanned successfully
-          const found = findOccupant(decodedText);
-          if (found) {
-            setScanResult({ status: "found", occupant: found });
-            // Stop camera after successful scan
-            stopCamera();
-          } else {
-            setScanResult({
-              status: "not_found",
-              message: `Tidak ditemukan penghuni dengan data: "${decodedText.substring(0, 50)}${decodedText.length > 50 ? "..." : ""}"`,
-            });
-          }
-        },
-        () => {
-          // QR code scan error (ignore, keep scanning)
-        }
+        { fps: 10, qrbox: { width: 250, height: 250 } },
+        (decodedText) => handleScan(decodedText),
+        () => {}
       );
-
       setCameraActive(true);
     } catch (err) {
-      console.error("Camera error:", err);
-      setCameraError(
-        err instanceof Error 
-          ? err.message 
-          : "Tidak dapat mengakses kamera. Pastikan kamera tersedia dan izin diberikan."
-      );
+      console.error("Camera start error:", err);
+      setCameraError("Gagal mengakses kamera.");
       setCameraActive(false);
     }
-  }, [findOccupant]);
+  }, [handleScan]);
 
-  // Stop camera scanner
   const stopCamera = useCallback(async () => {
     if (html5QrCodeRef.current) {
       try {
-        const html5QrCode = html5QrCodeRef.current as { stop: () => Promise<void>; clear: () => void };
-        await html5QrCode.stop();
-        html5QrCode.clear();
-      } catch (err) {
-        console.error("Error stopping camera:", err);
-      }
+        const scanner = html5QrCodeRef.current as {
+          stop: () => Promise<void>;
+          clear: () => void;
+        };
+        await scanner.stop();
+        scanner.clear();
+      } catch (err) {}
       html5QrCodeRef.current = null;
     }
     setCameraActive(false);
   }, []);
 
-  // Reset dialog state
-  const resetScan = useCallback(() => {
-    setScanResult({ status: "idle" });
-    setManualCode("");
-    setCameraError(null);
-    if (activeTab === "manual") {
-      setTimeout(() => inputRef.current?.focus(), 100);
-    } else if (activeTab === "camera" && !cameraActive) {
-      startCamera();
-    }
-  }, [activeTab, cameraActive, startCamera]);
-
-  // Handle dialog open/close
+  // Lifecycle
   useEffect(() => {
     if (open) {
-      setScanResult({ status: "idle" });
-      setManualCode("");
-      setCameraError(null);
-      
-      if (activeTab === "camera") {
-        // Delay camera start to allow dialog to render
-        const timer = setTimeout(() => startCamera(), 300);
-        return () => clearTimeout(timer);
-      } else {
-        setTimeout(() => inputRef.current?.focus(), 100);
-      }
+      setModalState({ type: "idle" });
+      lastScannedCodeRef.current = null;
+      const timer = setTimeout(startCamera, 300);
+      return () => clearTimeout(timer);
     } else {
       stopCamera();
     }
-  }, [open, activeTab, startCamera, stopCamera]);
+  }, [open, startCamera, stopCamera]);
 
-  // Handle tab change
-  useEffect(() => {
-    if (!open) return;
-
-    if (activeTab === "camera") {
-      startCamera();
-    } else {
-      stopCamera();
-      setTimeout(() => inputRef.current?.focus(), 100);
-    }
-  }, [activeTab, open, startCamera, stopCamera]);
-
-  // Cleanup on unmount
   useEffect(() => {
     return () => {
       stopCamera();
     };
   }, [stopCamera]);
 
-  const handleManualSearch = () => {
-    if (!manualCode.trim()) {
-      setScanResult({ status: "error", message: "Masukkan kode booking atau ID penghuni" });
-      return;
-    }
-
-    setScanResult({ status: "scanning" });
-
-    // Simulate small delay for UX
-    setTimeout(() => {
-      const found = findOccupant(manualCode);
-
-      if (found) {
-        setScanResult({ status: "found", occupant: found });
-      } else {
-        setScanResult({
-          status: "not_found",
-          message: `Tidak ditemukan penghuni dengan "${manualCode}"`,
-        });
-      }
-    }, 300);
+  const resetAndContinue = () => {
+    setModalState({ type: "idle" });
+    lastScannedCodeRef.current = null;
+    if (!cameraActive) startCamera();
   };
-
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter") {
-      handleManualSearch();
-    }
-  };
-
-  const handleAction = (action: "checkin" | "checkout") => {
-    if (!scanResult.occupant) return;
-
-    if (action === "checkin") {
-      onCheckIn(scanResult.occupant);
-    } else {
-      onCheckOut(scanResult.occupant);
-    }
-
-    // Reset for next scan
-    resetScan();
-  };
-
-  const occupant = scanResult.occupant;
-  const status = occupant?.status || "scheduled";
-  const statusConfig = occupant ? getStatusConfig(status) : null;
-  const canCheckIn = status === "scheduled";
-  const canCheckOut = status === "checked_in";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[550px]">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <QrCode className="h-5 w-5" />
-            Scan Tiket QR Code
-          </DialogTitle>
-          <DialogDescription>
-            Scan QR code pada tiket atau masukkan kode secara manual
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent
+        showCloseButton={false}
+        className="sm:max-w-[500px] p-0 overflow-hidden bg-black border-zinc-800 text-white gap-0"
+      >
+        {/* Header Overlay */}
+        <div className="absolute top-0 left-0 right-0 z-10 p-4 flex justify-between items-start bg-gradient-to-b from-black/80 to-transparent">
+          <div>
+            <DialogTitle className="flex items-center gap-2 text-white">
+              <QrCode className="h-5 w-5" />
+              Scan QR Check-In/Out
+            </DialogTitle>
+            <DialogDescription className="text-zinc-400 text-xs mt-1">
+              Arahkan kamera ke tiket QR atau upload gambar
+            </DialogDescription>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-white hover:bg-white/20 -mt-2 -mr-2"
+            onClick={() => onOpenChange(false)}
+          >
+            <X className="h-6 w-6" />
+          </Button>
+        </div>
 
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "camera" | "manual")}>
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="camera" className="gap-2">
-              <Camera className="h-4 w-4" />
-              Kamera
-            </TabsTrigger>
-            <TabsTrigger value="manual" className="gap-2">
-              <Keyboard className="h-4 w-4" />
-              Manual
-            </TabsTrigger>
-          </TabsList>
+        {/* Camera Viewport */}
+        <div className="relative w-full aspect-[4/3] bg-black group">
+          <div
+            id="qr-camera-reader"
+            ref={scannerRef}
+            className="w-full h-full"
+          />
+          {/* Hidden helper div for file scanning */}
+          <div id="qr-file-reader" className="hidden"></div>
 
-          <TabsContent value="camera" className="mt-4">
-            <div className="space-y-4">
-              {/* Camera View */}
-              {scanResult.status !== "found" && (
-                <div className="relative">
-                  <div
-                    id="qr-reader"
-                    ref={scannerRef}
-                    className="w-full aspect-square max-h-[300px] bg-black rounded-lg overflow-hidden"
-                  />
-                  
-                  {!cameraActive && !cameraError && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted/90 rounded-lg">
-                      <Loader2 className="h-8 w-8 animate-spin text-primary mb-2" />
-                      <p className="text-sm text-muted-foreground">Memulai kamera...</p>
-                    </div>
-                  )}
-
-                  {cameraError && (
-                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-muted/90 rounded-lg p-4 text-center">
-                      <VideoOff className="h-10 w-10 text-red-500 mb-3" />
-                      <p className="text-sm text-red-600 dark:text-red-400 font-medium mb-2">
-                        Gagal mengakses kamera
-                      </p>
-                      <p className="text-xs text-muted-foreground mb-3">{cameraError}</p>
-                      <Button size="sm" variant="outline" onClick={startCamera}>
-                        Coba Lagi
-                      </Button>
-                    </div>
-                  )}
-
-                  {cameraActive && (
-                    <div className="absolute bottom-2 left-2 right-2 flex items-center justify-center">
-                      <Badge variant="secondary" className="gap-1.5">
-                        <Video className="h-3 w-3" />
-                        Arahkan kamera ke QR Code
-                      </Badge>
-                    </div>
-                  )}
+          {/* Aim Guide */}
+          {cameraActive && modalState.type === "idle" && (
+            <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+              <div className="w-64 h-64 border-2 border-white/50 rounded-lg relative">
+                <div className="absolute top-0 left-0 w-4 h-4 border-t-4 border-l-4 border-emerald-500 -mt-1 -ml-1" />
+                <div className="absolute top-0 right-0 w-4 h-4 border-t-4 border-r-4 border-emerald-500 -mt-1 -mr-1" />
+                <div className="absolute bottom-0 left-0 w-4 h-4 border-b-4 border-l-4 border-emerald-500 -mb-1 -ml-1" />
+                <div className="absolute bottom-0 right-0 w-4 h-4 border-b-4 border-r-4 border-emerald-500 -mb-1 -mr-1" />
+                <div className="absolute inset-0 flex items-center justify-center animate-pulse opacity-50">
+                  <div className="w-full h-0.5 bg-red-500/50" />
                 </div>
-              )}
-
-              {/* Scan Result */}
-              {scanResult.status === "not_found" && (
-                <div className="p-4 border rounded-lg text-center">
-                  <XCircle className="h-10 w-10 text-red-500 mx-auto mb-2" />
-                  <p className="text-sm font-medium text-red-600 dark:text-red-400">
-                    {scanResult.message}
-                  </p>
-                  <Button variant="ghost" size="sm" className="mt-3" onClick={resetScan}>
-                    Scan Lagi
-                  </Button>
-                </div>
-              )}
+              </div>
             </div>
-          </TabsContent>
+          )}
 
-          <TabsContent value="manual" className="mt-4">
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="code">Kode Booking / ID Penghuni</Label>
-                <div className="flex gap-2">
-                  <Input
-                    ref={inputRef}
-                    id="code"
-                    placeholder="Masukkan kode booking atau ID..."
-                    value={manualCode}
-                    onChange={(e) => setManualCode(e.target.value)}
-                    onKeyDown={handleKeyPress}
-                    disabled={scanResult.status === "scanning"}
-                  />
+          {/* Loading/Error State Overlay */}
+          {!cameraActive && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-zinc-900 text-zinc-400">
+              {cameraError ? (
+                <>
+                  <VideoOff className="h-10 w-10 mb-4 opacity-50" />
+                  <p className="max-w-[200px] text-center text-sm">
+                    {cameraError}
+                  </p>
                   <Button
-                    onClick={handleManualSearch}
-                    disabled={scanResult.status === "scanning"}
+                    variant="outline"
+                    size="sm"
+                    onClick={startCamera}
+                    className="mt-4 border-zinc-700 bg-transparent text-white hover:bg-white/10"
                   >
-                    {scanResult.status === "scanning" ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      "Cari"
+                    Coba Lagi
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Loader2 className="h-8 w-8 animate-spin mb-2" />
+                  <p className="text-sm">Menyiapkan kamera...</p>
+                </>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Footer Actions (Upload) */}
+        <div className="bg-zinc-900 p-4 border-t border-zinc-800 flex justify-center gap-4">
+          <input
+            type="file"
+            accept="image/*"
+            className="hidden"
+            ref={fileInputRef}
+            onChange={handleFileUpload}
+          />
+          <Button
+            variant="ghost"
+            className="flex-1 text-zinc-400 hover:text-white hover:bg-white/5 h-12"
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <ImageIcon className="h-5 w-5 mr-2" />
+            Upload Foto QR
+          </Button>
+          {/* If camera fails or user wants to force retry */}
+          {!cameraActive && (
+            <Button
+              variant="ghost"
+              className="flex-1 text-zinc-400 hover:text-white hover:bg-white/5 h-12"
+              onClick={startCamera}
+            >
+              <Camera className="h-5 w-5 mr-2" />
+              Buka Kamera
+            </Button>
+          )}
+        </div>
+
+        {/* RESULT RESULT OVERLAY */}
+        {modalState.type !== "idle" && modalState.type !== "processing" && (
+          <div className="absolute inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-6 animate-in fade-in duration-200">
+            <div className="bg-white dark:bg-zinc-900 rounded-xl w-full max-w-sm overflow-hidden shadow-2xl">
+              {/* Success State */}
+              {modalState.type === "success" && (
+                <div className="flex flex-col items-center text-center">
+                  <div
+                    className={cn(
+                      "w-full p-6 flex flex-col items-center",
+                      modalState.action === "checkin"
+                        ? "bg-emerald-500"
+                        : "bg-orange-500"
                     )}
+                  >
+                    {modalState.action === "checkin" ? (
+                      <LogIn className="h-12 w-12 text-white mb-2" />
+                    ) : (
+                      <LogOut className="h-12 w-12 text-white mb-2" />
+                    )}
+                    <h3 className="text-2xl font-bold text-white">
+                      {modalState.action === "checkin"
+                        ? "CHECK-IN"
+                        : "CHECK-OUT"}
+                    </h3>
+                    <p className="text-white/90 text-sm font-medium">
+                      Berhasil
+                    </p>
+                  </div>
+
+                  <div className="p-6 w-full space-y-4 text-left">
+                    <div className="flex items-center gap-4">
+                      <div className="h-12 w-12 rounded-full bg-slate-100 flex items-center justify-center text-xl font-bold text-slate-600">
+                        {modalState.occupant.name.charAt(0)}
+                      </div>
+                      <div>
+                        <p className="font-bold text-lg text-slate-900 dark:text-slate-100">
+                          {modalState.occupant.name}
+                        </p>
+                        <p className="text-sm text-slate-500 font-mono">
+                          {modalState.occupant.identifier}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3 text-sm pt-2 border-t">
+                      <div>
+                        <p className="text-muted-foreground text-xs">
+                          Booking / ID
+                        </p>
+                        <p className="font-medium">
+                          {modalState.occupant.id.substring(0, 8)}...
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-muted-foreground text-xs">Lokasi</p>
+                        <p className="font-medium">
+                          {modalState.occupant.buildingName} -{" "}
+                          {modalState.occupant.roomCode}
+                        </p>
+                      </div>
+                    </div>
+
+                    <Button
+                      className="w-full mt-2"
+                      size="lg"
+                      onClick={resetAndContinue}
+                    >
+                      Lanjut Scan Berikutnya
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Error State */}
+              {modalState.type === "error" && (
+                <div className="p-6 flex flex-col items-center text-center space-y-4">
+                  <div className="h-16 w-16 bg-red-100 rounded-full flex items-center justify-center mb-2">
+                    <AlertTriangle className="h-8 w-8 text-red-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-slate-900 dark:text-slate-100 mb-1">
+                      Gagal Scan
+                    </h3>
+                    <p className="text-sm text-slate-600 dark:text-slate-400">
+                      {modalState.message}
+                    </p>
+                  </div>
+
+                  {modalState.occupant && (
+                    <div className="w-full p-3 bg-slate-50 rounded text-left text-sm border">
+                      <p className="font-semibold">
+                        {modalState.occupant.name}
+                      </p>
+                    </div>
+                  )}
+
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={resetAndContinue}
+                  >
+                    Coba Lagi
                   </Button>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Masukkan kode booking (REQ-XXXXXX), ID penghuni, atau NIK
-                </p>
-              </div>
-
-              {/* Manual Search Result */}
-              {scanResult.status === "not_found" && (
-                <div className="p-4 border rounded-lg text-center">
-                  <XCircle className="h-10 w-10 text-red-500 mx-auto mb-2" />
-                  <p className="text-sm font-medium text-red-600 dark:text-red-400">
-                    {scanResult.message}
-                  </p>
-                </div>
               )}
-
-              {scanResult.status === "error" && (
-                <div className="p-4 border rounded-lg text-center">
-                  <XCircle className="h-10 w-10 text-amber-500 mx-auto mb-2" />
-                  <p className="text-sm font-medium text-amber-600 dark:text-amber-400">
-                    {scanResult.message}
-                  </p>
-                </div>
-              )}
-            </div>
-          </TabsContent>
-        </Tabs>
-
-        {/* Found Result - Shown for both tabs */}
-        {scanResult.status === "found" && occupant && statusConfig && (
-          <div className="space-y-4 pt-4 border-t">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <CheckCircle2 className="h-5 w-5 text-emerald-500" />
-                <span className="font-medium text-emerald-600 dark:text-emerald-400">
-                  Data Ditemukan
-                </span>
-              </div>
-              <Badge variant="outline" className={cn("text-xs", statusConfig.className)}>
-                {statusConfig.label}
-              </Badge>
-            </div>
-
-            <div className="p-3 bg-muted/50 rounded-lg space-y-3">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold">
-                  {occupant.name.charAt(0).toUpperCase()}
-                </div>
-                <div>
-                  <p className="font-semibold">{occupant.name}</p>
-                  <p className="text-xs text-muted-foreground">{occupant.identifier}</p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div className="flex items-center gap-1.5">
-                  <Building className="h-3 w-3 text-muted-foreground" />
-                  <span>{occupant.buildingName} - R.{occupant.roomCode}</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <User className="h-3 w-3 text-muted-foreground" />
-                  <span>Bed {occupant.bedCode}</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <Calendar className="h-3 w-3 text-muted-foreground" />
-                  <span>
-                    {format(new Date(occupant.inDate), "dd MMM", { locale: id })} -{" "}
-                    {occupant.outDate
-                      ? format(new Date(occupant.outDate), "dd MMM", { locale: id })
-                      : "-"}
-                  </span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className="text-muted-foreground">Durasi:</span>
-                  <span className="font-medium">{occupant.duration} Hari</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex gap-2">
-              {canCheckIn && (
-                <Button
-                  onClick={() => handleAction("checkin")}
-                  className="flex-1 bg-emerald-600 hover:bg-emerald-700"
-                >
-                  <LogIn className="h-4 w-4 mr-2" />
-                  Check-In
-                </Button>
-              )}
-              {canCheckOut && (
-                <Button
-                  onClick={() => handleAction("checkout")}
-                  className="flex-1 bg-orange-600 hover:bg-orange-700"
-                >
-                  <LogOut className="h-4 w-4 mr-2" />
-                  Check-Out
-                </Button>
-              )}
-              {!canCheckIn && !canCheckOut && (
-                <div className="flex-1 p-3 text-center text-sm text-muted-foreground bg-muted/50 rounded">
-                  {status === "checked_out" && "Penghuni sudah check-out"}
-                  {status === "cancelled" && "Pemesanan dibatalkan"}
-                </div>
-              )}
-              <Button variant="outline" onClick={resetScan}>
-                Scan Lagi
-              </Button>
             </div>
           </div>
         )}

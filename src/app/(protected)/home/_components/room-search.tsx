@@ -128,8 +128,13 @@ export function RoomSearch() {
   const [hasSearched, setHasSearched] = useState(false);
 
   const [selectedBuilding, setSelectedBuilding] = useState<string>("all");
-  const [selectedType, setSelectedType] = useState<string>("all");
-  const [isFilterOpen, setIsFilterOpen] = useState(false);
+  const [roomRequirements, setRoomRequirements] = useState<
+    { type: string; count: number }[]
+  >([]);
+
+  const [appliedRoomRequirements, setAppliedRoomRequirements] = useState<
+    { type: string; count: number }[]
+  >([]);
 
   const [selectedRoom, setSelectedRoom] = useState<RoomAvailability | null>(
     null
@@ -140,6 +145,11 @@ export function RoomSearch() {
 
   const duration =
     startDate && endDate ? differenceInDays(endDate, startDate) + 1 : 0;
+
+  const totalRoomRequested = roomRequirements.reduce(
+    (acc, curr) => acc + curr.count,
+    0
+  );
 
   const handleStartDateChange = (date: Date | undefined) => {
     setStartDate(date);
@@ -174,16 +184,22 @@ export function RoomSearch() {
     let rooms = filterRooms(MOCK_ROOMS, {
       areaId: selectedArea,
       buildingId: selectedBuilding === "all" ? undefined : selectedBuilding,
-      type: selectedType === "all" ? undefined : (selectedType as RoomType),
       onlyAvailable: true,
     });
 
+    // Filter by Room Requirements (Types) - using APPLIED requirements
+    if (appliedRoomRequirements.length > 0) {
+      const requiredTypes = new Set(appliedRoomRequirements.map((r) => r.type));
+      rooms = rooms.filter((r) => requiredTypes.has(r.type));
+    }
+
     rooms = rooms.sort((a, b) => b.availableBeds - a.availableBeds);
     return rooms;
-  }, [hasSearched, selectedArea, selectedBuilding, selectedType]);
+  }, [hasSearched, selectedArea, selectedBuilding, appliedRoomRequirements]);
 
   const handleSearch = () => {
     if (!startDate || !endDate || totalPeople === 0 || !selectedArea) return;
+    setAppliedRoomRequirements(roomRequirements); // Snapshot the requirements
     setHasSearched(true);
   };
 
@@ -195,14 +211,41 @@ export function RoomSearch() {
     duration <= 91 &&
     !!selectedArea;
 
-  const activeFiltersCount = [
-    selectedBuilding !== "all",
-    selectedType !== "all",
-  ].filter(Boolean).length;
+  const activeFiltersCount = selectedBuilding !== "all" ? 1 : 0;
 
-  const clearFilters = () => {
+  const resetFilters = () => {
     setSelectedBuilding("all");
-    setSelectedType("all");
+  };
+
+  const addRequirement = () => {
+    if (totalRoomRequested >= totalPeople) return;
+    setRoomRequirements([...roomRequirements, { type: "standard", count: 1 }]);
+    setHasSearched(false);
+  };
+
+  const removeRequirement = (index: number) => {
+    const newReqs = [...roomRequirements];
+    newReqs.splice(index, 1);
+    setRoomRequirements(newReqs);
+    setHasSearched(false);
+  };
+
+  const updateRequirement = (
+    index: number,
+    field: "type" | "count",
+    value: string | number
+  ) => {
+    const newReqs = [...roomRequirements];
+
+    if (field === "count") {
+      // Validate room count increase
+      const diff = (value as number) - newReqs[index].count;
+      if (diff > 0 && totalRoomRequested + diff > totalPeople) return;
+    }
+
+    newReqs[index] = { ...newReqs[index], [field]: value };
+    setRoomRequirements(newReqs);
+    setHasSearched(false);
   };
 
   return (
@@ -261,9 +304,11 @@ export function RoomSearch() {
               />
             </div>
 
-            {/* People Count */}
+            {/* People Count & Room Config */}
             <div className="space-y-2">
-              <Label className="text-sm font-medium">Jumlah Orang</Label>
+              <Label className="text-sm font-medium">
+                Jumlah Orang & Kamar
+              </Label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
@@ -271,111 +316,249 @@ export function RoomSearch() {
                     className="h-10 w-full justify-start text-left font-normal"
                   >
                     <Users className="mr-2 h-4 w-4" />
-                    <span className="flex items-center gap-2">
-                      <span className="flex items-center gap-1">
-                        <Briefcase className="h-3 w-3 text-blue-500" />
-                        {employeeCount}
-                      </span>
-                      <span className="text-muted-foreground">•</span>
-                      <span className="flex items-center gap-1">
-                        <UserPlus className="h-3 w-3 text-amber-500" />
-                        {guestCount}
-                      </span>
+                    <span className="flex items-center gap-2 truncate">
+                      <span>{totalPeople} Orang</span>
+                      {totalRoomRequested > 0 && (
+                        <>
+                          <span className="text-muted-foreground">•</span>
+                          <span className="flex items-center gap-1">
+                            <Sparkles className="h-3 w-3 text-primary" />
+                            {totalRoomRequested} Kamar (
+                            {roomRequirements.length} Tipe)
+                          </span>
+                        </>
+                      )}
                     </span>
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-80" align="start">
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium">
-                        Jumlah Orang
-                      </Label>
-                      <p className="text-xs text-muted-foreground">
-                        Tentukan jumlah karyawan dan tamu
-                      </p>
+                <PopoverContent className="w-96" align="start">
+                  <div className="space-y-6">
+                    {/* People Count Section */}
+                    <div className="space-y-3">
+                      <div className="space-y-1">
+                        <Label className="text-sm font-medium">
+                          Jumlah Orang
+                        </Label>
+                        <p className="text-xs text-muted-foreground">
+                          Total penghuni yang akan menginap
+                        </p>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        {/* Karyawan */}
+                        <div className="flex flex-col gap-2 p-2 border rounded-lg bg-blue-50/30 dark:bg-blue-900/10">
+                          <div className="flex items-center gap-2 text-xs font-medium text-blue-700 dark:text-blue-400">
+                            <Briefcase className="h-3.5 w-3.5" />
+                            Karyawan
+                          </div>
+                          <div className="flex items-center justify-between bg-background border rounded-md">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 rounded-r-none"
+                              onClick={() => {
+                                setEmployeeCount(
+                                  Math.max(0, employeeCount - 1)
+                                );
+                                setHasSearched(false);
+                              }}
+                              disabled={employeeCount <= 0}
+                            >
+                              <Minus className="h-3 w-3" />
+                            </Button>
+                            <span className="text-sm font-semibold w-6 text-center">
+                              {employeeCount}
+                            </span>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 rounded-l-none"
+                              onClick={() => {
+                                setEmployeeCount(
+                                  Math.min(50, employeeCount + 1)
+                                );
+                                setHasSearched(false);
+                              }}
+                              disabled={employeeCount >= 50}
+                            >
+                              <Plus className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* Tamu */}
+                        <div className="flex flex-col gap-2 p-2 border rounded-lg bg-amber-50/30 dark:bg-amber-900/10">
+                          <div className="flex items-center gap-2 text-xs font-medium text-amber-700 dark:text-amber-400">
+                            <UserPlus className="h-3.5 w-3.5" />
+                            Tamu
+                          </div>
+                          <div className="flex items-center justify-between bg-background border rounded-md">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 rounded-r-none"
+                              onClick={() => {
+                                setGuestCount(Math.max(0, guestCount - 1));
+                                setHasSearched(false);
+                              }}
+                              disabled={guestCount <= 0}
+                            >
+                              <Minus className="h-3 w-3" />
+                            </Button>
+                            <span className="text-sm font-semibold w-6 text-center">
+                              {guestCount}
+                            </span>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 rounded-l-none"
+                              onClick={() => {
+                                setGuestCount(Math.min(50, guestCount + 1));
+                                setHasSearched(false);
+                              }}
+                              disabled={guestCount >= 50}
+                            >
+                              <Plus className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
                     </div>
 
-                    {/* Karyawan */}
-                    <div className="flex items-center justify-between p-3 border rounded-lg">
-                      <div className="flex items-center gap-2">
-                        <Briefcase className="h-4 w-4 text-blue-500" />
-                        <span className="font-medium">Karyawan</span>
-                      </div>
-                      <div className="flex items-center border rounded-md">
+                    <div className="h-px bg-border" />
+
+                    {/* Room Config Section */}
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <div className="space-y-1">
+                          <Label className="text-sm font-medium flex items-center gap-2">
+                            Kebutuhan Kamar
+                            <Badge
+                              variant="outline"
+                              className="text-[10px] h-5 px-1.5 font-normal"
+                            >
+                              Opsional
+                            </Badge>
+                          </Label>
+                          <p className="text-xs text-muted-foreground">
+                            Spesifik tipe & jumlah kamar
+                          </p>
+                        </div>
                         <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 rounded-r-none"
-                          onClick={() => {
-                            setEmployeeCount(Math.max(0, employeeCount - 1));
-                            setHasSearched(false);
-                          }}
-                          disabled={employeeCount <= 0}
-                        >
-                          <Minus className="h-3 w-3" />
-                        </Button>
-                        <span className="w-10 text-center font-semibold">
-                          {employeeCount}
-                        </span>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 rounded-l-none"
-                          onClick={() => {
-                            setEmployeeCount(Math.min(50, employeeCount + 1));
-                            setHasSearched(false);
-                          }}
-                          disabled={employeeCount >= 50}
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-xs gap-1"
+                          onClick={addRequirement}
+                          disabled={totalRoomRequested >= totalPeople}
                         >
                           <Plus className="h-3 w-3" />
+                          Tambah
                         </Button>
                       </div>
-                    </div>
 
-                    {/* Tamu */}
-                    <div className="flex items-center justify-between p-3 border rounded-lg">
-                      <div className="flex items-center gap-2">
-                        <UserPlus className="h-4 w-4 text-amber-500" />
-                        <span className="font-medium">Tamu</span>
-                      </div>
-                      <div className="flex items-center border rounded-md">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 rounded-r-none"
-                          onClick={() => {
-                            setGuestCount(Math.max(0, guestCount - 1));
-                            setHasSearched(false);
-                          }}
-                          disabled={guestCount <= 0}
-                        >
-                          <Minus className="h-3 w-3" />
-                        </Button>
-                        <span className="w-10 text-center font-semibold">
-                          {guestCount}
-                        </span>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 rounded-l-none"
-                          onClick={() => {
-                            setGuestCount(Math.min(50, guestCount + 1));
-                            setHasSearched(false);
-                          }}
-                          disabled={guestCount >= 50}
-                        >
-                          <Plus className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    </div>
+                      {roomRequirements.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center p-4 border border-dashed rounded-lg bg-muted/20 text-center">
+                          <Sparkles className="h-8 w-8 text-muted-foreground/30 mb-2" />
+                          <p className="text-xs text-muted-foreground">
+                            Belum ada spesifikasi kamar. <br />
+                            Sistem akan menampilkan semua opsi.
+                          </p>
+                        </div>
+                      ) : (
+                        <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1">
+                          {roomRequirements.map((req, index) => (
+                            <div
+                              key={index}
+                              className="flex items-center gap-2 animate-in fade-in slide-in-from-left-2 p-2 rounded-lg border bg-card"
+                            >
+                              <Select
+                                value={req.type}
+                                onValueChange={(v) =>
+                                  updateRequirement(index, "type", v)
+                                }
+                              >
+                                <SelectTrigger className="h-8 flex-1 text-xs">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {ROOM_TYPES.map((t) => (
+                                    <SelectItem
+                                      key={t.value}
+                                      value={t.value}
+                                      className="text-xs"
+                                    >
+                                      {t.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
 
-                    <div className="pt-3 border-t">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-muted-foreground">Total:</span>
-                        <span className="font-semibold">
-                          {totalPeople} Orang
-                        </span>
-                      </div>
+                              <div className="flex items-center border rounded-md bg-background">
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-6 rounded-r-none"
+                                  onClick={() =>
+                                    updateRequirement(
+                                      index,
+                                      "count",
+                                      Math.max(1, req.count - 1)
+                                    )
+                                  }
+                                >
+                                  <Minus className="h-3 w-3" />
+                                </Button>
+                                <span className="w-6 text-center text-xs font-semibold">
+                                  {req.count}
+                                </span>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-8 w-6 rounded-l-none"
+                                  onClick={() =>
+                                    updateRequirement(
+                                      index,
+                                      "count",
+                                      req.count + 1
+                                    )
+                                  }
+                                  disabled={totalRoomRequested >= totalPeople}
+                                >
+                                  <Plus className="h-3 w-3" />
+                                </Button>
+                              </div>
+
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 text-muted-foreground hover:text-destructive shrink-0"
+                                onClick={() => removeRequirement(index)}
+                              >
+                                <X className="h-3.5 w-3.5" />
+                              </Button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {totalRoomRequested > 0 && (
+                        <div className="flex items-center justify-between text-xs p-2 bg-primary/5 rounded border border-primary/10 text-primary">
+                          <span>Total Kamar Diminta:</span>
+                          <span className="font-bold">
+                            {totalRoomRequested} / {totalPeople} Max
+                          </span>
+                        </div>
+                      )}
+
+                      {totalRoomRequested >= totalPeople && (
+                        <p className="text-[10px] text-amber-600 flex items-center gap-1">
+                          <AlertCircle className="h-3 w-3" />
+                          Maksimal jumlah kamar tercapai (1 orang/kamar)
+                        </p>
+                      )}
                     </div>
                   </div>
                 </PopoverContent>
@@ -422,6 +605,7 @@ export function RoomSearch() {
       {hasSearched && (
         <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
           {/* Results Header with Filter */}
+          {/* Results Header with Filter */}
           <div className="flex flex-col gap-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gradient-to-r from-primary/5 to-primary/10 p-6 rounded-xl border border-primary/20">
               <div>
@@ -437,156 +621,40 @@ export function RoomSearch() {
                 </p>
               </div>
 
-              <Button
-                variant={isFilterOpen ? "default" : "outline"}
-                size="sm"
-                onClick={() => setIsFilterOpen(!isFilterOpen)}
-                className="gap-2 relative"
-              >
-                <Filter className="h-4 w-4" />
-                Filter
-                {activeFiltersCount > 0 && (
-                  <Badge
-                    variant="secondary"
-                    className="h-5 w-5 p-0 justify-center text-[10px] ml-1 bg-destructive text-destructive-foreground"
+              {/* Building Filter Directly Here */}
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 bg-background/50 rounded-lg p-1 border">
+                  <Building2 className="h-4 w-4 text-muted-foreground ml-2" />
+                  <Select
+                    value={selectedBuilding}
+                    onValueChange={setSelectedBuilding}
                   >
-                    {activeFiltersCount}
-                  </Badge>
+                    <SelectTrigger className="h-8 border-none bg-transparent shadow-none focus:ring-0 gap-2 min-w-[180px]">
+                      <SelectValue placeholder="Semua Gedung" />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-[200px]">
+                      <SelectItem value="all">Semua Gedung</SelectItem>
+                      {filteredBuildings.map((b) => (
+                        <SelectItem key={b.id} value={b.id}>
+                          {b.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {selectedBuilding !== "all" && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={resetFilters}
+                    className="h-10 px-3 text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="h-4 w-4 mr-1" /> Reset
+                  </Button>
                 )}
-              </Button>
+              </div>
             </div>
-
-            {/* Filter Panel */}
-            {isFilterOpen && (
-              <Card className="border-2 border-primary/20 shadow-lg animate-in fade-in slide-in-from-top-4 duration-300">
-                <CardContent className="p-6 space-y-6">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="p-2 bg-primary/10 rounded-lg">
-                        <SlidersHorizontal className="h-4 w-4 text-primary" />
-                      </div>
-                      <div>
-                        <h4 className="font-semibold">Filter Pencarian</h4>
-                        <p className="text-xs text-muted-foreground">
-                          Persempit hasil dengan filter tambahan
-                        </p>
-                      </div>
-                    </div>
-                    {activeFiltersCount > 0 && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={clearFilters}
-                        className="gap-2 text-muted-foreground hover:text-foreground"
-                      >
-                        <X className="h-3 w-3" />
-                        Hapus Filter
-                      </Button>
-                    )}
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2">
-                        <Building2 className="h-4 w-4 text-primary" />
-                        <Label className="font-medium">Gedung</Label>
-                      </div>
-                      <Select
-                        value={selectedBuilding}
-                        onValueChange={setSelectedBuilding}
-                      >
-                        <SelectTrigger className="h-11">
-                          <SelectValue placeholder="Semua Gedung" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">
-                            <div className="flex items-center gap-2">
-                              <Badge
-                                variant="secondary"
-                                className="text-xs font-normal"
-                              >
-                                Semua Gedung
-                              </Badge>
-                            </div>
-                          </SelectItem>
-                          {filteredBuildings.map((b) => (
-                            <SelectItem key={b.id} value={b.id}>
-                              <div className="flex items-center gap-2">
-                                <span>{b.name}</span>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {selectedBuilding !== "all" && (
-                        <p className="text-xs text-muted-foreground flex items-center gap-1">
-                          <Filter className="h-3 w-3" />
-                          Filter aktif:{" "}
-                          {
-                            filteredBuildings.find(
-                              (b) => b.id === selectedBuilding
-                            )?.name
-                          }
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-2">
-                        <Sparkles className="h-4 w-4 text-primary" />
-                        <Label className="font-medium">Tipe Kamar</Label>
-                      </div>
-                      <Select
-                        value={selectedType}
-                        onValueChange={setSelectedType}
-                      >
-                        <SelectTrigger className="h-11">
-                          <SelectValue placeholder="Semua Tipe" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="all">
-                            <div className="flex items-center gap-2">
-                              <Badge
-                                variant="secondary"
-                                className="text-xs font-normal"
-                              >
-                                Semua Tipe
-                              </Badge>
-                            </div>
-                          </SelectItem>
-                          {ROOM_TYPES.map((t) => (
-                            <SelectItem key={t.value} value={t.value}>
-                              {t.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {selectedType !== "all" && (
-                        <p className="text-xs text-muted-foreground flex items-center gap-1">
-                          <Filter className="h-3 w-3" />
-                          Filter aktif:{" "}
-                          {
-                            ROOM_TYPES.find((t) => t.value === selectedType)
-                              ?.label
-                          }
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="pt-4 border-t">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">
-                        Hasil setelah filter:
-                      </span>
-                      <span className="font-semibold">
-                        {filteredRooms.length} kamar tersedia
-                      </span>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            )}
           </div>
 
           {/* Timeline View */}

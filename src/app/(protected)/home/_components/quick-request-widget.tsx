@@ -1,29 +1,31 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useMemo } from "react";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Plus, FileText, Clock, CheckCircle, ArrowRight } from "lucide-react";
+import { FileText, Clock, CheckCircle, ArrowRight } from "lucide-react";
 import { MOCK_BOOKING_REQUESTS } from "@/app/(protected)/booking/request/_components/mock-data";
-import { BookingRequestForm } from "@/components/booking/booking-request-form";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import Link from "next/link";
-import { PermissionGate } from "@/components/auth/permission-gate";
 
-export function QuickRequestWidget() {
-  const [isFormOpen, setIsFormOpen] = useState(false);
+interface QuickRequestSheetProps {
+  trigger?: React.ReactNode;
+}
 
-  const handleFormSubmit = (data: unknown) => {
-    console.log("Booking Request Data:", data);
-  };
-
-  // Get recent requests (sorted by requestedAt, limit 3)
+export function QuickRequestSheet({ trigger }: QuickRequestSheetProps) {
+  // Get recent requests (sorted by requestedAt, limit 5 for sheet)
   const recentRequests = useMemo(() => {
     return [...MOCK_BOOKING_REQUESTS]
       .sort((a, b) => b.requestedAt.getTime() - a.requestedAt.getTime())
-      .slice(0, 3);
+      .slice(0, 5);
   }, []);
 
   // Stats
@@ -68,28 +70,24 @@ export function QuickRequestWidget() {
   };
 
   return (
-    <>
-      <Card className="border-l-4 border-l-primary shadow-sm">
-        <CardHeader className="pb-3">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-base font-semibold flex items-center gap-2">
-              <FileText className="h-5 w-5 text-primary" />
-              Permintaan Saya
-            </CardTitle>
+    <Sheet>
+      <SheetTrigger asChild>
+        {trigger || (
+          <Button variant="outline" size="sm" className="gap-2">
+            <FileText className="h-4 w-4" />
+            Permintaan Saya
+          </Button>
+        )}
+      </SheetTrigger>
+      <SheetContent className="w-full sm:max-w-md overflow-y-auto p-4">
+        <SheetHeader className="pb-4">
+          <SheetTitle className="flex items-center gap-2">
+            <FileText className="h-5 w-5 text-primary" />
+            Permintaan Saya
+          </SheetTitle>
+        </SheetHeader>
 
-            <PermissionGate permissions={["booking-request:create"]}>
-              <Button
-                size="sm"
-                onClick={() => setIsFormOpen(true)}
-                className="h-8 gap-1.5"
-              >
-                <Plus className="h-4 w-4" />
-                Request
-              </Button>
-            </PermissionGate>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
+        <div className="space-y-6">
           {/* Quick Stats */}
           <div className="grid grid-cols-2 gap-3">
             <div className="flex items-center gap-3 p-3 rounded-lg bg-amber-50 dark:bg-amber-900/20">
@@ -109,55 +107,61 @@ export function QuickRequestWidget() {
           </div>
 
           {/* Recent Requests */}
-          <div className="space-y-2">
-            <p className="text-xs font-medium text-muted-foreground">
-              Permintaan Terbaru
-            </p>
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-medium text-muted-foreground">
+                Permintaan Terbaru
+              </p>
+              <Link href="/booking/mine">
+                <Button variant="link" size="sm" className="h-auto p-0">
+                  Lihat Semua
+                </Button>
+              </Link>
+            </div>
+
             {recentRequests.length > 0 ? (
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {recentRequests.map((request) => (
                   <div
                     key={request.id}
-                    className="flex items-center justify-between p-2.5 rounded-lg border bg-card hover:bg-accent/50 transition-colors cursor-pointer"
+                    className="flex flex-col gap-2 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors cursor-pointer"
                   >
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold truncate">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-semibold">
                         {request.bookingCode}
                       </p>
-                      <p className="text-xs text-muted-foreground truncate">
-                        {request.occupants.length} Penghuni •{" "}
-                        {format(request.requestedAt, "dd MMM yy", {
-                          locale: localeId,
-                        })}
-                      </p>
+                      {getStatusBadge(request.status)}
                     </div>
-                    {getStatusBadge(request.status)}
+                    <div className="flex justify-between items-end">
+                      <div className="text-xs text-muted-foreground">
+                        <p>{request.occupants.length} Penghuni</p>
+                        <p>
+                          {format(request.requestedAt, "dd MMM yyyy, HH:mm", {
+                            locale: localeId,
+                          })}
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>
             ) : (
-              <div className="text-center py-6 text-muted-foreground">
+              <div className="text-center py-8 text-muted-foreground border rounded-lg border-dashed">
                 <FileText className="h-8 w-8 mx-auto mb-2 opacity-30" />
                 <p className="text-sm">Belum ada permintaan</p>
               </div>
             )}
           </div>
 
-          {/* View All Link */}
-          <Link href="/booking/mine">
-            <Button variant="ghost" size="sm" className="w-full group">
+          {/* View All Button */}
+          <Link href="/booking/mine" className="block mt-4">
+            <Button className="w-full group">
               Lihat Semua Permintaan
               <ArrowRight className="h-4 w-4 ml-2 group-hover:translate-x-1 transition-transform" />
             </Button>
           </Link>
-        </CardContent>
-      </Card>
-
-      <BookingRequestForm
-        isOpen={isFormOpen}
-        onClose={() => setIsFormOpen(false)}
-        onSubmit={handleFormSubmit}
-      />
-    </>
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 }

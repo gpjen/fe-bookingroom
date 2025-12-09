@@ -1,35 +1,55 @@
 "use client";
 
-import { QuickRequestWidget } from "./_components/quick-request-widget";
+import { QuickRequestSheet } from "./_components/quick-request-widget";
 import { RoomSearch } from "./_components/room-search";
-import { BookingGuide } from "./_components/booking-guide";
+import { BookingGuideSheet } from "./_components/booking-guide";
+import { FileText, BookOpen } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 export default function HomePage() {
   return (
-    <div className="space-y-8">
-      {/* Header */}
-      <div className="space-y-1">
-        <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
-          Selamat Datang
-        </h1>
-        <p className="text-muted-foreground text-base">
-          Portal booking mess perusahaan
-        </p>
+    <div className="space-y-6 h-[calc(100vh-6rem)] flex flex-col">
+      {/* Header & Tools */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 shrink-0">
+        <div className="space-y-1">
+          <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
+            Selamat Datang
+          </h1>
+          <p className="text-muted-foreground">
+            Portal booking mess perusahaan
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          {/* Quick Request Sheet Trigger */}
+          <QuickRequestSheet
+            trigger={
+              <Button variant="outline" className="gap-2">
+                <FileText className="h-4 w-4 text-primary" />
+                <span className="hidden sm:inline">Permintaan Saya</span>
+                <span className="sm:hidden">Request</span>
+              </Button>
+            }
+          />
+
+          {/* Booking Guide Sheet Trigger */}
+          <BookingGuideSheet
+            trigger={
+              <Button
+                variant="ghost"
+                className="gap-2 text-muted-foreground hover:text-foreground"
+              >
+                <BookOpen className="h-4 w-4" />
+                <span className="hidden sm:inline">Panduan</span>
+              </Button>
+            }
+          />
+        </div>
       </div>
 
-      {/* Content Grid */}
-      <div className="grid lg:grid-cols-3 gap-6">
-        {/* Room Search - Main Content */}
-        <div className="lg:col-span-2 order-2 lg:order-1">
-          <RoomSearch />
-        </div>
-
-        {/* Quick Request Widget - Sidebar */}
-        <div className="lg:col-span-1 order-1 lg:order-2">
-          <QuickRequestWidget />
-
-          <BookingGuide />
-        </div>
+      {/* Main Content - Full Height Room Search */}
+      <div className="flex-1 min-h-0">
+        <RoomSearch />
       </div>
     </div>
   );

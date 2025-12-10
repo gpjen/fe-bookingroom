@@ -12,6 +12,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Calendar } from "@/components/ui/calendar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -31,8 +37,11 @@ import {
   Paperclip,
   AlertCircle,
   CheckCircle2,
+  CalendarIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { format, differenceInDays, addDays } from "date-fns";
+import { id as localeId } from "date-fns/locale";
 import type {
   BookingOccupant,
   CompanionInfo,
@@ -41,13 +50,13 @@ import type { SelectedBed, BookingAttachment } from "../booking-request-types";
 
 // Fallback for crypto.randomUUID (not available in all browsers)
 function generateId(): string {
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
     return crypto.randomUUID();
   }
   // Fallback using Math.random
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = Math.random() * 16 | 0;
-    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
     return v.toString(16);
   });
 }
@@ -65,6 +74,9 @@ interface OccupantDetailsFormProps {
   onNotesChange: (value: string) => void;
   attachments: BookingAttachment[];
   onAttachmentsChange: (attachments: BookingAttachment[]) => void;
+  // Date range from search filter
+  filterStartDate: Date;
+  filterEndDate: Date;
 }
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
@@ -90,6 +102,8 @@ export function OccupantDetailsForm({
   onNotesChange,
   attachments,
   onAttachmentsChange,
+  filterStartDate,
+  filterEndDate,
 }: OccupantDetailsFormProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -163,7 +177,7 @@ export function OccupantDetailsForm({
   return (
     <div className="space-y-6">
       {/* Purpose & Notes Section - FIRST */}
-      <Card className="border-primary/20">
+      <Card className="border-primary/20 pt-0">
         <CardHeader className="p-4 bg-primary/5">
           <CardTitle className="text-base flex items-center gap-2">
             <FileText className="h-4 w-4 text-primary" />
@@ -185,7 +199,9 @@ export function OccupantDetailsForm({
               placeholder="Jelaskan tujuan booking ini (contoh: Perjalanan dinas ke site LQ untuk meeting proyek...)"
               rows={3}
               className={cn(
-                purpose.length > 0 && purpose.length < 10 && "border-destructive"
+                purpose.length > 0 &&
+                  purpose.length < 10 &&
+                  "border-destructive"
               )}
             />
             <div className="flex items-center justify-between text-xs">
@@ -318,7 +334,7 @@ export function OccupantDetailsForm({
             <Card
               key={occupant.id}
               className={cn(
-                "overflow-hidden transition-all",
+                "overflow-hidden transition-all pt-0",
                 isComplete && "border-emerald-200 dark:border-emerald-800"
               )}
             >
@@ -364,15 +380,20 @@ export function OccupantDetailsForm({
                     */}
                     {bed.roomAllocation === "employee" ? (
                       // Kamar karyawan - locked ke Karyawan
-                      <div className={cn(
-                        "flex items-center gap-2 h-10 px-3 border rounded-md",
-                        occupant.type === "guest" 
-                          ? "bg-destructive/10 border-destructive" 
-                          : "bg-muted/50"
-                      )}>
+                      <div
+                        className={cn(
+                          "flex items-center gap-2 h-10 px-3 border rounded-md",
+                          occupant.type === "guest"
+                            ? "bg-destructive/10 border-destructive"
+                            : "bg-muted/50"
+                        )}
+                      >
                         <Briefcase className="h-4 w-4" />
                         <span className="text-sm font-medium">Karyawan</span>
-                        <Badge variant="outline" className="text-[10px] ml-auto">
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] ml-auto"
+                        >
                           Terkunci
                         </Badge>
                       </div>
@@ -406,22 +427,26 @@ export function OccupantDetailsForm({
                       </Select>
                     )}
                     {/* Show error if guest in employee room */}
-                    {bed.roomAllocation === "employee" && occupant.type === "guest" && (
-                      <p className="text-[11px] text-destructive flex items-center gap-1">
-                        <AlertCircle className="h-3 w-3" />
-                        Kamar karyawan tidak boleh untuk tamu
-                      </p>
-                    )}
+                    {bed.roomAllocation === "employee" &&
+                      occupant.type === "guest" && (
+                        <p className="text-[11px] text-destructive flex items-center gap-1">
+                          <AlertCircle className="h-3 w-3" />
+                          Kamar karyawan tidak boleh untuk tamu
+                        </p>
+                      )}
                   </div>
 
                   <div className="space-y-2">
                     <Label htmlFor={`gender-${index}`}>
                       Gender <span className="text-destructive">*</span>
-                      {bed.roomGender && bed.roomGender !== "mix" && bed.roomGender !== "flexible" && (
-                        <span className="text-xs text-muted-foreground ml-1">
-                          (Kamar {bed.roomGender === "male" ? "Pria" : "Wanita"})
-                        </span>
-                      )}
+                      {bed.roomGender &&
+                        bed.roomGender !== "mix" &&
+                        bed.roomGender !== "flexible" && (
+                          <span className="text-xs text-muted-foreground ml-1">
+                            (Kamar{" "}
+                            {bed.roomGender === "male" ? "Pria" : "Wanita"})
+                          </span>
+                        )}
                       {bed.roomGender === "flexible" && (
                         <span className="text-xs text-emerald-600 ml-1">
                           (Fleksibel - pilih salah satu)
@@ -429,12 +454,18 @@ export function OccupantDetailsForm({
                       )}
                     </Label>
                     {/* Gender locked for male/female rooms */}
-                    {bed.roomGender === "male" || bed.roomGender === "female" ? (
+                    {bed.roomGender === "male" ||
+                    bed.roomGender === "female" ? (
                       <div className="flex items-center gap-2 h-10 px-3 border rounded-md bg-muted/50">
                         <span className="text-sm font-medium">
-                          {bed.roomGender === "male" ? "Laki-laki" : "Perempuan"}
+                          {bed.roomGender === "male"
+                            ? "Laki-laki"
+                            : "Perempuan"}
                         </span>
-                        <Badge variant="outline" className="text-[10px] ml-auto">
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] ml-auto"
+                        >
                           Terkunci
                         </Badge>
                       </div>
@@ -442,7 +473,9 @@ export function OccupantDetailsForm({
                       <Select
                         value={occupant.gender}
                         onValueChange={(value) =>
-                          onOccupantUpdate(index, { gender: value as "L" | "P" })
+                          onOccupantUpdate(index, {
+                            gender: value as "L" | "P",
+                          })
                         }
                       >
                         <SelectTrigger id={`gender-${index}`}>
@@ -454,6 +487,122 @@ export function OccupantDetailsForm({
                         </SelectContent>
                       </Select>
                     )}
+                  </div>
+                </div>
+
+                {/* Stay Dates - Flexible within filter range */}
+                <div className="p-3 border rounded-lg bg-muted/20 space-y-3">
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    <CalendarIcon className="h-4 w-4 text-primary" />
+                    Periode Menginap
+                    <Badge variant="outline" className="text-[10px] ml-auto">
+                      Range:{" "}
+                      {format(filterStartDate, "dd MMM", { locale: localeId })}{" "}
+                      - {format(filterEndDate, "dd MMM", { locale: localeId })}
+                    </Badge>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3">
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Check-in *</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-full h-9 justify-start text-left font-normal text-sm",
+                              !occupant.inDate && "text-muted-foreground"
+                            )}
+                          >
+                            <CalendarIcon className="mr-1.5 h-3.5 w-3.5" />
+                            {occupant.inDate
+                              ? format(occupant.inDate, "dd/MM/yy", {
+                                  locale: localeId,
+                                })
+                              : "Pilih"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={occupant.inDate}
+                            onSelect={(date) => {
+                              if (date) {
+                                const newDuration = occupant.outDate
+                                  ? differenceInDays(occupant.outDate, date)
+                                  : differenceInDays(filterEndDate, date);
+                                onOccupantUpdate(index, {
+                                  inDate: date,
+                                  duration: newDuration > 0 ? newDuration : 1,
+                                  // Reset outDate if it becomes invalid
+                                  ...(occupant.outDate &&
+                                  date >= occupant.outDate
+                                    ? { outDate: addDays(date, 1) }
+                                    : {}),
+                                });
+                              }
+                            }}
+                            disabled={(date) =>
+                              date < filterStartDate || date >= filterEndDate
+                            }
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Check-out *</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className={cn(
+                              "w-full h-9 justify-start text-left font-normal text-sm",
+                              !occupant.outDate && "text-muted-foreground"
+                            )}
+                          >
+                            <CalendarIcon className="mr-1.5 h-3.5 w-3.5" />
+                            {occupant.outDate
+                              ? format(occupant.outDate, "dd/MM/yy", {
+                                  locale: localeId,
+                                })
+                              : "Pilih"}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={occupant.outDate}
+                            onSelect={(date) => {
+                              if (date) {
+                                const newDuration = occupant.inDate
+                                  ? differenceInDays(date, occupant.inDate)
+                                  : differenceInDays(date, filterStartDate);
+                                onOccupantUpdate(index, {
+                                  outDate: date,
+                                  duration: newDuration > 0 ? newDuration : 1,
+                                });
+                              }
+                            }}
+                            disabled={(date) =>
+                              date <= (occupant.inDate || filterStartDate) ||
+                              date > filterEndDate
+                            }
+                            initialFocus
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                    <div className="space-y-1.5">
+                      <Label className="text-xs">Durasi</Label>
+                      <div className="h-9 flex items-center justify-center rounded-md bg-primary/10 text-primary font-semibold text-sm">
+                        {occupant.inDate && occupant.outDate
+                          ? `${differenceInDays(
+                              occupant.outDate,
+                              occupant.inDate
+                            )} malam`
+                          : "-"}
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -572,7 +721,7 @@ export function OccupantDetailsForm({
       {hasGuestOccupant && (
         <>
           <Separator />
-          <Card className="border-amber-200 bg-amber-50/30 dark:bg-amber-900/10">
+          <Card className="border-amber-200 bg-amber-50/30 dark:bg-amber-900/10 pt-0">
             <CardHeader className="p-4">
               <CardTitle className="text-base flex items-center gap-2">
                 <UserPlus className="h-4 w-4 text-amber-600" />
@@ -626,7 +775,10 @@ export function OccupantDetailsForm({
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="companion-email" className="flex items-center gap-1">
+                  <Label
+                    htmlFor="companion-email"
+                    className="flex items-center gap-1"
+                  >
                     <Mail className="h-3 w-3" />
                     Email
                   </Label>
@@ -647,7 +799,10 @@ export function OccupantDetailsForm({
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="companion-phone" className="flex items-center gap-1">
+                  <Label
+                    htmlFor="companion-phone"
+                    className="flex items-center gap-1"
+                  >
                     <Phone className="h-3 w-3" />
                     Telepon
                   </Label>

@@ -276,15 +276,15 @@ export function RoomSearch() {
 
   return (
     <div className="space-y-6">
-      {/* Search Bar */}
+      {/* Search Bar - Compact */}
       <Card className="relative overflow-hidden">
         <div className="absolute top-0 left-0 w-1 h-full bg-gradient-to-b from-primary to-primary/50" />
-        <CardContent className="p-6">
-          <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 items-end">
+        <CardContent className="p-3 sm:p-4">
+          <div className="flex flex-col lg:flex-row lg:items-end gap-3">
             {/* Area Select */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium flex items-center gap-1">
-                Area Lokasi <span className="text-destructive">*</span>
+            <div className="space-y-1 lg:w-[180px]">
+              <Label className="text-xs font-medium flex items-center gap-1">
+                Area <span className="text-destructive">*</span>
               </Label>
               <Select
                 value={selectedArea}
@@ -294,7 +294,7 @@ export function RoomSearch() {
                   setSelectedBuilding("all");
                 }}
               >
-                <SelectTrigger className="h-10 w-full">
+                <SelectTrigger className="h-9 w-full text-sm">
                   <SelectValue placeholder="Pilih Area" />
                 </SelectTrigger>
                 <SelectContent>
@@ -307,57 +307,57 @@ export function RoomSearch() {
               </Select>
             </div>
 
-            {/* Check-in Date */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Check-in</Label>
-              <DatePicker
-                date={startDate}
-                onSelect={handleStartDateChange}
-                label="Pilih tanggal"
-                minDate={tomorrow}
-              />
-            </div>
+            {/* Dates Row */}
+            <div className="flex gap-2 flex-1">
+              {/* Check-in Date */}
+              <div className="space-y-1 flex-1 lg:max-w-[140px]">
+                <Label className="text-xs font-medium">Check-in</Label>
+                <DatePicker
+                  date={startDate}
+                  onSelect={handleStartDateChange}
+                  label="Tanggal"
+                  minDate={tomorrow}
+                />
+              </div>
 
-            {/* Check-out Date */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">Check-out</Label>
-              <DatePicker
-                date={endDate}
-                onSelect={handleEndDateChange}
-                label="Pilih tanggal"
-                minDate={startDate ? addDays(startDate, 1) : tomorrow}
-                maxDate={startDate ? addDays(startDate, 90) : undefined}
-              />
+              {/* Check-out Date */}
+              <div className="space-y-1 flex-1 lg:max-w-[140px]">
+                <Label className="text-xs font-medium">Check-out</Label>
+                <DatePicker
+                  date={endDate}
+                  onSelect={handleEndDateChange}
+                  label="Tanggal"
+                  minDate={startDate ? addDays(startDate, 1) : tomorrow}
+                  maxDate={startDate ? addDays(startDate, 90) : undefined}
+                />
+              </div>
             </div>
 
             {/* People Count & Room Config */}
-            <div className="space-y-2">
-              <Label className="text-sm font-medium">
-                Jumlah Orang & Kamar
-              </Label>
+            <div className="space-y-1 lg:w-[200px]">
+              <Label className="text-xs font-medium">Orang & Kamar</Label>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
-                    className="h-10 w-full justify-start text-left font-normal"
+                    className="h-9 w-full justify-start text-left font-normal text-sm"
                   >
-                    <Users className="mr-2 h-4 w-4" />
-                    <span className="flex items-center gap-2 truncate">
-                      <span>{totalPeople} Orang</span>
+                    <Users className="mr-1.5 h-3.5 w-3.5" />
+                    <span className="flex items-center gap-1.5 truncate">
+                      <span>{totalPeople} org</span>
                       {totalRoomRequested > 0 && (
                         <>
                           <span className="text-muted-foreground">•</span>
-                          <span className="flex items-center gap-1">
+                          <span className="flex items-center gap-0.5">
                             <Sparkles className="h-3 w-3 text-primary" />
-                            {totalRoomRequested} Kamar (
-                            {roomRequirements.length} Tipe)
+                            {totalRoomRequested}kmr
                           </span>
                         </>
                       )}
                     </span>
                   </Button>
                 </PopoverTrigger>
-                <PopoverContent className="w-96" align="start">
+                <PopoverContent className="w-80" align="start">
                   <div className="space-y-6">
                     {/* People Count Section */}
                     <div className="space-y-3">
@@ -593,35 +593,33 @@ export function RoomSearch() {
           </div>
 
           {/* Action Row */}
-          <div className="mt-6 flex flex-col md:flex-row items-center justify-between gap-4 border-t pt-4">
+          <div className="mt-3 flex flex-col sm:flex-row items-center justify-between gap-2 border-t pt-3">
             {startDate && endDate ? (
-              <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                <Badge variant="secondary" className="font-normal">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
+                <Badge variant="secondary" className="font-normal text-xs h-5">
                   {format(startDate, "dd MMM", { locale: localeId })} -{" "}
                   {format(endDate, "dd MMM", { locale: localeId })}
                 </Badge>
-                <span className="flex items-center gap-1 font-medium">
-                  {duration} Malam
-                </span>
+                <span className="font-medium">{duration} mlm</span>
                 <span className="flex items-center gap-1">
-                  <Users className="h-4 w-4" />
-                  {totalPeople} Orang
+                  <Users className="h-3 w-3" />
+                  {totalPeople} org
                 </span>
               </div>
             ) : (
-              <div className="text-sm text-muted-foreground italic">
+              <div className="text-xs text-muted-foreground italic">
                 Masukan area dan tanggal untuk mencari
               </div>
             )}
 
             <Button
-              size="lg"
+              size="sm"
               onClick={handleSearch}
               disabled={!canSearch}
-              className="w-full md:w-auto gap-2 px-8 font-bold shadow-md hover:shadow-lg transition-all"
+              className="w-full sm:w-auto gap-1.5 px-4 font-semibold h-8"
             >
-              <Search className="h-4 w-4" />
-              Cari Kamar
+              <Search className="h-3.5 w-3.5" />
+              Cari
             </Button>
           </div>
         </CardContent>
@@ -629,60 +627,49 @@ export function RoomSearch() {
 
       {/* Results */}
       {hasSearched && (
-        <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-24">
-          {/* Results Header with Filter */}
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gradient-to-r from-primary/5 to-primary/10 p-6 rounded-xl border border-primary/20">
-              <div>
-                <h3 className="text-xl font-bold flex items-center gap-2 text-primary">
-                  <Sparkles className="h-5 w-5" />
-                  Pilih Kamar & Bed
-                </h3>
-                <p className="text-sm text-muted-foreground mt-1">
-                  Klik kamar untuk memilih bed di{" "}
-                  <span className="font-semibold text-foreground">
-                    {AREAS.find((a) => a.id === selectedArea)?.name}
-                  </span>
-                  {" • "}
-                  <span className="font-medium">
-                    {totalPeople} orang, {duration} malam
-                  </span>
-                </p>
+        <div className="space-y-3 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-24">
+          {/* Results Header with Filter - Compact */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-muted/30 px-3 py-2 rounded-lg border">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-primary" />
+              <span className="text-sm font-semibold">Pilih Kamar</span>
+              <span className="text-xs text-muted-foreground">
+                {AREAS.find((a) => a.id === selectedArea)?.name} • {totalPeople} org • {duration} mlm
+              </span>
+            </div>
+
+            {/* Building Filter */}
+            <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 bg-background rounded border">
+                <Building2 className="h-3 w-3 text-muted-foreground ml-2" />
+                <Select
+                  value={selectedBuilding}
+                  onValueChange={setSelectedBuilding}
+                >
+                  <SelectTrigger className="h-7 border-none bg-transparent shadow-none focus:ring-0 gap-1 text-xs min-w-[120px]">
+                    <SelectValue placeholder="Semua Gedung" />
+                  </SelectTrigger>
+                  <SelectContent className="max-h-[200px]">
+                    <SelectItem value="all" className="text-xs">Semua Gedung</SelectItem>
+                    {filteredBuildings.map((b) => (
+                      <SelectItem key={b.id} value={b.id} className="text-xs">
+                        {b.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
-              {/* Building Filter */}
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-                <div className="flex items-center gap-2 bg-background/50 rounded-lg p-1 border">
-                  <Building2 className="h-4 w-4 text-muted-foreground ml-2" />
-                  <Select
-                    value={selectedBuilding}
-                    onValueChange={setSelectedBuilding}
-                  >
-                    <SelectTrigger className="h-8 border-none bg-transparent shadow-none focus:ring-0 gap-2 min-w-[180px]">
-                      <SelectValue placeholder="Semua Gedung" />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-[200px]">
-                      <SelectItem value="all">Semua Gedung</SelectItem>
-                      {filteredBuildings.map((b) => (
-                        <SelectItem key={b.id} value={b.id}>
-                          {b.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {selectedBuilding !== "all" && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={resetFilters}
-                    className="h-10 px-3 text-muted-foreground hover:text-foreground"
-                  >
-                    <X className="h-4 w-4 mr-1" /> Reset
-                  </Button>
-                )}
-              </div>
+              {selectedBuilding !== "all" && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={resetFilters}
+                  className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              )}
             </div>
           </div>
 

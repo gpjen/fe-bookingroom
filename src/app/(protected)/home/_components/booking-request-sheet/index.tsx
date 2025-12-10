@@ -34,13 +34,13 @@ import { cn } from "@/lib/utils";
 
 // Fallback for crypto.randomUUID (not available in all browsers)
 function generateId(): string {
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
     return crypto.randomUUID();
   }
   // Fallback using Math.random
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = Math.random() * 16 | 0;
-    const v = c === 'x' ? r : (r & 0x3 | 0x8);
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
     return v.toString(16);
   });
 }
@@ -58,7 +58,10 @@ export function BookingRequestSheet({
   const [open, setOpen] = useState(true);
   const [step, setStep] = useState<1 | 2>(1);
 
-  const duration = differenceInDays(searchParams.endDate, searchParams.startDate);
+  const duration = differenceInDays(
+    searchParams.endDate,
+    searchParams.startDate
+  );
 
   // Initialize occupants based on selected beds
   const initialOccupants: BookingOccupant[] = useMemo(() => {
@@ -66,8 +69,8 @@ export function BookingRequestSheet({
       id: generateId(),
       name: "",
       identifier: "",
-      type: bed.roomAllocation === "guest" ? "guest" : "employee" as const,
-      gender: bed.roomGender === "female" ? "P" : "L" as const,
+      type: bed.roomAllocation === "guest" ? "guest" : ("employee" as const),
+      gender: bed.roomGender === "female" ? "P" : ("L" as const),
       inDate: searchParams.startDate,
       outDate: searchParams.endDate,
       duration: duration,
@@ -81,10 +84,11 @@ export function BookingRequestSheet({
       bedCode: bed.bedCode,
       status: "scheduled" as const,
     }));
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const [occupants, setOccupants] = useState<BookingOccupant[]>(initialOccupants);
+  const [occupants, setOccupants] =
+    useState<BookingOccupant[]>(initialOccupants);
   const [purpose, setPurpose] = useState("");
   const [notes, setNotes] = useState("");
   const [attachments, setAttachments] = useState<BookingAttachment[]>([]);
@@ -99,7 +103,7 @@ export function BookingRequestSheet({
   // Validation errors
   const validationErrors = useMemo(() => {
     const errors: string[] = [];
-    
+
     occupants.forEach((occ, index) => {
       const bed = selectedBeds[index];
       if (!bed) return;
@@ -109,14 +113,54 @@ export function BookingRequestSheet({
         errors.push(`Penghuni ${index + 1}: Nama wajib diisi`);
       }
       if (!occ.identifier) {
-        errors.push(`Penghuni ${index + 1}: ${occ.type === "employee" ? "NIK" : "No. KTP/Paspor"} wajib diisi`);
+        errors.push(
+          `Penghuni ${index + 1}: ${
+            occ.type === "employee" ? "NIK" : "No. KTP/Paspor"
+          } wajib diisi`
+        );
+      }
+
+      // Validate dates
+      if (!occ.inDate) {
+        errors.push(`Penghuni ${index + 1}: Tanggal check-in wajib diisi`);
+      }
+      if (!occ.outDate) {
+        errors.push(`Penghuni ${index + 1}: Tanggal check-out wajib diisi`);
+      }
+      if (occ.inDate && occ.outDate && occ.outDate <= occ.inDate) {
+        errors.push(
+          `Penghuni ${index + 1}: Tanggal check-out harus setelah check-in`
+        );
+      }
+      // Validate dates within filter range
+      if (occ.inDate && occ.inDate < searchParams.startDate) {
+        errors.push(
+          `Penghuni ${index + 1}: Check-in tidak boleh sebelum ${format(
+            searchParams.startDate,
+            "dd MMM",
+            { locale: localeId }
+          )}`
+        );
+      }
+      if (occ.outDate && occ.outDate > searchParams.endDate) {
+        errors.push(
+          `Penghuni ${index + 1}: Check-out tidak boleh setelah ${format(
+            searchParams.endDate,
+            "dd MMM",
+            { locale: localeId }
+          )}`
+        );
       }
 
       // Validate type matches room allocation
       // Karyawan bisa di kamar employee & guest
       // Tamu hanya bisa di kamar guest
       if (bed.roomAllocation === "employee" && occ.type === "guest") {
-        errors.push(`Penghuni ${index + 1}: Kamar ${bed.roomCode} khusus karyawan, tamu tidak diperbolehkan`);
+        errors.push(
+          `Penghuni ${index + 1}: Kamar ${
+            bed.roomCode
+          } khusus karyawan, tamu tidak diperbolehkan`
+        );
       }
       // Tamu di kamar guest = OK
       // Karyawan di kamar guest = OK (tidak perlu validasi)
@@ -126,15 +170,21 @@ export function BookingRequestSheet({
         errors.push(`Penghuni ${index + 1}: Kamar ${bed.roomCode} khusus pria`);
       }
       if (bed.roomGender === "female" && occ.gender === "L") {
-        errors.push(`Penghuni ${index + 1}: Kamar ${bed.roomCode} khusus wanita`);
+        errors.push(
+          `Penghuni ${index + 1}: Kamar ${bed.roomCode} khusus wanita`
+        );
       }
 
       // For flexible rooms, check all occupants in same room have same gender
       if (bed.roomGender === "flexible") {
-        const sameRoomOccupants = occupants.filter((o, i) => selectedBeds[i]?.roomId === bed.roomId);
-        const genders = new Set(sameRoomOccupants.map(o => o.gender));
+        const sameRoomOccupants = occupants.filter(
+          (o, i) => selectedBeds[i]?.roomId === bed.roomId
+        );
+        const genders = new Set(sameRoomOccupants.map((o) => o.gender));
         if (genders.size > 1) {
-          errors.push(`Kamar ${bed.roomCode} fleksibel: semua penghuni harus gender sama`);
+          errors.push(
+            `Kamar ${bed.roomCode} fleksibel: semua penghuni harus gender sama`
+          );
         }
       }
     });
@@ -155,7 +205,15 @@ export function BookingRequestSheet({
     }
 
     return errors;
-  }, [occupants, selectedBeds, purpose, hasGuestOccupant, companion]);
+  }, [
+    occupants,
+    selectedBeds,
+    purpose,
+    hasGuestOccupant,
+    companion,
+    searchParams.startDate,
+    searchParams.endDate,
+  ]);
 
   const canProceedToStep2 = validationErrors.length === 0;
 
@@ -211,13 +269,9 @@ export function BookingRequestSheet({
     }
   };
 
-  const completedOccupants = occupants.filter(
-    (o) => o.name && o.identifier
-  ).length;
-
   return (
     <Sheet open={open} onOpenChange={handleOpenChange}>
-      <SheetContent className="w-full sm:max-w-4xl overflow-hidden p-0 flex flex-col">
+      <SheetContent className="w-full sm:max-w-3xl overflow-hidden p-0 flex flex-col">
         {/* Header */}
         <SheetHeader className="p-6 pb-4 border-b shrink-0">
           <div className="flex items-center justify-between">
@@ -254,8 +308,11 @@ export function BookingRequestSheet({
                     className={cn(
                       "flex items-center gap-2 px-3 py-2 rounded-lg transition-colors flex-1",
                       isActive && "bg-primary text-primary-foreground",
-                      isCompleted && "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
-                      !isActive && !isCompleted && "bg-muted/50 text-muted-foreground"
+                      isCompleted &&
+                        "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
+                      !isActive &&
+                        !isCompleted &&
+                        "bg-muted/50 text-muted-foreground"
                     )}
                   >
                     <div
@@ -298,6 +355,8 @@ export function BookingRequestSheet({
               onNotesChange={setNotes}
               attachments={attachments}
               onAttachmentsChange={setAttachments}
+              filterStartDate={searchParams.startDate}
+              filterEndDate={searchParams.endDate}
             />
           )}
 
@@ -353,7 +412,10 @@ export function BookingRequestSheet({
                 ) : validationErrors.length > 0 ? (
                   <div className="text-left space-y-1 max-h-20 overflow-y-auto">
                     {validationErrors.slice(0, 3).map((error, idx) => (
-                      <p key={idx} className="text-destructive flex items-start gap-1">
+                      <p
+                        key={idx}
+                        className="text-destructive flex items-start gap-1"
+                      >
                         <span className="shrink-0">•</span>
                         <span>{error}</span>
                       </p>

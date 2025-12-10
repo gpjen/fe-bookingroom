@@ -1,23 +1,21 @@
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 import {
   Calendar,
-  User,
   BedDouble,
-  Building2,
+  Building,
   FileText,
   UserPlus,
   Briefcase,
-  Mail,
   Phone,
+  MapPin,
   Paperclip,
   File,
   Image as ImageIcon,
   CheckCircle2,
-  MapPin,
+  Users,
+  Clock,
 } from "lucide-react";
 import { format, differenceInDays } from "date-fns";
 import { id as localeId } from "date-fns/locale";
@@ -27,6 +25,7 @@ import type {
 } from "@/app/(protected)/booking/request/_components/types";
 import type { SelectedBed, BookingAttachment } from "../booking-request-types";
 import { AREAS } from "../mock-data";
+import { CompactProfileCard } from "@/components/common/compact-profile-card";
 
 interface BookingReviewStepProps {
   searchParams: {
@@ -53,7 +52,7 @@ export function BookingReviewStep({
   companion,
 }: BookingReviewStepProps) {
   const duration = differenceInDays(searchParams.endDate, searchParams.startDate);
-  const areaName = AREAS.find((a) => a.id === searchParams.areaId)?.name || "";
+  const areaName = AREAS.find((a) => a.id === searchParams.areaId)?.name || searchParams.areaId;
 
   const formatFileSize = (bytes: number) => {
     if (bytes < 1024) return `${bytes} B`;
@@ -71,243 +70,281 @@ export function BookingReviewStep({
     <div className="space-y-6">
       {/* Success Banner */}
       <div className="flex items-center gap-3 p-4 bg-emerald-50 dark:bg-emerald-950/30 rounded-lg border border-emerald-200 dark:border-emerald-800">
-        <CheckCircle2 className="h-6 w-6 text-emerald-600" />
+        <CheckCircle2 className="h-5 w-5 text-emerald-600 flex-shrink-0" />
         <div>
           <p className="font-semibold text-emerald-700 dark:text-emerald-400">
             Data Lengkap!
           </p>
           <p className="text-sm text-emerald-600 dark:text-emerald-500">
-            Periksa kembali data di bawah sebelum mengirim request
+            Periksa kembali sebelum mengirim request
           </p>
         </div>
       </div>
 
-      {/* Booking Summary */}
-      <Card>
-        <CardHeader className="p-4 bg-primary/5">
-          <CardTitle className="text-base flex items-center gap-2">
-            <Calendar className="h-4 w-4 text-primary" />
-            Ringkasan Booking
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-4">
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div className="space-y-1">
-              <p className="text-xs text-muted-foreground">Lokasi</p>
-              <p className="font-semibold flex items-center gap-1">
-                <MapPin className="h-3.5 w-3.5" />
-                {areaName}
-              </p>
-            </div>
-            <div className="space-y-1">
-              <p className="text-xs text-muted-foreground">Check-in</p>
-              <p className="font-semibold">
-                {format(searchParams.startDate, "dd MMM yyyy", {
-                  locale: localeId,
-                })}
-              </p>
-            </div>
-            <div className="space-y-1">
-              <p className="text-xs text-muted-foreground">Check-out</p>
-              <p className="font-semibold">
-                {format(searchParams.endDate, "dd MMM yyyy", {
-                  locale: localeId,
-                })}
-              </p>
-            </div>
-            <div className="space-y-1">
-              <p className="text-xs text-muted-foreground">Durasi</p>
-              <p className="font-semibold">{duration} Malam</p>
-            </div>
-          </div>
-          <Separator className="my-4" />
-          <div className="flex items-center justify-between">
-            <span className="text-sm text-muted-foreground">Total Bed</span>
-            <Badge variant="secondary" className="gap-1">
-              <BedDouble className="h-3 w-3" />
-              {selectedBeds.length} bed
-            </Badge>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Booking Info */}
+      <Section title="Informasi Booking" icon={FileText}>
+        <div className="grid grid-cols-2 gap-3">
+          <InfoBox
+            icon={MapPin}
+            label="Area"
+            value={areaName}
+          />
+          <InfoBox
+            icon={Users}
+            label="Total Penghuni"
+            value={`${occupants.length} Orang`}
+          />
+          <InfoBox
+            icon={Calendar}
+            label="Periode Filter"
+            value={`${format(searchParams.startDate, "dd MMM", { locale: localeId })} - ${format(searchParams.endDate, "dd MMM yyyy", { locale: localeId })}`}
+          />
+          <InfoBox
+            icon={Clock}
+            label="Durasi Maksimal"
+            value={`${duration} Malam`}
+          />
+        </div>
+      </Section>
 
-      {/* Purpose & Notes */}
-      <Card>
-        <CardHeader className="p-4 bg-muted/30">
-          <CardTitle className="text-base flex items-center gap-2">
-            <FileText className="h-4 w-4" />
-            Tujuan & Catatan
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="p-4 space-y-4">
-          <div>
+      {/* Tujuan & Catatan */}
+      <Section title="Tujuan & Keperluan" icon={FileText}>
+        <div className="space-y-3">
+          <div className="text-sm">
             <p className="text-xs text-muted-foreground mb-1">Tujuan</p>
-            <p className="text-sm bg-muted/30 p-3 rounded-lg">{purpose}</p>
+            <p className="font-medium">{purpose}</p>
           </div>
           {notes && (
-            <div>
-              <p className="text-xs text-muted-foreground mb-1">Catatan</p>
-              <p className="text-sm bg-muted/30 p-3 rounded-lg">{notes}</p>
-            </div>
-          )}
-          {attachments.length > 0 && (
-            <div>
-              <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
-                <Paperclip className="h-3 w-3" />
-                Dokumen Terlampir ({attachments.length})
+            <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg text-sm">
+              <p className="text-xs text-muted-foreground mb-1.5 flex items-center gap-1.5">
+                <FileText className="h-3 w-3" />
+                Catatan
               </p>
-              <div className="space-y-2">
-                {attachments.map((att) => {
-                  const FileIcon = getFileIcon(att.type);
-                  return (
-                    <div
-                      key={att.id}
-                      className="flex items-center gap-3 p-2 bg-muted/30 rounded-lg"
-                    >
-                      {att.preview ? (
-                        <img
-                          src={att.preview}
-                          alt={att.name}
-                          className="w-8 h-8 object-cover rounded"
-                        />
-                      ) : (
-                        <FileIcon className="h-5 w-5 text-muted-foreground" />
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm truncate">{att.name}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {formatFileSize(att.size)}
-                        </p>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
+              <p className="italic">&quot;{notes}&quot;</p>
             </div>
           )}
-        </CardContent>
-      </Card>
+        </div>
+      </Section>
 
-      {/* Occupants & Beds */}
-      <div className="space-y-3">
-        <h3 className="font-semibold text-sm flex items-center gap-2">
-          <User className="h-4 w-4" />
-          Data Penghuni & Kamar
-        </h3>
-        {occupants.map((occupant, index) => {
-          const bed = selectedBeds[index];
-          return (
-            <Card key={occupant.id} className="overflow-hidden">
-              <CardContent className="p-4">
-                <div className="flex flex-col sm:flex-row sm:items-start gap-4">
-                  <div className="flex-1 space-y-3">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <Badge variant="outline" className="text-xs gap-1">
-                        {occupant.type === "employee" ? (
-                          <Briefcase className="h-3 w-3" />
-                        ) : (
-                          <UserPlus className="h-3 w-3" />
-                        )}
-                        {occupant.type === "employee" ? "Karyawan" : "Tamu"}
-                      </Badge>
-                      <Badge
-                        variant={
-                          occupant.gender === "L" ? "default" : "secondary"
-                        }
-                        className="text-xs"
-                      >
-                        {occupant.gender === "L" ? "Laki-laki" : "Perempuan"}
-                      </Badge>
+      {/* Lampiran */}
+      {attachments.length > 0 && (
+        <Section title="Lampiran" icon={Paperclip}>
+          <div className="grid grid-cols-1 gap-2">
+            {attachments.map((att) => {
+              const FileIcon = getFileIcon(att.type);
+              return (
+                <div
+                  key={att.id}
+                  className="flex items-center gap-3 p-3 border rounded-lg bg-background"
+                >
+                  {att.preview ? (
+                    <img
+                      src={att.preview}
+                      alt={att.name}
+                      className="w-8 h-8 object-cover rounded"
+                    />
+                  ) : (
+                    <div className="h-8 w-8 rounded bg-primary/10 flex items-center justify-center text-primary">
+                      <FileIcon className="h-4 w-4" />
                     </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{att.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {formatFileSize(att.size)}
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Section>
+      )}
+
+      {/* Pendamping (jika ada tamu) */}
+      {companion && companion.name && (
+        <Section title="Informasi Pendamping (PIC)" icon={UserPlus}>
+          <CompactProfileCard
+            label="PIC"
+            name={companion.name}
+            identifier={companion.nik}
+            company={companion.company || "-"}
+            department={companion.department || "-"}
+            phone={companion.phone}
+            variant="amber"
+          />
+        </Section>
+      )}
+
+      {/* Daftar Penghuni */}
+      <Section title="Daftar Penghuni" icon={Users}>
+        <div className="space-y-3">
+          {occupants.map((occupant, index) => {
+            const bed = selectedBeds[index];
+            const occDuration = occupant.inDate && occupant.outDate 
+              ? differenceInDays(occupant.outDate, occupant.inDate) 
+              : duration;
+
+            return (
+              <div
+                key={occupant.id}
+                className="p-4 bg-muted/50 rounded-lg space-y-3 text-sm border border-transparent hover:border-border transition-colors"
+              >
+                {/* Header */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <Badge variant="outline" className="h-6">
+                      {occupant.type === "employee" ? "Karyawan" : "Tamu"}
+                    </Badge>
                     <div>
-                      <p className="font-semibold text-lg">{occupant.name}</p>
-                      <p className="text-sm text-muted-foreground">
-                        {occupant.type === "employee" ? "NIK" : "ID"}:{" "}
+                      <p className="font-semibold">{occupant.name}</p>
+                      <p className="text-xs text-muted-foreground">
                         {occupant.identifier}
                       </p>
                     </div>
-                    {(occupant.phone || occupant.email) && (
-                      <div className="text-sm text-muted-foreground space-y-1">
-                        {occupant.phone && (
-                          <p className="flex items-center gap-1">
-                            <Phone className="h-3 w-3" />
-                            {occupant.phone}
-                          </p>
-                        )}
-                        {occupant.email && (
-                          <p className="flex items-center gap-1">
-                            <Mail className="h-3 w-3" />
-                            {occupant.email}
-                          </p>
-                        )}
-                      </div>
+                  </div>
+                  <Badge variant="secondary" className="h-6">
+                    {occupant.gender === "L" ? "Laki-laki" : "Perempuan"}
+                  </Badge>
+                </div>
+
+                {/* Info Kontak */}
+                {(occupant.phone || occupant.company) && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-muted-foreground">
+                    {occupant.phone && (
+                      <InfoRow icon={Phone} label="Telepon" value={occupant.phone} />
                     )}
                     {occupant.company && (
-                      <p className="text-sm text-muted-foreground">
-                        {occupant.company}
-                        {occupant.department && ` • ${occupant.department}`}
-                      </p>
+                      <InfoRow icon={Briefcase} label="Perusahaan" value={occupant.company} />
                     )}
                   </div>
-                  <div className="sm:text-right space-y-1 p-3 bg-muted/30 rounded-lg sm:min-w-[180px]">
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground sm:justify-end">
-                      <Building2 className="h-3 w-3" />
-                      {bed.buildingName}
+                )}
+
+                {/* Periode Menginap */}
+                <div className="pt-2">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Calendar className="h-4 w-4 text-primary" />
+                    <span className="font-semibold text-xs">Periode Menginap</span>
+                  </div>
+                  <div className="grid grid-cols-3 gap-3 text-xs">
+                    <div>
+                      <p className="text-muted-foreground mb-1">Check-in</p>
+                      <p className="font-semibold">
+                        {occupant.inDate
+                          ? format(occupant.inDate, "dd MMM yyyy", { locale: localeId })
+                          : "-"}
+                      </p>
                     </div>
-                    <div className="flex items-center gap-1 text-base font-bold sm:justify-end">
-                      <BedDouble className="h-4 w-4" />
-                      {bed.roomCode} - Bed {bed.bedCode}
+                    <div>
+                      <p className="text-muted-foreground mb-1">Check-out</p>
+                      <p className="font-semibold">
+                        {occupant.outDate
+                          ? format(occupant.outDate, "dd MMM yyyy", { locale: localeId })
+                          : "-"}
+                      </p>
                     </div>
-                    <Badge variant="outline" className="text-[10px]">
+                    <div>
+                      <p className="text-muted-foreground mb-1">Durasi</p>
+                      <p className="font-bold text-primary">
+                        {occDuration} Malam
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Lokasi Kamar */}
+                <div className="pt-3 mt-1 border-t">
+                  <div className="flex items-center gap-4 flex-wrap">
+                    <div className="flex items-center gap-2 text-xs">
+                      <Building className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="text-muted-foreground">Gedung:</span>
+                      <span className="font-medium">{bed.buildingName}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs">
+                      <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="text-muted-foreground">Kamar:</span>
+                      <span className="font-medium">{bed.roomCode}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs">
+                      <BedDouble className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="text-muted-foreground">Bed:</span>
+                      <span className="font-medium">{bed.bedCode}</span>
+                    </div>
+                    <Badge variant="outline" className="text-[10px] ml-auto">
                       {bed.roomType.toUpperCase()}
                     </Badge>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
+              </div>
+            );
+          })}
+        </div>
+      </Section>
+    </div>
+  );
+}
 
-      {/* Companion Info */}
-      {companion && companion.name && (
-        <Card className="border-amber-200 bg-amber-50/30 dark:bg-amber-900/10">
-          <CardHeader className="p-4">
-            <CardTitle className="text-base flex items-center gap-2">
-              <UserPlus className="h-4 w-4 text-amber-600" />
-              Pendamping Tamu
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="p-4">
-            <div className="space-y-2 text-sm">
-              <p className="font-semibold text-lg">{companion.name}</p>
-              <p className="text-muted-foreground">NIK: {companion.nik}</p>
-              {(companion.email || companion.phone) && (
-                <div className="text-muted-foreground space-y-1">
-                  {companion.email && (
-                    <p className="flex items-center gap-1">
-                      <Mail className="h-3 w-3" />
-                      {companion.email}
-                    </p>
-                  )}
-                  {companion.phone && (
-                    <p className="flex items-center gap-1">
-                      <Phone className="h-3 w-3" />
-                      {companion.phone}
-                    </p>
-                  )}
-                </div>
-              )}
-              {companion.company && (
-                <p className="text-muted-foreground">
-                  {companion.company}
-                  {companion.department && ` • ${companion.department}`}
-                </p>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      )}
+// Helper Components
+function Section({
+  title,
+  icon: Icon,
+  children,
+}: {
+  title: string;
+  icon: React.ComponentType<{ className?: string }>;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2">
+        <Icon className="h-4 w-4 text-primary" />
+        <h4 className="text-sm font-semibold">{title}</h4>
+      </div>
+      {children}
+    </div>
+  );
+}
+
+function InfoRow({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="flex items-start gap-2 text-sm">
+      <Icon className="h-3.5 w-3.5 text-muted-foreground flex-shrink-0 mt-0.5" />
+      <div className="flex-1 min-w-0">
+        <span className="text-xs text-muted-foreground">{label}:</span>
+        <p className="font-medium truncate">{value}</p>
+      </div>
+    </div>
+  );
+}
+
+function InfoBox({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: React.ComponentType<{ className?: string }>;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="p-3 rounded-lg border bg-card">
+      <div className="flex items-center gap-1.5 mb-1">
+        <Icon className="h-3 w-3 text-muted-foreground" />
+        <p className="text-[10px] font-medium text-muted-foreground uppercase">
+          {label}
+        </p>
+      </div>
+      <p className="text-sm font-semibold truncate" title={value}>
+        {value}
+      </p>
     </div>
   );
 }

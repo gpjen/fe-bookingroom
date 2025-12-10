@@ -4,6 +4,7 @@ import { useMemo } from "react";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -165,7 +166,7 @@ export function RoomDetailDialog({
                   {room.type.toUpperCase()}
                 </Badge>
               </DialogTitle>
-              <div className="flex items-center gap-3 mt-2 text-sm text-muted-foreground">
+              <DialogDescription className="flex items-center gap-3 mt-2 text-sm">
                 <span className="flex items-center gap-1">
                   <MapPin className="h-3.5 w-3.5" />
                   {room.areaName}
@@ -175,7 +176,7 @@ export function RoomDetailDialog({
                   {room.buildingName}
                 </span>
                 <span>Lantai {room.floor}</span>
-              </div>
+              </DialogDescription>
             </div>
             {/* Selection Status */}
             <div className={cn(

@@ -3,7 +3,7 @@ import { addDays, subDays } from "date-fns";
 
 export type RoomType = "standard" | "vip" | "vvip";
 export type RoomAllocation = "employee" | "guest";
-export type RoomGender = "male" | "female" | "mix";
+export type RoomGender = "male" | "female" | "mix" | "flexible";
 export type RoomStatus = "available" | "partial" | "full" | "maintenance";
 export type BedStatus = "available" | "occupied" | "reserved" | "maintenance";
 
@@ -195,7 +195,7 @@ export function generateRoomAvailability(): RoomAvailability[] {
         floor,
         type,
         allocation: faker.helpers.arrayElement(["employee", "guest"]),
-        gender: faker.helpers.arrayElement(["male", "female", "mix"]),
+        gender: faker.helpers.arrayElement(["male", "female", "mix", "flexible"]),
         images: faker.helpers.arrayElements(
           [
             "https://images.unsplash.com/photo-1590490360182-c33d57733427?w=800&q=80",

@@ -26,15 +26,22 @@ import {
   Briefcase,
   User,
   Users,
+  CheckCircle2,
+  Plus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { RoomAvailability } from "./mock-data";
+import type { SelectedBed } from "./booking-request-types";
 
 interface RoomAvailabilityTimelineProps {
   rooms: RoomAvailability[];
   startDate: Date | undefined;
   endDate: Date | undefined;
   onRoomDetail?: (room: RoomAvailability) => void;
+  onRoomSelect?: (room: RoomAvailability) => void;
+  selectedBeds?: SelectedBed[];
+  maxBedSelection?: number;
+  selectionMode?: boolean;
 }
 
 export function RoomAvailabilityTimeline({
@@ -42,7 +49,14 @@ export function RoomAvailabilityTimeline({
   startDate,
   endDate,
   onRoomDetail,
+  onRoomSelect,
+  selectedBeds = [],
+  maxBedSelection = 0,
+  selectionMode = false,
 }: RoomAvailabilityTimelineProps) {
+  const getSelectedBedsInRoom = (roomId: string) => {
+    return selectedBeds.filter((b) => b.roomId === roomId);
+  };
   // Generate days array
   const days = useMemo(() => {
     if (!startDate || !endDate) return [];
@@ -162,10 +176,17 @@ export function RoomAvailabilityTimeline({
                 )}
               >
                 {/* Room Info - Sticky Left */}
-                <div className="w-[130px] sm:w-[180px] md:w-[190px] sticky left-0 z-20 bg-background p-2 sm:p-4 border-r group-hover:bg-muted/5 transition-all duration-300 shadow-[2px_0_5px_rgba(0,0,0,0.05)]">
+                <div 
+                  className={cn(
+                    "w-[130px] sm:w-[180px] md:w-[220px] sticky left-0 z-20 bg-background p-2 sm:p-4 border-r group-hover:bg-muted/5 transition-all duration-300 shadow-[2px_0_5px_rgba(0,0,0,0.05)]",
+                    selectionMode && "cursor-pointer hover:bg-primary/5",
+                    getSelectedBedsInRoom(room.id).length > 0 && "bg-emerald-50/50 dark:bg-emerald-950/20"
+                  )}
+                  onClick={() => selectionMode && onRoomSelect?.(room)}
+                >
                   <div className="flex items-start justify-between mb-2">
-                    <div>
-                      <div className="font-bold text-sm sm:text-lg flex items-center gap-1 sm:gap-2">
+                    <div className="flex-1 min-w-0">
+                      <div className="font-bold text-sm sm:text-lg flex items-center gap-1 sm:gap-2 flex-wrap">
                         {room.code}
                         <Badge
                           variant={
@@ -179,12 +200,15 @@ export function RoomAvailabilityTimeline({
                         >
                           {room.type}
                         </Badge>
-                        {onRoomDetail && (
+                        {onRoomDetail && !selectionMode && (
                           <Button
                             variant="ghost"
                             size="icon"
                             className="h-6 w-6 ml-1 text-muted-foreground hover:text-primary"
-                            onClick={() => onRoomDetail(room)}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onRoomDetail(room);
+                            }}
                           >
                             <Info className="h-4 w-4" />
                           </Button>
@@ -195,9 +219,33 @@ export function RoomAvailabilityTimeline({
                         {room.buildingName}
                       </div>
                     </div>
+                    {/* Selection indicator */}
+                    {selectionMode && (
+                      <div className="shrink-0 ml-2">
+                        {getSelectedBedsInRoom(room.id).length > 0 ? (
+                          <Badge className="bg-emerald-600 text-white gap-1 h-6">
+                            <CheckCircle2 className="h-3 w-3" />
+                            {getSelectedBedsInRoom(room.id).length}
+                          </Badge>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-6 px-2 text-xs gap-1"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onRoomSelect?.(room);
+                            }}
+                          >
+                            <Plus className="h-3 w-3" />
+                            Pilih
+                          </Button>
+                        )}
+                      </div>
+                    )}
                   </div>
                   {/* Room Attributes */}
-                  <div className="flex items-center gap-2 mb-2">
+                  <div className="flex items-center gap-2 mb-2 flex-wrap">
                     <Badge
                       variant="outline"
                       className="h-5 px-1.5 gap-1 font-normal text-[10px] bg-muted/50"
@@ -206,6 +254,8 @@ export function RoomAvailabilityTimeline({
                         <Mars className="h-3 w-3 text-blue-500" />
                       ) : room.gender === "female" ? (
                         <Venus className="h-3 w-3 text-pink-500" />
+                      ) : room.gender === "flexible" ? (
+                        <Users className="h-3 w-3 text-emerald-500" />
                       ) : (
                         <Users className="h-3 w-3 text-purple-500" />
                       )}
@@ -214,6 +264,8 @@ export function RoomAvailabilityTimeline({
                           ? "Pria"
                           : room.gender === "female"
                           ? "Wanita"
+                          : room.gender === "flexible"
+                          ? "Fleksibel"
                           : "Campur"}
                       </span>
                     </Badge>

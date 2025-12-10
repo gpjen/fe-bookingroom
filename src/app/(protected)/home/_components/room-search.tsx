@@ -19,41 +19,17 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
-  Carousel,
-  CarouselContent,
-  CarouselItem,
-  CarouselNext,
-  CarouselPrevious,
-} from "@/components/ui/carousel";
-import {
   Search,
   Building2,
   Users,
   Calendar as CalendarIcon,
   Briefcase,
   UserPlus,
-  SlidersHorizontal,
   Sparkles,
   Minus,
   Plus,
   X,
-  Filter,
-  CheckCircle,
-  XCircle,
   AlertCircle,
-  MapPin,
-  BedDouble,
-  Mars,
-  Venus,
-  User,
-  LogIn,
-  LogOut,
 } from "lucide-react";
 import {
   AREAS,
@@ -61,10 +37,13 @@ import {
   ROOM_TYPES,
   MOCK_ROOMS,
   filterRooms,
-  type RoomType,
   type RoomAvailability,
 } from "./mock-data";
+import type { SelectedBed } from "./booking-request-types";
 import { RoomAvailabilityTimeline } from "./room-availability-timeline";
+import { BookingRequestSheet } from "./booking-request-sheet/index";
+import { RoomDetailDialog } from "./room-detail-dialog";
+import { SelectionSummaryBar } from "./selection-summary-bar";
 import { cn } from "@/lib/utils";
 import {
   format,
@@ -136,9 +115,13 @@ export function RoomSearch() {
     { type: string; count: number }[]
   >([]);
 
+  const [selectedBeds, setSelectedBeds] = useState<SelectedBed[]>([]);
+
   const [selectedRoom, setSelectedRoom] = useState<RoomAvailability | null>(
     null
   );
+  const [roomDialogOpen, setRoomDialogOpen] = useState(false);
+  const [bookingSheetOpen, setBookingSheetOpen] = useState(false);
 
   const totalPeople = employeeCount + guestCount;
   const tomorrow = addDays(startOfDay(new Date()), 1);
@@ -199,6 +182,7 @@ export function RoomSearch() {
 
   const handleSearch = () => {
     if (!startDate || !endDate || totalPeople === 0 || !selectedArea) return;
+    setSelectedBeds([]); // Clear bed selections on new search
     setAppliedRoomRequirements(roomRequirements); // Snapshot the requirements
     setHasSearched(true);
   };
@@ -215,6 +199,48 @@ export function RoomSearch() {
 
   const resetFilters = () => {
     setSelectedBuilding("all");
+  };
+
+  const handleBedSelection = (bed: SelectedBed) => {
+    setSelectedBeds((prev) => {
+      const exists = prev.find((b) => b.bedId === bed.bedId);
+      if (exists) {
+        // Remove bed
+        return prev.filter((b) => b.bedId !== bed.bedId);
+      } else {
+        // Add bed (if not exceeding limit)
+        if (prev.length >= totalPeople) return prev;
+        return [...prev, bed];
+      }
+    });
+  };
+
+  const handleRoomDetail = (room: RoomAvailability) => {
+    setSelectedRoom(room);
+    setRoomDialogOpen(true);
+  };
+
+  const handleRoomSelect = (room: RoomAvailability) => {
+    setSelectedRoom(room);
+    setRoomDialogOpen(true);
+  };
+
+  const handleClearAllBeds = () => {
+    setSelectedBeds([]);
+  };
+
+  const handleRemoveBed = (bedId: string) => {
+    setSelectedBeds((prev) => prev.filter((b) => b.bedId !== bedId));
+  };
+
+  const handleBookNow = () => {
+    if (selectedBeds.length >= totalPeople) {
+      setBookingSheetOpen(true);
+    }
+  };
+
+  const handleBookingSheetClose = () => {
+    setBookingSheetOpen(false);
   };
 
   const addRequirement = () => {
@@ -603,26 +629,29 @@ export function RoomSearch() {
 
       {/* Results */}
       {hasSearched && (
-        <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          {/* Results Header with Filter */}
+        <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-24">
           {/* Results Header with Filter */}
           <div className="flex flex-col gap-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-gradient-to-r from-primary/5 to-primary/10 p-6 rounded-xl border border-primary/20">
               <div>
                 <h3 className="text-xl font-bold flex items-center gap-2 text-primary">
                   <Sparkles className="h-5 w-5" />
-                  Hasil Ketersediaan
+                  Pilih Kamar & Bed
                 </h3>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Menampilkan status ketersediaan di{" "}
+                  Klik kamar untuk memilih bed di{" "}
                   <span className="font-semibold text-foreground">
                     {AREAS.find((a) => a.id === selectedArea)?.name}
+                  </span>
+                  {" • "}
+                  <span className="font-medium">
+                    {totalPeople} orang, {duration} malam
                   </span>
                 </p>
               </div>
 
-              {/* Building Filter Directly Here */}
-              <div className="flex items-center gap-3">
+              {/* Building Filter */}
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
                 <div className="flex items-center gap-2 bg-background/50 rounded-lg p-1 border">
                   <Building2 className="h-4 w-4 text-muted-foreground ml-2" />
                   <Select
@@ -657,12 +686,15 @@ export function RoomSearch() {
             </div>
           </div>
 
-          {/* Timeline View */}
+          {/* Timeline View with Selection Mode */}
           <RoomAvailabilityTimeline
             rooms={filteredRooms}
             startDate={startDate}
             endDate={endDate}
-            onRoomDetail={setSelectedRoom}
+            onRoomSelect={handleRoomSelect}
+            selectedBeds={selectedBeds}
+            maxBedSelection={totalPeople}
+            selectionMode={true}
           />
         </div>
       )}
@@ -686,265 +718,47 @@ export function RoomSearch() {
         </div>
       )}
 
-      {/* Detail Dialog */}
-      <Dialog
-        open={!!selectedRoom}
-        onOpenChange={(open) => !open && setSelectedRoom(null)}
-      >
-        <DialogContent className="w-full md:max-w-4xl max-h-[90vh] overflow-hidden flex flex-col">
-          <DialogHeader className="border-b pb-4">
-            <DialogTitle className="text-2xl font-bold flex items-center gap-3">
-              <div className="p-2 bg-primary/10 rounded-lg">
-                <Building2 className="h-5 w-5 text-primary" />
-              </div>
-              Detail Ruangan
-            </DialogTitle>
-          </DialogHeader>
+      {/* Room Detail Dialog for Bed Selection */}
+      {startDate && endDate && (
+        <RoomDetailDialog
+          room={selectedRoom}
+          open={roomDialogOpen}
+          onOpenChange={setRoomDialogOpen}
+          startDate={startDate}
+          endDate={endDate}
+          selectedBeds={selectedBeds}
+          onBedSelect={handleBedSelection}
+          maxSelection={totalPeople}
+          totalSelectedBeds={selectedBeds.length}
+        />
+      )}
 
-          {selectedRoom && (
-            <div className="flex-1 overflow-y-auto px-1">
-              <div className="space-y-6 py-4">
-                {/* Header Info */}
-                <div className="flex items-start justify-between gap-4 p-4 bg-gradient-to-r from-primary/5 to-primary/10 rounded-xl border border-primary/20">
-                  <div>
-                    <h2 className="text-3xl font-bold text-primary mb-2">
-                      {selectedRoom.code}
-                    </h2>
-                    <div className="flex flex-col gap-2 text-sm">
-                      <span className="flex items-center gap-2 text-muted-foreground">
-                        <Building2 className="h-4 w-4" />
-                        <span className="font-medium text-foreground">
-                          {selectedRoom.buildingName}
-                        </span>
-                      </span>
-                      <span className="flex items-center gap-2 text-muted-foreground">
-                        <MapPin className="h-4 w-4" />
-                        <span className="font-medium text-foreground">
-                          {selectedRoom.areaName}
-                        </span>
-                      </span>
-                    </div>
-                  </div>
-                  <Badge
-                    variant="outline"
-                    className="text-base font-semibold px-4 py-2 bg-background"
-                  >
-                    {ROOM_TYPES.find((t) => t.value === selectedRoom.type)
-                      ?.label || selectedRoom.type}
-                  </Badge>
-                </div>
+      {/* Selection Summary Bar - Fixed at bottom */}
+      {hasSearched && (
+        <SelectionSummaryBar
+          selectedBeds={selectedBeds}
+          totalPeople={totalPeople}
+          onClearAll={handleClearAllBeds}
+          onBookNow={handleBookNow}
+          onRemoveBed={handleRemoveBed}
+        />
+      )}
 
-                {/* Main Content Grid */}
-                <div className="grid lg:grid-cols-2 gap-6">
-                  {/* Left: Carousel */}
-                  <div className="space-y-4">
-                    <div className="relative rounded-xl overflow-hidden bg-muted/20 border-2 shadow-lg">
-                      <Carousel className="w-full">
-                        <CarouselContent>
-                          {selectedRoom.images.map((img, idx) => (
-                            <CarouselItem key={idx}>
-                              <div className="p-1">
-                                <img
-                                  src={img}
-                                  alt={`Room ${selectedRoom.code} - Image ${
-                                    idx + 1
-                                  }`}
-                                  className="w-full aspect-video object-cover rounded-lg"
-                                />
-                              </div>
-                            </CarouselItem>
-                          ))}
-                        </CarouselContent>
-                        <CarouselPrevious className="left-2" />
-                        <CarouselNext className="right-2" />
-                      </Carousel>
-                    </div>
-                  </div>
-
-                  {/* Right: Details */}
-                  <div className="space-y-6">
-                    {/* Category & Gender Badges */}
-                    <div className="space-y-3">
-                      <Label className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">
-                        Kategori Ruangan
-                      </Label>
-                      <div className="flex flex-wrap gap-3">
-                        <div className="flex items-center gap-2 px-4 py-3 bg-blue-50 dark:bg-blue-950/30 border-2 border-blue-200 dark:border-blue-800 rounded-xl">
-                          {selectedRoom.allocation === "employee" ? (
-                            <Briefcase className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                          ) : (
-                            <User className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-                          )}
-                          <span className="font-semibold text-sm">
-                            {selectedRoom.allocation === "employee"
-                              ? "Khusus Karyawan"
-                              : "Khusus Tamu"}
-                          </span>
-                        </div>
-
-                        <div className="flex items-center gap-2 px-4 py-3 bg-purple-50 dark:bg-purple-950/30 border-2 border-purple-200 dark:border-purple-800 rounded-xl">
-                          {selectedRoom.gender === "male" ? (
-                            <Mars className="h-5 w-5 text-blue-600 dark:text-blue-400" />
-                          ) : selectedRoom.gender === "female" ? (
-                            <Venus className="h-5 w-5 text-pink-600 dark:text-pink-400" />
-                          ) : (
-                            <Users className="h-5 w-5 text-purple-600 dark:text-purple-400" />
-                          )}
-                          <span className="font-semibold text-sm">
-                            {selectedRoom.gender === "male"
-                              ? "Pria"
-                              : selectedRoom.gender === "female"
-                              ? "Wanita"
-                              : "Campur"}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Facilities */}
-                    <div className="space-y-3">
-                      <Label className="text-xs text-muted-foreground uppercase tracking-wider font-semibold flex items-center gap-2">
-                        <Sparkles className="h-3.5 w-3.5" />
-                        Fasilitas Tersedia
-                      </Label>
-                      <div className="flex flex-wrap gap-2">
-                        {selectedRoom.facilities.map((f) => (
-                          <Badge
-                            key={f}
-                            variant="outline"
-                            className="bg-background px-3 py-1.5 text-sm font-medium border-2"
-                          >
-                            {f}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Bed Status Section */}
-                <div className="space-y-4 pt-4 border-t-2">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-bold text-lg flex items-center gap-2">
-                      <BedDouble className="h-5 w-5 text-primary" />
-                      Status Ruangan Sekarang
-                    </h3>
-                    <Badge variant="secondary" className="text-sm">
-                      {selectedRoom.availableBeds} / {selectedRoom.beds.length}{" "}
-                      Tersedia
-                    </Badge>
-                  </div>
-
-                  <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-                    {selectedRoom.beds.map((bed) => (
-                      <div
-                        key={bed.id}
-                        className={cn(
-                          "group relative p-4 rounded-xl border-2 text-sm flex flex-col gap-2 transition-all hover:shadow-lg",
-                          bed.status === "available"
-                            ? "bg-emerald-50 dark:bg-emerald-950/30 border-emerald-300 dark:border-emerald-700 hover:border-emerald-400"
-                            : bed.status === "occupied"
-                            ? "bg-slate-50 dark:bg-slate-950/30 border-slate-300 dark:border-slate-700"
-                            : bed.status === "reserved"
-                            ? "bg-amber-50 dark:bg-amber-950/30 border-amber-300 dark:border-amber-700"
-                            : "bg-gray-50 dark:bg-gray-950/30 border-gray-300 dark:border-gray-700"
-                        )}
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="font-bold text-lg">
-                            Bed {bed.code}
-                          </span>
-                          {bed.status === "available" ? (
-                            <CheckCircle className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-                          ) : bed.status === "occupied" ? (
-                            <XCircle className="h-5 w-5 text-slate-600 dark:text-slate-400" />
-                          ) : bed.status === "reserved" ? (
-                            <AlertCircle className="h-5 w-5 text-amber-600 dark:text-amber-400" />
-                          ) : (
-                            <AlertCircle className="h-5 w-5 text-gray-600 dark:text-gray-400" />
-                          )}
-                        </div>
-
-                        <div className="flex items-center gap-1.5">
-                          <div
-                            className={cn(
-                              "w-2 h-2 rounded-full",
-                              bed.status === "available"
-                                ? "bg-emerald-500"
-                                : bed.status === "occupied"
-                                ? "bg-slate-500"
-                                : bed.status === "reserved"
-                                ? "bg-amber-500"
-                                : "bg-gray-500"
-                            )}
-                          />
-                          <span className="text-xs font-semibold">
-                            {bed.status === "available"
-                              ? "Tersedia"
-                              : bed.status === "occupied"
-                              ? "Terisi"
-                              : bed.status === "reserved"
-                              ? "Dipesan"
-                              : "Maintenance"}
-                          </span>
-                        </div>
-
-                        {bed.status === "occupied" && bed.occupantName && (
-                          <div className="mt-2 pt-2 border-t border-slate-200 dark:border-slate-800">
-                            <div
-                              className="text-sm font-bold truncate tracking-wide"
-                              title={bed.occupantName}
-                            >
-                              {(() => {
-                                if (!bed.occupantName) return "";
-                                return bed.occupantName
-                                  .split(" ")
-                                  .map((part) => {
-                                    if (part.length <= 2) return part;
-                                    return (
-                                      part[0] +
-                                      "*".repeat(part.length - 2) +
-                                      part[part.length - 1]
-                                    );
-                                  })
-                                  .join(" ");
-                              })()}
-                            </div>
-                            <div className="text-[10px] text-muted-foreground mt-1 space-y-0.5">
-                              {bed.occupantCheckIn && (
-                                <div className="flex items-center gap-1.5">
-                                  <LogIn className="h-3 w-3 text-emerald-600" />
-                                  <span>
-                                    {format(bed.occupantCheckIn, "d MMM yyyy", {
-                                      locale: localeId,
-                                    })}
-                                  </span>
-                                </div>
-                              )}
-                              {bed.occupantCheckOut && (
-                                <div className="flex items-center gap-1.5">
-                                  <LogOut className="h-3 w-3 text-destructive" />
-                                  <span>
-                                    {format(
-                                      bed.occupantCheckOut,
-                                      "d MMM yyyy",
-                                      { locale: localeId }
-                                    )}
-                                  </span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* Booking Request Sheet */}
+      {bookingSheetOpen && startDate && endDate && (
+        <BookingRequestSheet
+          searchParams={{
+            areaId: selectedArea!,
+            startDate: startDate,
+            endDate: endDate,
+            totalPeople: totalPeople,
+            roomRequirements: appliedRoomRequirements,
+          }}
+          availableRooms={filteredRooms}
+          selectedBeds={selectedBeds}
+          onClose={handleBookingSheetClose}
+        />
+      )}
     </div>
   );
 }

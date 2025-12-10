@@ -41,6 +41,8 @@ const settingsSchema = z.object({
   // General
   appName: z.string().min(1, "Nama aplikasi wajib diisi"),
   supportEmail: z.string().email("Email tidak valid"),
+  supportWhatsapp: z.string().url("Link tidak valid"),
+  supportHelpdesk: z.string().url("Link tidak valid"),
   timezone: z.string(),
   dateFormat: z.string(),
 
@@ -68,7 +70,9 @@ export type SystemSettings = z.infer<typeof settingsSchema>;
 // Default values
 const defaultSettings: SystemSettings = {
   appName: "Booking Room System",
-  supportEmail: "support@company.com",
+  supportEmail: "booking@obi-site.com",
+  supportWhatsapp: "https://wa.me/628123456789",
+  supportHelpdesk: "http://helpdesk.obi-site.com",
   timezone: "Asia/Jakarta",
   dateFormat: "dd/MM/yyyy",
   allowWeekendBooking: false,
@@ -148,7 +152,7 @@ export function SettingsForm() {
                     <FormItem>
                       <FormLabel>Email Support</FormLabel>
                       <FormControl>
-                        <Input placeholder="support@company.com" {...field} />
+                        <Input placeholder="booking@obi-site.com" {...field} />
                       </FormControl>
                       <FormDescription>
                         Email untuk kontak bantuan pengguna.
@@ -157,6 +161,48 @@ export function SettingsForm() {
                     </FormItem>
                   )}
                 />
+                {/* Whatsapp */}
+                <FormField
+                  control={form.control}
+                  name="supportWhatsapp"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Whatsapp Support</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="https://wa.me/628123456789"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Link Whatsapp untuk kontak bantuan pengguna.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Helpdesk */}
+                <FormField
+                  control={form.control}
+                  name="supportHelpdesk"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Helpdesk Support</FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="http://helpdesk.obi-site.com"
+                          {...field}
+                        />
+                      </FormControl>
+                      <FormDescription>
+                        Link Helpdesk untuk kontak bantuan pengguna.
+                      </FormDescription>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField
                     control={form.control}

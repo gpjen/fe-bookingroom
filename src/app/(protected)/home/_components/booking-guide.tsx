@@ -460,7 +460,7 @@ export function BookingGuideSheet({ trigger }: BookingGuideSheetProps) {
 
                 {/* Email */}
                 <a
-                  href="mailto:booking@obi.com"
+                  href="mailto:booking@obi-site.com"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="w-full"
@@ -473,7 +473,10 @@ export function BookingGuideSheet({ trigger }: BookingGuideSheetProps) {
                   >
                     <Mail className="h-5 w-5" />
                     <span className="flex-1 text-left font-semibold">
-                      Email
+                      Email{" "}
+                      <span className="text-muted-foreground">
+                        booking@obi-site.com
+                      </span>
                     </span>
                     <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
                   </Button>

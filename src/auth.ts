@@ -81,7 +81,6 @@ export const authOptions: NextAuthOptions = {
           refreshToken: account.refresh_token,
           expiresAt: account.expires_at,
           idToken: account.id_token,
-          iat: claims?.iat,
           name: claims?.name,
           email: claims?.email,
           preferred_username: claims?.preferred_username,
@@ -114,27 +113,13 @@ export const authOptions: NextAuthOptions = {
       }
 
       // ========================================
-      // STEP 2: TOKEN IS VALID - PERFORM CHECKS
-      // ========================================
-
-      // Daily re-login logic (optional security measure)
-      if (token.iat) {
-        const issueDate = new Date((token.iat as number) * 1000);
-        const currentDate = new Date();
-        if (issueDate.toDateString() !== currentDate.toDateString()) {
-          // New day detected - force re-login
-          return { error: "RefreshAccessTokenError" };
-        }
-      }
-
-      // ========================================
-      // STEP 3: PERIODIC SESSION VALIDATION WITH KEYCLOAK
+      // STEP 2: TOKEN IS VALID - PERFORM PERIODIC SESSION VALIDATION
       // ========================================
       
-      // Check every 15 minutes if session is still valid in Keycloak
+      // Check every 5 minutes if session is still valid in Keycloak
       const now = Date.now();
       const lastValidation = (token.lastValidation as number) || 0;
-      const validationInterval = 15 * 60 * 1000; // 15 minutes (increased from 5)
+      const validationInterval = 5 * 60 * 1000; // 5 minutes
 
       if (now - lastValidation > validationInterval) {
         try {

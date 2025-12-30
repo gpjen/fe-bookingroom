@@ -73,48 +73,27 @@ export const authOptions: NextAuthOptions = {
         };
       }
 
-      // If token is still valid, perform checks
+      // If token is still valid, perform minimal checks
       if (Date.now() < (token.expiresAt as number) * 1000) {
-        // Daily re-login logic
+        // Daily re-login logic (optional security measure)
         if (token.iat) {
           const issueDate = new Date((token.iat as number) * 1000);
           const currentDate = new Date();
           if (issueDate.toDateString() !== currentDate.toDateString()) {
-            console.log(
-              "JWT Callback: Daily re-login check failed. Invalidating session."
-            );
-            return { error: "RefreshAccessTokenError" }; // Invalidate: New day
+            // New day detected - force re-login
+            return { error: "RefreshAccessTokenError" };
           }
         }
 
-        // Validate against userinfo endpoint
-        if (token.accessToken) {
-          const userinfoRes = await fetch(
-            `${process.env.KEYCLOAK_ISSUER}/protocol/openid-connect/userinfo`,
-            {
-              headers: { Authorization: `Bearer ${token.accessToken}` },
-            }
-          );
-          if (!userinfoRes.ok) {
-            console.log(
-              "JWT Callback: Userinfo check failed. Invalidating session."
-            );
-            return { error: "RefreshAccessTokenError" }; // Invalidate: User logged out from IdP
-          }
-        }
-        console.log("JWT Callback: Token still valid and checks passed.");
-        return token; // Token is valid
+        // ✅ Token is valid - NO userinfo check to prevent loop!
+        return token;
       }
 
-      // Access token has expired, try to update it
-      console.log("JWT Callback: Access token expired. Attempting refresh.");
+      // Access token has expired, try to refresh
       const refreshedToken = await refreshAccessToken(token as TokenSet);
 
-      // If refresh fails, invalidate the session completely
+      // If refresh fails, invalidate the session
       if (refreshedToken.error) {
-        console.log(
-          "JWT Callback: Token refresh failed. Invalidating session."
-        );
         return { error: "RefreshAccessTokenError" };
       }
 
@@ -123,29 +102,19 @@ export const authOptions: NextAuthOptions = {
     async session({ session, token }) {
       // If the token is empty or indicates an error, invalidate the session
       if (!token || token.error) {
-        console.log(
-          "Session Callback: Token is empty or has error. Invalidating session."
-        );
-        // Return an empty DefaultSession object to invalidate and satisfy TypeScript
         return { expires: new Date(0).toISOString() };
       }
 
-      // Otherwise, populate the session object
+      // Populate the session object
       session.accessToken = token.accessToken;
       session.idToken = token.idToken;
-      session.error = token.error; // Keep error if any
+      session.error = token.error;
 
       session.user.name = token.name;
       session.user.email = token.email;
       session.user.username = token.preferred_username;
       session.user.given_name = token.given_name;
 
-      console.log(
-        "Session Callback: Final session object:",
-        session?.user?.username,
-        "-",
-        session?.user?.given_name
-      );
       return session;
     },
   },

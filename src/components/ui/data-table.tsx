@@ -57,6 +57,8 @@ interface DataTableProps<TData, TValue> {
   pageSizeOptions?: number[];
   emptyMessage?: string;
   renderToolbar?: (table: ReactTable<TData>) => React.ReactNode;
+  enableGlobalFilter?: boolean; // ✅ Enable global filter across all columns
+  globalFilterFn?: (row: TData, filterValue: string) => boolean; // ✅ Custom filter function
 }
 
 export function DataTable<TData, TValue>({
@@ -69,6 +71,8 @@ export function DataTable<TData, TValue>({
   pageSizeOptions = [20, 100, 250, 1000],
   emptyMessage = "Tidak ada data ditemukan.",
   renderToolbar,
+  enableGlobalFilter = false,
+  globalFilterFn,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
@@ -81,6 +85,17 @@ export function DataTable<TData, TValue>({
     pageIndex: 0,
     pageSize: pageSizeOptions[0],
   });
+  const [globalFilter, setGlobalFilter] = React.useState("");
+
+  // ✅ Custom global filter function
+  const customGlobalFilterFn = React.useCallback(
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (row: any, columnId: string, filterValue: string) => {
+      if (!enableGlobalFilter || !globalFilterFn) return true;
+      return globalFilterFn(row.original, filterValue);
+    },
+    [enableGlobalFilter, globalFilterFn]
+  );
 
   // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
@@ -95,12 +110,15 @@ export function DataTable<TData, TValue>({
     onColumnVisibilityChange: setColumnVisibility,
     onRowSelectionChange: setRowSelection,
     onPaginationChange: setPagination,
+    onGlobalFilterChange: setGlobalFilter,
+    globalFilterFn: enableGlobalFilter ? customGlobalFilterFn : undefined,
     state: {
       sorting,
       columnFilters,
       columnVisibility,
       rowSelection,
       pagination,
+      globalFilter,
     },
   });
 
@@ -116,11 +134,21 @@ export function DataTable<TData, TValue>({
               <Input
                 placeholder={searchPlaceholder}
                 value={
-                  (table.getColumn(searchKey)?.getFilterValue() as string) ?? ""
+                  enableGlobalFilter
+                    ? globalFilter
+                    : (table
+                        .getColumn(searchKey)
+                        ?.getFilterValue() as string) ?? ""
                 }
-                onChange={(event) =>
-                  table.getColumn(searchKey)?.setFilterValue(event.target.value)
-                }
+                onChange={(event) => {
+                  if (enableGlobalFilter) {
+                    setGlobalFilter(event.target.value);
+                  } else {
+                    table
+                      .getColumn(searchKey)
+                      ?.setFilterValue(event.target.value);
+                  }
+                }}
                 className="pl-8"
               />
             </div>

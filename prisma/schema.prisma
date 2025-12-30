@@ -6,23 +6,29 @@ datasource db {
   provider = "postgresql"
 }
 
+// ========================================
+// RBAC CORE MODELS
+// ========================================
+
 model Role {
-  id             String          @id @default(cuid())
-  name           String          @unique
-  description    String?
+  id              String           @id @default(cuid())
+  name            String           @unique
+  description     String?
+  isSystemRole    Boolean          @default(false)
   rolePermissions RolePermission[]
-  userRoles      UserRole[]
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
+  userRoles       UserRole[]
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 }
 
 model Permission {
-  id             String          @id @default(cuid())
-  key            String          @unique
-  description    String?
+  id              String           @id @default(cuid())
+  key             String           @unique
+  description     String?
+  category        String?
   rolePermissions RolePermission[]
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
 }
 
 model RolePermission {
@@ -30,26 +36,109 @@ model RolePermission {
   permissionId String
   role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
   permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
   @@id([roleId, permissionId])
 }
 
+// ========================================
+// ORGANIZATION MODELS
+// ========================================
+
 model Company {
-  id        String    @id @default(cuid())
-  code      String    @unique
+  id        String     @id @default(cuid())
+  code      String     @unique
   name      String
+  status    Boolean    @default(true)
   userRoles UserRole[]
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
 }
 
+model Area {
+  id          String     @id @default(cuid())
+  code        String     @unique
+  name        String
+  location    String
+  status      AreaStatus @default(ACTIVE)
+  description String?
+  polygon     String?
+  parentId    String?
+
+  // Relations
+  parent    Area?      @relation("AreaHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children  Area[]     @relation("AreaHierarchy")
+  buildings Building[]
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([parentId])
+  @@index([status])
+}
+
+enum AreaStatus {
+  ACTIVE
+  INACTIVE
+  DEVELOPMENT
+}
+
+model Building {
+  id            String         @id @default(cuid())
+  code          String         @unique
+  name          String
+  areaId        String
+  status        Boolean        @default(true)
+  area          Area           @relation(fields: [areaId], references: [id], onDelete: Cascade)
+  userBuildings UserBuilding[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  @@index([areaId])
+}
+
+// ========================================
+// USER ACCESS MODELS
+// ========================================
+
 model UserRole {
-  id        String   @id @default(cuid())
-  username  String
+  id String @id @default(cuid())
+
+  username    String
+  usernameKey String
+  displayName String
+  email       String
+
   roleId    String
   companyId String?
-  role      Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
-  company   Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+
+  role    Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  company Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
+
   assignedAt DateTime @default(now())
-  @@unique([username, roleId, companyId])
-  @@index([username])
+  updatedAt  DateTime @updatedAt
+
+  @@unique([usernameKey, roleId, companyId])
+  @@index([usernameKey])
+  @@index([email])
+}
+
+model UserBuilding {
+  id String @id @default(cuid())
+
+  username    String
+  usernameKey String
+  displayName String
+  email       String
+
+  buildingId String
+
+  building Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+
+  grantedAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([usernameKey, buildingId])
+  @@index([usernameKey])
+  @@index([email])
 }

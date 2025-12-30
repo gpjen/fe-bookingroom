@@ -12,11 +12,23 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const session = await getServerSession(authOptions)
-  if (!session) return new Response('Unauthorized', { status: 401 })
-  const body = await req.json()
-  const item = await prisma.userRole.create({ data: { username: body.username, roleId: body.roleId, companyId: body.companyId } })
-  return Response.json(item, { status: 201 })
+  const session = await getServerSession(authOptions);
+  if (!session) return new Response("Unauthorized", { status: 401 });
+  
+  const body = await req.json();
+  
+  const item = await prisma.userRole.create({
+    data: {
+      username: body.username,
+      usernameKey: body.username.toLowerCase(),
+      displayName: body.displayName || body.username,
+      email: body.email || "",
+      roleId: body.roleId,
+      companyId: body.companyId,
+    },
+  });
+  
+  return Response.json(item, { status: 201 });
 }
 
 export async function DELETE(req: Request) {

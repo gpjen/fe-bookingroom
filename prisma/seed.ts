@@ -24,22 +24,10 @@ async function main() {
     { key: "*", description: "Super Admin - All Access", category: "system" },
     { key: "home:read", description: "View home page", category: "general" },
     { key: "dashboard:read", description: "View dashboard", category: "general" },
-    { key: "booking:read", description: "View bookings", category: "booking" },
-    { key: "booking-request:read", description: "View booking requests", category: "booking" },
-    { key: "booking-occupant:read", description: "View booking occupants", category: "booking" },
-    { key: "booking-mine:read", description: "View my bookings", category: "booking" },
-    { key: "building:read", description: "View buildings", category: "property" },
-    { key: "reports:read", description: "View reports", category: "reports" },
-    { key: "property:read", description: "View properties", category: "property" },
-    { key: "companies:read", description: "View companies", category: "admin" },
-    { key: "area:read", description: "View areas", category: "property" },
-    { key: "options-type:read", description: "View option types", category: "settings" },
     { key: "admin:read", description: "Access admin area", category: "admin" },
-    { key: "admin-users:read", description: "View admin users", category: "admin" },
-    { key: "admin-roles:read", description: "View admin roles", category: "admin" },
-    { key: "admin-settings:read", description: "View admin settings", category: "admin" },
-    { key: "admin-logs:read", description: "View admin logs", category: "admin" },
-    { key: "notifications:read", description: "View notifications", category: "general" },
+    { key: "companies:read", description: "View companies", category: "property" },
+    { key: "areas:read", description: "View areas", category: "property" },
+    { key: "buildings:read", description: "View buildings", category: "property" },
   ];
 
   for (const perm of permissions) {
@@ -57,7 +45,6 @@ async function main() {
   // ========================================
   console.log("👥 Creating roles...");
 
-  // Super Admin Role
   const superAdminRole = await prisma.role.upsert({
     where: { name: "super-admin" },
     update: {},
@@ -68,60 +55,25 @@ async function main() {
     },
   });
 
-  // Staff Role
-  const staffRole = await prisma.role.upsert({
-    where: { name: "staff" },
-    update: {},
-    create: {
-      name: "staff",
-      description: "Staff with basic access",
-      isSystemRole: false,
-    },
-  });
-
-  // Link super-admin dengan semua permission
-  const allPermissions = await prisma.permission.findMany();
-  for (const perm of allPermissions) {
+  // Link super-admin with all permissions
+  const allPerm = await prisma.permission.findUnique({ where: { key: "*" } });
+  if (allPerm) {
     await prisma.rolePermission.upsert({
       where: {
         roleId_permissionId: {
           roleId: superAdminRole.id,
-          permissionId: perm.id,
+          permissionId: allPerm.id,
         },
       },
       update: {},
       create: {
         roleId: superAdminRole.id,
-        permissionId: perm.id,
+        permissionId: allPerm.id,
       },
     });
   }
 
-  // Link staff dengan permission terbatas
-  const staffPermissions = ["home:read", "notifications:read"];
-  for (const permKey of staffPermissions) {
-    const perm = await prisma.permission.findUnique({
-      where: { key: permKey }
-    });
-    if (perm) {
-      await prisma.rolePermission.upsert({
-        where: {
-          roleId_permissionId: {
-            roleId: staffRole.id,
-            permissionId: perm.id,
-          },
-        },
-        update: {},
-        create: {
-          roleId: staffRole.id,
-          permissionId: perm.id,
-        },
-      });
-    }
-  }
-
-  console.log("   ✅ super-admin role (all permissions)");
-  console.log("   ✅ staff role (home:read, notifications:read)");
+  console.log("   ✅ super-admin role");
 
   // ========================================
   // 3. COMPANIES
@@ -138,6 +90,7 @@ async function main() {
     },
   });
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const hpal = await prisma.company.upsert({
     where: { code: "HPAL" },
     update: {},
@@ -151,23 +104,22 @@ async function main() {
   console.log("   ✅ DCM, HPAL");
 
   // ========================================
-  // 4. USER ROLES (WITH SNAPSHOT)
+  // 4. USER ROLES
   // ========================================
   console.log("👤 Creating user roles...");
 
-  // User 1: d12345 = SUPER ADMIN ✨
   await prisma.userRole.upsert({
     where: {
       usernameKey_roleId_companyId: {
-        usernameKey: "d12345", // lowercase
+        usernameKey: "d12345",
         roleId: superAdminRole.id,
         companyId: dcm.id,
       },
     },
     update: {},
     create: {
-      username: "D12345", // Original case
-      usernameKey: "d12345", // Lowercase untuk search
+      username: "D12345",
+      usernameKey: "d12345",
       displayName: "Super User",
       email: "superadmin@company.com",
       roleId: superAdminRole.id,
@@ -175,12 +127,11 @@ async function main() {
     },
   });
 
-  // User 2: D0525000109 = STAFF (bukan super admin lagi)
   await prisma.userRole.upsert({
     where: {
       usernameKey_roleId_companyId: {
         usernameKey: "d0525000109",
-        roleId: staffRole.id,
+        roleId: superAdminRole.id,
         companyId: dcm.id,
       },
     },
@@ -190,39 +141,19 @@ async function main() {
       usernameKey: "d0525000109",
       displayName: "Gandi Purna Jen",
       email: "gpjen95@gmail.com",
-      roleId: staffRole.id,
+      roleId: superAdminRole.id,
       companyId: dcm.id,
     },
   });
 
-  // User 3: L0721001028 = SUPER ADMIN
-  await prisma.userRole.upsert({
-    where: {
-      usernameKey_roleId_companyId: {
-        usernameKey: "l0721001028",
-        roleId: superAdminRole.id,
-        companyId: hpal.id,
-      },
-    },
-    update: {},
-    create: {
-      username: "L0721001028",
-      usernameKey: "l0721001028",
-      displayName: "Novi Ikhtiarullah",
-      email: "novi.ikhtiarullah@hpalnickel.com",
-      roleId: superAdminRole.id,
-      companyId: hpal.id,
-    },
-  });
-
-  console.log("   ✅ 2 super admins (d12345, L0721001028)");
-  console.log("   ✅ 1 staff (D0525000109)");
+  console.log("   ✅ 2 super admins");
 
   // ========================================
-  // 5. AREAS & BUILDINGS
+  // 5. AREAS
   // ========================================
-  console.log("🏗️  Creating areas & buildings...");
+  console.log("🏗️  Creating areas...");
 
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const area1 = await prisma.area.upsert({
     where: { code: "KWS-PABRIK" },
     update: {},
@@ -235,43 +166,90 @@ async function main() {
     },
   });
 
-  const building1 = await prisma.building.upsert({
-    where: { code: "GB-01" },
+  console.log("   ✅ 1 area");
+
+  // ========================================
+  // 6. BUILDING TYPES & ROOM TYPES
+  // ========================================
+  console.log("🏗️  Creating building types & room types...");
+
+  await prisma.buildingType.upsert({
+    where: { code: "MESS" },
     update: {},
     create: {
-      code: "GB-01",
-      name: "Gedung A",
-      areaId: area1.id,
+      code: "MESS",
+      name: "Mess",
+      description: "Asrama karyawan/pekerja",
+      defaultMaxFloors: 5,
+      defaultFacilities: ["WiFi", "Laundry", "Common Room"],
+      icon: "building-2",
       status: true,
     },
   });
 
-  console.log("   ✅ 1 area, 1 building");
-
-  // ========================================
-  // 6. USER BUILDING ACCESS (WITH SNAPSHOT)
-  // ========================================
-  console.log("🔑 Granting building access...");
-
-  // d12345 → Building access
-  await prisma.userBuilding.upsert({
-    where: {
-      usernameKey_buildingId: {
-        usernameKey: "d12345",
-        buildingId: building1.id,
-      },
-    },
+  await prisma.buildingType.upsert({
+    where: { code: "HOTEL" },
     update: {},
     create: {
-      username: "D12345",
-      usernameKey: "d12345",
-      displayName: "Super User",
-      email: "superadmin@company.com",
-      buildingId: building1.id,
+      code: "HOTEL",
+      name: "Hotel",
+      description: "Hotel atau guest house",
+      defaultMaxFloors: 10,
+      defaultFacilities: ["WiFi", "Restaurant", "Reception", "Parking"],
+      icon: "hotel",
+      status: true,
     },
   });
 
-  console.log("   ✅ d12345 has building access");
+  await prisma.roomType.upsert({
+    where: { code: "SINGLE" },
+    update: {},
+    create: {
+      code: "SINGLE",
+      name: "Single Room",
+      description: "Kamar dengan 1 bed",
+      bedsPerRoom: 1,
+      defaultBedType: "Single Bed",
+      defaultAmenities: ["Fan", "Desk", "Shared Bathroom"],
+      priceMultiplier: 1.0,
+      icon: "bed-single",
+      status: true,
+    },
+  });
+
+  await prisma.roomType.upsert({
+    where: { code: "DOUBLE" },
+    update: {},
+    create: {
+      code: "DOUBLE",
+      name: "Double Room",
+      description: "Kamar dengan 2 bed",
+      bedsPerRoom: 2,
+      defaultBedType: "Single Bed",
+      defaultAmenities: ["AC", "TV", "Private Bathroom"],
+      priceMultiplier: 1.5,
+      icon: "bed-double",
+      status: true,
+    },
+  });
+
+  await prisma.roomType.upsert({
+    where: { code: "DORM-6" },
+    update: {},
+    create: {
+      code: "DORM-6",
+      name: "Dormitory (6 Beds)",
+      description: "Kamar asrama dengan 6 bed",
+      bedsPerRoom: 6,
+      defaultBedType: "Bunk Bed",
+      defaultAmenities: ["Locker", "Fan", "Shared Bathroom"],
+      priceMultiplier: 0.5,
+      icon: "warehouse",
+      status: true,
+    },
+  });
+
+  console.log("   ✅ 2 building types, 3 room types");
 
   // ========================================
   // SUMMARY
@@ -279,15 +257,12 @@ async function main() {
   console.log("\n🎉 DATABASE SEEDING COMPLETE!\n");
   console.log("📊 Summary:");
   console.log(`   - Permissions: ${permissions.length}`);
-  console.log(`   - Roles: 2 (super-admin, staff)`);
-  console.log(`   - Companies: 2 (DCM, HPAL)`);
-  console.log(`   - Users: 2 super admins, 1 staff`);
-  console.log(`   - Areas: 1`);
-  console.log(`   - Buildings: 1`);
-  console.log("\n✨ User roles:");
-  console.log("   - d12345: SUPER ADMIN (all permissions)");
-  console.log("   - D0525000109: STAFF (home:read, notifications:read)");
-  console.log("   - L0721001028: SUPER ADMIN (all permissions)");
+  console.log("   - Roles: 1 (super-admin)");
+  console.log("   - Companies: 2 (DCM, HPAL)");
+  console.log("   - Users: 2 super admins");
+  console.log("   - Areas: 1");
+  console.log("   - Building Types: 2");
+  console.log("   - Room Types: 3");
   console.log("\n✅ Seeding completed successfully!");
 }
 

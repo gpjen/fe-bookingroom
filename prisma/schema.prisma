@@ -64,12 +64,10 @@ model Area {
   polygon     String?
   parentId    String?
 
-  // Relations
   parent    Area?      @relation("AreaHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
   children  Area[]     @relation("AreaHierarchy")
   buildings Building[]
 
-  // Timestamps
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -83,18 +81,82 @@ enum AreaStatus {
   DEVELOPMENT
 }
 
+// ========================================
+// BUILDING (MINIMAL - FOR RBAC)
+// ========================================
+
 model Building {
-  id            String         @id @default(cuid())
-  code          String         @unique
-  name          String
-  areaId        String
-  status        Boolean        @default(true)
+  id             String  @id @default(cuid())
+  code           String  @unique
+  name           String
+  areaId         String
+  buildingTypeId String? // Optional FK to BuildingType
+  status         Boolean @default(true)
+
   area          Area           @relation(fields: [areaId], references: [id], onDelete: Cascade)
+  buildingType  BuildingType?  @relation(fields: [buildingTypeId], references: [id], onDelete: SetNull)
   userBuildings UserBuilding[]
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([areaId])
+  @@index([buildingTypeId])
+  @@index([status])
+}
+
+// ========================================
+// BUILDING TYPE (MASTER DATA)
+// ========================================
+
+model BuildingType {
+  id          String  @id @default(cuid())
+  code        String  @unique
+  name        String
+  description String?
+
+  // Default Settings untuk Building
+  defaultMaxFloors  Int      @default(5)
+  defaultFacilities String[] @default([])
+  icon              String? // Icon identifier (optional)
+
+  status    Boolean    @default(true)
+  buildings Building[] // Relation to buildings
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([code])
+}
+
+// ========================================
+// ROOM TYPE (MASTER DATA)
+// ========================================
+
+model RoomType {
+  id          String  @id @default(cuid())
+  code        String  @unique
+  name        String
+  description String?
+
+  // Bed Configuration
+  bedsPerRoom      Int      @default(1) // Jumlah bed dalam 1 room
+  defaultBedType   String // "Single Bed", "Double Bed", "Bunk Bed"
+  defaultAmenities String[] @default([]) // Default fasilitas kamar
+  priceMultiplier  Float    @default(1.0) // Multiplier untuk pricing
+
+  // Visual (optional)
+  icon     String?
+  imageUrl String?
+
+  status Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([code])
 }
 
 // ========================================

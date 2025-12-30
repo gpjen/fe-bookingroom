@@ -1,8 +1,8 @@
 "use client";
+import React from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { useEffect } from "react";
 import { useSession } from "next-auth/react";
 import {
   Sidebar,
@@ -38,9 +38,9 @@ import {
   ChevronsUpDown,
   Building,
   Activity,
-  Layers,
   Folder,
   Home,
+  DoorOpenIcon,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -63,7 +63,6 @@ import {
 import { performLogout } from "@/lib/auth/logout-utils";
 import { usePermissions } from "@/providers/permissions-provider";
 
-// Menu Configuration
 const menuConfig: MenuItem[] = [
   {
     type: "single",
@@ -81,10 +80,6 @@ const menuConfig: MenuItem[] = [
     active: true,
     permissions: ["dashboard:read"],
   },
-
-  // =====================
-  // BOOKING GROUP
-  // =====================
   {
     type: "group",
     label: "Booking",
@@ -115,7 +110,6 @@ const menuConfig: MenuItem[] = [
       },
     ],
   },
-
   {
     type: "single",
     href: "/properties/buildings",
@@ -124,10 +118,6 @@ const menuConfig: MenuItem[] = [
     active: true,
     permissions: ["building:read"],
   },
-
-  // =====================
-  // REPORTS
-  // =====================
   {
     type: "single",
     href: "/reports",
@@ -136,15 +126,12 @@ const menuConfig: MenuItem[] = [
     active: true,
     permissions: ["reports:read"],
   },
-
-  // =====================
-  // PROPERTY MANAGEMENT
-  // =====================
   {
     type: "group",
     label: "Property Management",
     active: true,
     permissions: ["property:read"],
+    icon: Folder,
     items: [
       {
         href: "/properties/companies",
@@ -161,23 +148,27 @@ const menuConfig: MenuItem[] = [
         permissions: ["area:read"],
       },
       {
-        href: "/properties/options-types",
-        label: "Pilihan Tipe",
-        icon: Layers,
+        href: "/properties/building-types",
+        label: "Tipe Bangunan",
+        icon: Building2,
         active: true,
-        permissions: ["options-type:read"],
+        permissions: ["building-type:read"],
+      },
+      {
+        href: "/properties/room-types",
+        label: "Tipe Ruangan",
+        icon: DoorOpenIcon,
+        active: true,
+        permissions: ["room-type:read"],
       },
     ],
   },
-
-  // =====================
-  // ADMINISTRATION
-  // =====================
   {
     type: "group",
     label: "Administration",
     active: true,
     permissions: ["admin:read"],
+    icon: Settings,
     items: [
       {
         href: "/admin/users",
@@ -209,10 +200,6 @@ const menuConfig: MenuItem[] = [
       },
     ],
   },
-
-  // =====================
-  // NOTIFICATIONS
-  // =====================
   {
     type: "single",
     href: "/notifications",
@@ -224,7 +211,6 @@ const menuConfig: MenuItem[] = [
   },
 ];
 
-// Helper function to check if user has permission
 const hasPermission = (
   userPermissions: string[] | undefined,
   requiredPermissions: string[] | undefined
@@ -235,7 +221,6 @@ const hasPermission = (
   return requiredPermissions.some((perm) => userPermissions.includes(perm));
 };
 
-// Helper function to filter menu items based on permissions
 const filterMenuItems = (
   items: MenuItem[],
   userPermissions: string[] | undefined
@@ -264,7 +249,6 @@ const filterMenuItems = (
     });
 };
 
-// Single Menu Item Component
 const SingleMenuItem = ({
   item,
   isActive,
@@ -277,10 +261,10 @@ const SingleMenuItem = ({
       asChild
       isActive={isActive}
       tooltip={item.label}
-      className="h-9"
+      className="h-10"
     >
-      <Link href={item.href} className="flex items-center gap-2">
-        {item.icon && <item.icon className="size-4" />}
+      <Link href={item.href} className="flex items-center gap-3">
+        {item.icon && <item.icon className="size-4 shrink-0" />}
         <span className="text-sm font-medium">{item.label}</span>
         {item.badge && (
           <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[10px] font-semibold text-primary-foreground">
@@ -292,31 +276,104 @@ const SingleMenuItem = ({
   </SidebarMenuItem>
 );
 
-// Group Menu Item Component
 const GroupMenuItem = ({
   item,
   pathname,
-  defaultOpen,
+  isCollapsed,
 }: {
-  item: TypesGroupMenuItem; // Use the imported GroupMenuItem type
+  item: TypesGroupMenuItem;
   pathname: string;
-  defaultOpen: boolean;
+  isCollapsed: boolean;
 }) => {
-  const IconComponent = item.icon || Folder; // Use item.icon or Folder as default
-  return (
-    <Collapsible defaultOpen={defaultOpen} className="group/collapsible">
+  const IconComponent = item.icon || Folder;
+  const [isDropdownOpen, setIsDropdownOpen] = React.useState(false);
+
+  // State persistence for collapsible
+  const [isCollapsibleOpen, setIsCollapsibleOpen] = React.useState(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem(`sidebar-group-${item.label}`);
+      if (saved !== null) return saved === "true";
+    }
+    return item.items?.some((sub) => pathname.startsWith(sub.href)) || false;
+  });
+
+  // Save to localStorage when changes
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem(
+        `sidebar-group-${item.label}`,
+        String(isCollapsibleOpen)
+      );
+    }
+  }, [isCollapsibleOpen, item.label]);
+
+  if (isCollapsed) {
+    return (
       <SidebarMenuItem>
-        <SidebarMenuButton asChild tooltip={item.label} className="h-9">
-          <CollapsibleTrigger className="group/label flex w-full items-center gap-2 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground [&[data-state=open]>svg]:rotate-180">
-            <IconComponent className="size-4" /> {/* Render the icon here */}
-            <span className="text-sm font-medium flex-1 text-left">
+        <DropdownMenu open={isDropdownOpen} onOpenChange={setIsDropdownOpen}>
+          <DropdownMenuTrigger asChild>
+            <button
+              className="flex h-10 w-full items-center justify-center rounded-md px-0 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground transition-colors cursor-pointer border-0 bg-transparent outline-none"
+              onMouseEnter={() => setIsDropdownOpen(true)}
+              onMouseLeave={() => setIsDropdownOpen(false)}
+            >
+              <IconComponent className="size-4" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            side="right"
+            align="start"
+            sideOffset={8}
+            className="w-56"
+            onMouseEnter={() => setIsDropdownOpen(true)}
+            onMouseLeave={() => setIsDropdownOpen(false)}
+          >
+            <div className="px-2 py-1.5 text-sm font-semibold">
               {item.label}
-            </span>
-            <ChevronDown className="size-4 transition-transform duration-200" />
-          </CollapsibleTrigger>
-        </SidebarMenuButton>
+            </div>
+            <DropdownMenuSeparator />
+            {item.items?.map((subItem) => {
+              const isActive = pathname === subItem.href;
+              return (
+                <DropdownMenuItem key={subItem.href} asChild>
+                  <Link
+                    href={subItem.href}
+                    className={`flex items-center gap-3 ${
+                      isActive ? "bg-accent" : ""
+                    }`}
+                  >
+                    <subItem.icon className="size-4" />
+                    <span>{subItem.label}</span>
+                  </Link>
+                </DropdownMenuItem>
+              );
+            })}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </SidebarMenuItem>
+    );
+  }
+
+  return (
+    <Collapsible
+      open={isCollapsibleOpen}
+      onOpenChange={setIsCollapsibleOpen}
+      className="group/collapsible"
+    >
+      <SidebarMenuItem>
+        <CollapsibleTrigger asChild>
+          <SidebarMenuButton className="h-10">
+            <div className="flex items-center gap-3 w-full">
+              <IconComponent className="size-4 shrink-0" />
+              <span className="text-sm font-medium flex-1 text-left">
+                {item.label}
+              </span>
+              <ChevronDown className="size-4 transition-transform duration-200 group-data-[state=open]/collapsible:rotate-180" />
+            </div>
+          </SidebarMenuButton>
+        </CollapsibleTrigger>
         <CollapsibleContent>
-          <SidebarMenuSub className="ml-0 border-l-0 px-0">
+          <SidebarMenuSub className="ml-0 pl-0 border-none">
             {item.items?.map((subItem) => {
               const isActive = pathname === subItem.href;
               return (
@@ -324,13 +381,13 @@ const GroupMenuItem = ({
                   <SidebarMenuSubButton
                     asChild
                     isActive={isActive}
-                    className="h-8"
+                    className="h-9"
                   >
                     <Link
                       href={subItem.href}
-                      className="flex items-center gap-2 pl-8"
+                      className="flex items-center gap-3 pl-11"
                     >
-                      <subItem.icon className="size-4" />
+                      <subItem.icon className="size-4 shrink-0" />
                       <span className="text-sm">{subItem.label}</span>
                     </Link>
                   </SidebarMenuSubButton>
@@ -344,7 +401,6 @@ const GroupMenuItem = ({
   );
 };
 
-// User Menu Component
 const UserMenuDropdown = ({
   userName,
   email,
@@ -360,17 +416,17 @@ const UserMenuDropdown = ({
     <DropdownMenuTrigger asChild>
       <SidebarMenuButton
         size="lg"
-        className="h-12 hover:bg-sidebar-accent data-[state=open]:bg-sidebar-accent"
+        className="h-14 hover:bg-sidebar-accent data-[state=open]:bg-sidebar-accent"
       >
-        <Avatar className="h-8 w-8 rounded-lg border-2 border-background shadow-sm">
+        <Avatar className="h-9 w-9 rounded-lg border-2 border-background shadow-sm">
           <AvatarImage alt={userName} />
-          <AvatarFallback className="rounded-lg bg-primary/10 text-primary font-medium text-xs">
+          <AvatarFallback className="rounded-lg bg-primary/10 text-primary font-semibold text-sm">
             {userInitials}
           </AvatarFallback>
         </Avatar>
         <div className="grid flex-1 text-left text-sm leading-tight">
           <span className="truncate text-xs font-semibold uppercase">
-            {userName || "User Account"}
+            {userName || "User"}
           </span>
           <span className="truncate text-xs text-muted-foreground">
             {email || ""}
@@ -380,31 +436,31 @@ const UserMenuDropdown = ({
       </SidebarMenuButton>
     </DropdownMenuTrigger>
     <DropdownMenuContent
-      className="w-[240px] rounded-xl"
+      className="w-[260px] rounded-xl"
       side="top"
       align="end"
       sideOffset={8}
     >
-      <div className="flex items-center gap-2 p-2">
+      <div className="flex items-center gap-3 p-3">
         <Avatar className="h-10 w-10 rounded-lg">
           <AvatarImage alt={userName} />
-          <AvatarFallback className="rounded-lg bg-primary/10 text-primary">
+          <AvatarFallback className="rounded-lg bg-primary/10 text-primary font-semibold">
             {userInitials}
           </AvatarFallback>
         </Avatar>
         <div className="grid flex-1 text-left text-sm">
-          <span className="font-semibold">{userName || "User Account"}</span>
+          <span className="font-semibold">{userName || "User"}</span>
           <span className="text-xs text-muted-foreground">{email || ""}</span>
         </div>
       </div>
       <DropdownMenuSeparator />
-      <DropdownMenuItem className="cursor-pointer gap-2 py-2">
+      <DropdownMenuItem className="cursor-pointer gap-3 py-2.5">
         <User2 className="size-4 text-muted-foreground" />
         <span>Profile Settings</span>
       </DropdownMenuItem>
       <DropdownMenuSeparator />
       <DropdownMenuItem
-        className="cursor-pointer gap-2 py-2 text-destructive focus:text-destructive"
+        className="cursor-pointer gap-3 py-2.5 text-destructive focus:text-destructive"
         onClick={onLogout}
       >
         <LogOut className="size-4" />
@@ -416,7 +472,7 @@ const UserMenuDropdown = ({
 
 export function AppSidebar({ userName, email }: AppSidebarProps) {
   const pathname = usePathname();
-  const { state, setOpen } = useSidebar();
+  const { state } = useSidebar();
   const { permissions } = usePermissions();
   const userInitials =
     userName
@@ -424,28 +480,16 @@ export function AppSidebar({ userName, email }: AppSidebarProps) {
       .map((n) => n[0])
       .join("")
       .toUpperCase() || "U";
-
-  // Filter menu items based on user permissions
+  const isCollapsed = state === "collapsed";
   const visibleMenuItems = filterMenuItems(menuConfig, permissions);
-
-  // Expand sidebar if a submenu is active on initial render
-  useEffect(() => {
-    const hasActiveSubmenu = visibleMenuItems.some(
-      (it) =>
-        it.type === "group" &&
-        it.items?.some((s) => pathname.startsWith(s.href))
-    );
-    if (hasActiveSubmenu && state === "collapsed") setOpen(true);
-  }, [pathname, visibleMenuItems, state, setOpen]);
-
   const { data: session } = useSession();
   const handleLogout = async () => {
     await performLogout(session);
   };
 
   return (
-    <Sidebar collapsible="icon" className="border-r">
-      <SidebarHeader className="h-16 border-b">
+    <Sidebar collapsible="offcanvas" className="bg-sidebar">
+      <SidebarHeader className="h-16 bg-sidebar/50 backdrop-blur-sm">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
@@ -453,23 +497,22 @@ export function AppSidebar({ userName, email }: AppSidebarProps) {
               asChild
               className="hover:bg-sidebar-accent"
             >
-              <Link href="/" className="flex items-center gap-2">
-                <div className="flex items-center justify-center overflow-hidden">
+              <Link href="/" className="flex items-center gap-3">
+                <div className="flex items-center justify-center">
                   <Image
                     src="/logo-1.png"
                     alt="Logo"
-                    width={44}
-                    height={44}
+                    width={40}
+                    height={40}
                     priority
                     className="w-auto h-auto"
                   />
                 </div>
-
                 <div className="grid flex-1 text-left text-sm leading-tight">
-                  <span className="truncate font-semibold tracking-tight">
+                  <span className="truncate font-bold tracking-tight">
                     E-BOOKING
                   </span>
-                  <span className="truncate text-[10px] text-muted-foreground">
+                  <span className="truncate text-[10px] text-muted-foreground font-medium">
                     HARITA LYGEND
                   </span>
                 </div>
@@ -478,11 +521,10 @@ export function AppSidebar({ userName, email }: AppSidebarProps) {
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarHeader>
-
-      <SidebarContent className="gap-0 px-2">
-        <SidebarGroup className="py-2">
+      <SidebarContent className="gap-0 px-3 py-4">
+        <SidebarGroup>
           <SidebarGroupContent>
-            <SidebarMenu className="gap-1">
+            <SidebarMenu className="gap-1.5">
               {visibleMenuItems.map((item) => {
                 if (item.type === "single") {
                   const isActive = pathname === item.href;
@@ -494,18 +536,12 @@ export function AppSidebar({ userName, email }: AppSidebarProps) {
                     />
                   );
                 }
-
-                const isGroupActive = item.items?.some(
-                  (sub) =>
-                    pathname === sub.href || pathname.startsWith(sub.href)
-                );
                 return (
                   <GroupMenuItem
                     key={item.label}
                     item={item}
-                    // icon={(item.icon as React.ReactNode) || null}
                     pathname={pathname}
-                    defaultOpen={Boolean(isGroupActive)}
+                    isCollapsed={isCollapsed}
                   />
                 );
               })}
@@ -513,8 +549,7 @@ export function AppSidebar({ userName, email }: AppSidebarProps) {
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
-
-      <SidebarFooter className="mt-auto border-t p-2">
+      <SidebarFooter className="mt-auto p-3">
         <SidebarMenu>
           <SidebarMenuItem>
             <UserMenuDropdown

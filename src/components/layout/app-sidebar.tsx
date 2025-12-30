@@ -453,7 +453,7 @@ export function AppSidebar({ userName, email }: AppSidebarProps) {
               asChild
               className="hover:bg-sidebar-accent"
             >
-              <Link href="/" className="gap-2">
+              <Link href="/" className="flex items-center gap-2">
                 <div className="flex items-center justify-center overflow-hidden">
                   <Image
                     src="/logo-1.png"
@@ -461,8 +461,10 @@ export function AppSidebar({ userName, email }: AppSidebarProps) {
                     width={44}
                     height={44}
                     priority
+                    className="w-auto h-auto"
                   />
                 </div>
+
                 <div className="grid flex-1 text-left text-sm leading-tight">
                   <span className="truncate font-semibold tracking-tight">
                     E-BOOKING

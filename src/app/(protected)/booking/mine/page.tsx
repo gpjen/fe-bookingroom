@@ -36,8 +36,6 @@ import type {
 } from "@/app/(protected)/booking/request/_components/types";
 import { ColumnDef } from "@tanstack/react-table";
 import { DateRange } from "react-day-picker";
-import { format } from "date-fns";
-import { id as localeId } from "date-fns/locale";
 import { cn, formatDate } from "@/lib/utils";
 import {
   FileText,

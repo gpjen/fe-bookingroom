@@ -1,4 +1,3 @@
-/* eslint-disable jsx-a11y/alt-text */
 "use client";
 
 import { useState, useEffect } from "react";
@@ -114,7 +113,7 @@ function TicketDownloadItem({
         }
         fileName={fileName}
       >
-        {({ blob, url, loading, error }) => (
+        {({ loading }) => (
           <Button
             size="sm"
             variant="outline"

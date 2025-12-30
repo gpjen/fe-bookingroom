@@ -51,9 +51,10 @@ export default function HomeContent() {
             <Image
               src="/logo_sm.png"
               alt="Logo"
-              width={50}
-              height={50}
+              width={44}
+              height={44}
               priority
+              className="w-auto h-auto"
             />
             <span>HARITA LYGEND</span>
           </div>

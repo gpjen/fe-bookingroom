@@ -9,7 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, X, Filter } from "lucide-react";
+import { Search, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 interface OccupantFiltersProps {
@@ -79,7 +79,12 @@ export function OccupantFilters({
 
       {/* Clear Filters */}
       {activeFiltersCount > 0 && (
-        <Button variant="ghost" size="sm" onClick={clearFilters} className="gap-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={clearFilters}
+          className="gap-2"
+        >
           <X className="h-4 w-4" />
           Reset
           <Badge variant="secondary" className="h-5 w-5 p-0 justify-center">

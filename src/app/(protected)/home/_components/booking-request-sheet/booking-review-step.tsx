@@ -26,6 +26,7 @@ import type {
 import type { SelectedBed, BookingAttachment } from "../booking-request-types";
 import { AREAS } from "../mock-data";
 import { CompactProfileCard } from "@/components/common/compact-profile-card";
+import Image from "next/image";
 
 interface BookingReviewStepProps {
   searchParams: {
@@ -51,8 +52,13 @@ export function BookingReviewStep({
   attachments,
   companion,
 }: BookingReviewStepProps) {
-  const duration = differenceInDays(searchParams.endDate, searchParams.startDate);
-  const areaName = AREAS.find((a) => a.id === searchParams.areaId)?.name || searchParams.areaId;
+  const duration = differenceInDays(
+    searchParams.endDate,
+    searchParams.startDate
+  );
+  const areaName =
+    AREAS.find((a) => a.id === searchParams.areaId)?.name ||
+    searchParams.areaId;
 
   const formatFileSize = (bytes: number) => {
     if (bytes < 1024) return `${bytes} B`;
@@ -84,11 +90,7 @@ export function BookingReviewStep({
       {/* Booking Info */}
       <Section title="Informasi Booking" icon={FileText}>
         <div className="grid grid-cols-2 gap-3">
-          <InfoBox
-            icon={MapPin}
-            label="Area"
-            value={areaName}
-          />
+          <InfoBox icon={MapPin} label="Area" value={areaName} />
           <InfoBox
             icon={Users}
             label="Total Penghuni"
@@ -97,7 +99,11 @@ export function BookingReviewStep({
           <InfoBox
             icon={Calendar}
             label="Periode Filter"
-            value={`${format(searchParams.startDate, "dd MMM", { locale: localeId })} - ${format(searchParams.endDate, "dd MMM yyyy", { locale: localeId })}`}
+            value={`${format(searchParams.startDate, "dd MMM", {
+              locale: localeId,
+            })} - ${format(searchParams.endDate, "dd MMM yyyy", {
+              locale: localeId,
+            })}`}
           />
           <InfoBox
             icon={Clock}
@@ -138,9 +144,11 @@ export function BookingReviewStep({
                   className="flex items-center gap-3 p-3 border rounded-lg bg-background"
                 >
                   {att.preview ? (
-                    <img
+                    <Image
                       src={att.preview}
                       alt={att.name}
+                      width={32}
+                      height={32}
                       className="w-8 h-8 object-cover rounded"
                     />
                   ) : (
@@ -181,9 +189,10 @@ export function BookingReviewStep({
         <div className="space-y-3">
           {occupants.map((occupant, index) => {
             const bed = selectedBeds[index];
-            const occDuration = occupant.inDate && occupant.outDate 
-              ? differenceInDays(occupant.outDate, occupant.inDate) 
-              : duration;
+            const occDuration =
+              occupant.inDate && occupant.outDate
+                ? differenceInDays(occupant.outDate, occupant.inDate)
+                : duration;
 
             return (
               <div
@@ -212,10 +221,18 @@ export function BookingReviewStep({
                 {(occupant.phone || occupant.company) && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-muted-foreground">
                     {occupant.phone && (
-                      <InfoRow icon={Phone} label="Telepon" value={occupant.phone} />
+                      <InfoRow
+                        icon={Phone}
+                        label="Telepon"
+                        value={occupant.phone}
+                      />
                     )}
                     {occupant.company && (
-                      <InfoRow icon={Briefcase} label="Perusahaan" value={occupant.company} />
+                      <InfoRow
+                        icon={Briefcase}
+                        label="Perusahaan"
+                        value={occupant.company}
+                      />
                     )}
                   </div>
                 )}
@@ -224,14 +241,18 @@ export function BookingReviewStep({
                 <div className="pt-2">
                   <div className="flex items-center gap-2 mb-3">
                     <Calendar className="h-4 w-4 text-primary" />
-                    <span className="font-semibold text-xs">Periode Menginap</span>
+                    <span className="font-semibold text-xs">
+                      Periode Menginap
+                    </span>
                   </div>
                   <div className="grid grid-cols-3 gap-3 text-xs">
                     <div>
                       <p className="text-muted-foreground mb-1">Check-in</p>
                       <p className="font-semibold">
                         {occupant.inDate
-                          ? format(occupant.inDate, "dd MMM yyyy", { locale: localeId })
+                          ? format(occupant.inDate, "dd MMM yyyy", {
+                              locale: localeId,
+                            })
                           : "-"}
                       </p>
                     </div>
@@ -239,7 +260,9 @@ export function BookingReviewStep({
                       <p className="text-muted-foreground mb-1">Check-out</p>
                       <p className="font-semibold">
                         {occupant.outDate
-                          ? format(occupant.outDate, "dd MMM yyyy", { locale: localeId })
+                          ? format(occupant.outDate, "dd MMM yyyy", {
+                              locale: localeId,
+                            })
                           : "-"}
                       </p>
                     </div>

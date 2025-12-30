@@ -71,14 +71,18 @@ export function DataTable<TData, TValue>({
   renderToolbar,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = React.useState<SortingState>([]);
-  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>([]);
-  const [columnVisibility, setColumnVisibility] = React.useState<VisibilityState>({});
+  const [columnFilters, setColumnFilters] = React.useState<ColumnFiltersState>(
+    []
+  );
+  const [columnVisibility, setColumnVisibility] =
+    React.useState<VisibilityState>({});
   const [rowSelection, setRowSelection] = React.useState({});
   const [pagination, setPagination] = React.useState({
     pageIndex: 0,
     pageSize: pageSizeOptions[0],
   });
 
+  // eslint-disable-next-line react-hooks/incompatible-library
   const table = useReactTable({
     data,
     columns,
@@ -111,7 +115,9 @@ export function DataTable<TData, TValue>({
               <Search className="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 placeholder={searchPlaceholder}
-                value={(table.getColumn(searchKey)?.getFilterValue() as string) ?? ""}
+                value={
+                  (table.getColumn(searchKey)?.getFilterValue() as string) ?? ""
+                }
                 onChange={(event) =>
                   table.getColumn(searchKey)?.setFilterValue(event.target.value)
                 }
@@ -124,11 +130,15 @@ export function DataTable<TData, TValue>({
         {/* Custom Toolbar & Column Toggle */}
         <div className="flex items-center gap-2">
           {renderToolbar && renderToolbar(table)}
-          
+
           {showColumnToggle && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="ml-auto h-9 gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="ml-auto h-9 gap-1"
+                >
                   <Settings2 className="h-4 w-4" />
                   <span className="hidden sm:inline">Kolom</span>
                 </Button>
@@ -143,7 +153,9 @@ export function DataTable<TData, TValue>({
                         key={column.id}
                         className="capitalize"
                         checked={column.getIsVisible()}
-                        onCheckedChange={(value) => column.toggleVisibility(!!value)}
+                        onCheckedChange={(value) =>
+                          column.toggleVisibility(!!value)
+                        }
                       >
                         {column.id}
                       </DropdownMenuCheckboxItem>
@@ -186,14 +198,20 @@ export function DataTable<TData, TValue>({
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      {flexRender(
+                        cell.column.columnDef.cell,
+                        cell.getContext()
+                      )}
                     </TableCell>
                   ))}
                 </TableRow>
               ))
             ) : (
               <TableRow>
-                <TableCell colSpan={columns.length} className="h-24 text-center">
+                <TableCell
+                  colSpan={columns.length}
+                  className="h-24 text-center"
+                >
                   <div className="flex flex-col items-center gap-2 text-muted-foreground">
                     <Search className="h-8 w-8 opacity-40" />
                     <p>{emptyMessage}</p>
@@ -241,7 +259,9 @@ export function DataTable<TData, TValue>({
               }}
             >
               <SelectTrigger className="h-8 w-[130px]">
-                <SelectValue placeholder={table.getState().pagination.pageSize} />
+                <SelectValue
+                  placeholder={table.getState().pagination.pageSize}
+                />
               </SelectTrigger>
               <SelectContent side="top">
                 {pageSizeOptions.map((pageSize) => (

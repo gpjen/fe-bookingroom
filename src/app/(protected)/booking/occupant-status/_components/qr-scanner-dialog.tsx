@@ -220,7 +220,10 @@ export function QrScannerDialog({
         };
         await scanner.stop();
         scanner.clear();
-      } catch (err) {}
+      } catch (err) {
+        console.error("Camera stop error:", err);
+      }
+
       html5QrCodeRef.current = null;
     }
     setCameraActive(false);

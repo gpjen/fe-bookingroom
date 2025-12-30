@@ -1,5 +1,5 @@
 import { faker } from "@faker-js/faker";
-import { addDays, subDays } from "date-fns";
+import { addDays } from "date-fns";
 
 export type RoomType = "standard" | "vip" | "vvip";
 export type RoomAllocation = "employee" | "guest";
@@ -125,7 +125,6 @@ export function generateRoomAvailability(): RoomAvailability[] {
         const rand = Math.random();
         let status: BedStatus = "available";
         let occupantName: string | undefined;
-        let occupantCheckIn: Date | undefined;
         let occupantCheckOut: Date | undefined;
         let reservedFrom: Date | undefined;
         let reservedTo: Date | undefined;
@@ -139,10 +138,6 @@ export function generateRoomAvailability(): RoomAvailability[] {
           if (isOccupied) {
             status = "occupied";
             occupantName = faker.person.fullName();
-            occupantCheckIn = subDays(
-              today,
-              faker.number.int({ min: 1, max: 14 })
-            );
             occupantCheckOut = addDays(
               today,
               faker.number.int({ min: 1, max: 14 })

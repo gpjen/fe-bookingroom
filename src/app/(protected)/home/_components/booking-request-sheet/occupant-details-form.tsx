@@ -47,6 +47,7 @@ import type {
   CompanionInfo,
 } from "@/app/(protected)/booking/request/_components/types";
 import type { SelectedBed, BookingAttachment } from "../booking-request-types";
+import Image from "next/image";
 
 // Fallback for crypto.randomUUID (not available in all browsers)
 function generateId(): string {
@@ -280,7 +281,7 @@ export function OccupantDetailsForm({
                       className="flex items-center gap-3 p-3 bg-muted/30 rounded-lg border"
                     >
                       {att.preview ? (
-                        <img
+                        <Image
                           src={att.preview}
                           alt={att.name}
                           className="w-10 h-10 object-cover rounded"

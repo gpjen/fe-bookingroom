@@ -59,13 +59,11 @@ function DatePicker({
   onSelect,
   label,
   minDate,
-  maxDate,
 }: {
   date: Date | undefined;
   onSelect: (date: Date | undefined) => void;
   label: string;
   minDate?: Date;
-  maxDate?: Date;
 }) {
   const tomorrow = addDays(startOfDay(new Date()), 1);
   const disabledDays = { before: minDate || tomorrow };
@@ -195,8 +193,6 @@ export function RoomSearch() {
     duration <= 91 &&
     !!selectedArea;
 
-  const activeFiltersCount = selectedBuilding !== "all" ? 1 : 0;
-
   const resetFilters = () => {
     setSelectedBuilding("all");
   };
@@ -213,11 +209,6 @@ export function RoomSearch() {
         return [...prev, bed];
       }
     });
-  };
-
-  const handleRoomDetail = (room: RoomAvailability) => {
-    setSelectedRoom(room);
-    setRoomDialogOpen(true);
   };
 
   const handleRoomSelect = (room: RoomAvailability) => {
@@ -328,7 +319,6 @@ export function RoomSearch() {
                   onSelect={handleEndDateChange}
                   label="Tanggal"
                   minDate={startDate ? addDays(startDate, 1) : tomorrow}
-                  maxDate={startDate ? addDays(startDate, 90) : undefined}
                 />
               </div>
             </div>
@@ -634,7 +624,8 @@ export function RoomSearch() {
               <Sparkles className="h-4 w-4 text-primary" />
               <span className="text-sm font-semibold">Pilih Kamar</span>
               <span className="text-xs text-muted-foreground">
-                {AREAS.find((a) => a.id === selectedArea)?.name} • {totalPeople} org • {duration} mlm
+                {AREAS.find((a) => a.id === selectedArea)?.name} • {totalPeople}{" "}
+                org • {duration} mlm
               </span>
             </div>
 
@@ -650,7 +641,9 @@ export function RoomSearch() {
                     <SelectValue placeholder="Semua Gedung" />
                   </SelectTrigger>
                   <SelectContent className="max-h-[200px]">
-                    <SelectItem value="all" className="text-xs">Semua Gedung</SelectItem>
+                    <SelectItem value="all" className="text-xs">
+                      Semua Gedung
+                    </SelectItem>
                     {filteredBuildings.map((b) => (
                       <SelectItem key={b.id} value={b.id} className="text-xs">
                         {b.name}

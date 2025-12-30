@@ -44,6 +44,7 @@ function LoadingScreen() {
               src="/logo_lg.png"
               alt="Logo"
               fill
+              sizes="120px"
               className="object-contain drop-shadow-2xl"
               priority
             />

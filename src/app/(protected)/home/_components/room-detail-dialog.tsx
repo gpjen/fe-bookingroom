@@ -44,6 +44,7 @@ import {
   isBefore,
   isWithinInterval,
 } from "date-fns";
+import Image from "next/image";
 
 interface RoomDetailDialogProps {
   room: RoomAvailability | null;
@@ -179,22 +180,26 @@ export function RoomDetailDialog({
               </DialogDescription>
             </div>
             {/* Selection Status */}
-            <div className={cn(
-              "text-center px-4 py-2 rounded-lg",
-              isMaxReached && selectedBedsInThisRoom === 0
-                ? "bg-gray-100 dark:bg-gray-800"
-                : selectedBedsInThisRoom > 0
-                ? "bg-emerald-100 dark:bg-emerald-900/30"
-                : "bg-amber-100 dark:bg-amber-900/30"
-            )}>
-              <p className={cn(
-                "text-2xl font-bold",
+            <div
+              className={cn(
+                "text-center px-4 py-2 rounded-lg",
                 isMaxReached && selectedBedsInThisRoom === 0
-                  ? "text-gray-500"
+                  ? "bg-gray-100 dark:bg-gray-800"
                   : selectedBedsInThisRoom > 0
-                  ? "text-emerald-600"
-                  : "text-amber-600"
-              )}>
+                  ? "bg-emerald-100 dark:bg-emerald-900/30"
+                  : "bg-amber-100 dark:bg-amber-900/30"
+              )}
+            >
+              <p
+                className={cn(
+                  "text-2xl font-bold",
+                  isMaxReached && selectedBedsInThisRoom === 0
+                    ? "text-gray-500"
+                    : selectedBedsInThisRoom > 0
+                    ? "text-emerald-600"
+                    : "text-amber-600"
+                )}
+              >
                 {selectedBedsInThisRoom}
               </p>
               <p className="text-xs text-muted-foreground">dipilih</p>
@@ -210,10 +215,12 @@ export function RoomDetailDialog({
                 <CarouselContent>
                   {room.images.map((img, idx) => (
                     <CarouselItem key={idx}>
-                      <img
+                      <Image
                         src={img}
                         alt={`Room ${room.code} - Image ${idx + 1}`}
                         className="w-full aspect-video object-cover"
+                        width={500}
+                        height={500}
                       />
                     </CarouselItem>
                   ))}
@@ -239,10 +246,10 @@ export function RoomDetailDialog({
               <div>
                 <p className="text-xs text-muted-foreground">Gender</p>
                 <p className="font-semibold text-sm">
-                  {room.gender === "male" 
-                    ? "Pria" 
-                    : room.gender === "female" 
-                    ? "Wanita" 
+                  {room.gender === "male"
+                    ? "Pria"
+                    : room.gender === "female"
+                    ? "Wanita"
                     : room.gender === "flexible"
                     ? "Fleksibel"
                     : "Campur"}
@@ -313,9 +320,14 @@ export function RoomDetailDialog({
             <div className="flex items-center gap-2 p-3 bg-blue-50 dark:bg-blue-950/30 rounded-lg border border-blue-200 dark:border-blue-800 text-sm">
               <Calendar className="h-4 w-4 text-blue-600" />
               <span>
-                Periode: <strong>{format(startDate, "dd MMM yyyy", { locale: localeId })}</strong>
+                Periode:{" "}
+                <strong>
+                  {format(startDate, "dd MMM yyyy", { locale: localeId })}
+                </strong>
                 {" - "}
-                <strong>{format(endDate, "dd MMM yyyy", { locale: localeId })}</strong>
+                <strong>
+                  {format(endDate, "dd MMM yyyy", { locale: localeId })}
+                </strong>
               </span>
             </div>
 
@@ -337,8 +349,11 @@ export function RoomDetailDialog({
                       variant={selected ? "default" : "outline"}
                       className={cn(
                         "h-auto py-4 justify-start gap-3 transition-all",
-                        selected && "bg-emerald-600 hover:bg-emerald-700 ring-2 ring-emerald-400",
-                        !canSelect && !selected && "opacity-50 cursor-not-allowed"
+                        selected &&
+                          "bg-emerald-600 hover:bg-emerald-700 ring-2 ring-emerald-400",
+                        !canSelect &&
+                          !selected &&
+                          "opacity-50 cursor-not-allowed"
                       )}
                       onClick={() => handleBedToggle(bed)}
                       disabled={!canSelect && !selected}
@@ -367,12 +382,14 @@ export function RoomDetailDialog({
           <div className="flex items-center justify-between w-full gap-4">
             <div className="flex items-center gap-3">
               {totalSelectedBeds > 0 && (
-                <div className={cn(
-                  "flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium",
-                  totalSelectedBeds >= maxSelection
-                    ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
-                    : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
-                )}>
+                <div
+                  className={cn(
+                    "flex items-center gap-2 px-3 py-1.5 rounded-full text-sm font-medium",
+                    totalSelectedBeds >= maxSelection
+                      ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400"
+                      : "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                  )}
+                >
                   {totalSelectedBeds >= maxSelection ? (
                     <>
                       <CheckCircle2 className="h-4 w-4" />
@@ -381,15 +398,16 @@ export function RoomDetailDialog({
                   ) : (
                     <>
                       <AlertTriangle className="h-4 w-4" />
-                      <span>{totalSelectedBeds}/{maxSelection} bed • Perlu {remaining} lagi</span>
+                      <span>
+                        {totalSelectedBeds}/{maxSelection} bed • Perlu{" "}
+                        {remaining} lagi
+                      </span>
                     </>
                   )}
                 </div>
               )}
             </div>
-            <Button onClick={() => onOpenChange(false)}>
-              Selesai
-            </Button>
+            <Button onClick={() => onOpenChange(false)}>Selesai</Button>
           </div>
         </DialogFooter>
       </DialogContent>

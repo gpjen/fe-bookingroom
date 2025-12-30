@@ -27,7 +27,6 @@ import {
   FileText,
   UserCheck,
   Users,
-  Mail,
   Phone,
   Briefcase,
   MapPin,

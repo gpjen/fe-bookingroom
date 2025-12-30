@@ -80,17 +80,14 @@ export function PermissionsProvider({
 
   const hasPermission = (required?: string[]) => {
     if (!required || required.length === 0) return true;
-    if (permissions.includes("*")) return true;
     return required.some((perm) => permissions.includes(perm));
   };
 
   const hasCompanyAccess = (companyCode: string) => {
-    if (permissions.includes("*")) return true;
     return companies.includes(companyCode.toLowerCase());
   };
 
   const hasBuildingAccess = (buildingCode: string) => {
-    if (permissions.includes("*")) return true;
     return buildings.some(
       (b) => b.code.toLowerCase() === buildingCode.toLowerCase()
     );

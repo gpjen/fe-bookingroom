@@ -20,37 +20,38 @@ export async function GET() {
     const username = session.user.username;
     const usernameKey = username.toLowerCase(); // Case-insensitive search
 
-    // Fetch user roles with related data
-    const userRoles = await prisma.userRole.findMany({
-      where: { usernameKey }, // Use lowercase key
+    // Fetch user with all relations
+    const user = await prisma.user.findUnique({
+      where: { usernameKey },
       include: {
-        role: {
+        userRoles: {
           include: {
-            rolePermissions: {
+            role: {
               include: {
-                permission: true,
+                rolePermissions:{
+                  include: {
+                    permission: true,
+                  },
+                },
+              },
+            },
+            company: true,
+          },
+        },
+        userBuildings: {
+          include: {
+            building: {
+              include: {
+                area: true,
               },
             },
           },
         },
-        company: true,
       },
     });
 
-    // Fetch user buildings
-    const userBuildings = await prisma.userBuilding.findMany({
-      where: { usernameKey }, // Use lowercase key
-      include: {
-        building: {
-          include: {
-            area: true,
-          },
-        },
-      },
-    });
-
-    // If no roles found, return empty permissions
-    if (userRoles.length === 0) {
+    // If user not found, return empty permissions
+    if (!user || user.userRoles.length === 0) {
       return NextResponse.json({
         roles: [],
         permissions: [],
@@ -63,11 +64,10 @@ export async function GET() {
     const permissions = new Set<string>();
     const roles: string[] = [];
     const companies: string[] = [];
-    const buildings: { id: string; code: string; name: string; area: string }[] =
-      [];
+    const buildings: { id: string; code: string; name: string; area: string }[] = [];
 
     // Process roles and permissions
-    userRoles.forEach((ur) => {
+    user.userRoles.forEach((ur) => {
       // Add role name (unique)
       if (!roles.includes(ur.role.name)) {
         roles.push(ur.role.name);
@@ -85,7 +85,7 @@ export async function GET() {
     });
 
     // Process building access
-    userBuildings.forEach((ub) => {
+    user.userBuildings.forEach((ub) => {
       const buildingExists = buildings.some((b) => b.id === ub.building.id);
       if (!buildingExists) {
         buildings.push({

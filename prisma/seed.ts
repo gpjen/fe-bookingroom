@@ -21,13 +21,80 @@ async function main() {
   console.log("📝 Creating permissions...");
 
   const permissions = [
-    { key: "*", description: "Super Admin - All Access", category: "system" },
+    // General
     { key: "home:read", description: "View home page", category: "general" },
     { key: "dashboard:read", description: "View dashboard", category: "general" },
-    { key: "admin:read", description: "Access admin area", category: "admin" },
+    { key: "notifications:read", description: "View notifications", category: "general" },
+    
+    // Booking
+    { key: "booking:read", description: "Access booking menu", category: "booking" },
+    { key: "booking-request:read", description: "View booking requests", category: "booking" },
+    { key: "booking-request:create", description: "Create booking request", category: "booking" },
+    { key: "booking-request:update", description: "Update booking request", category: "booking" },
+    { key: "booking-request:delete", description: "Delete booking request", category: "booking" },
+    { key: "booking-request:approve", description: "Approve booking request", category: "booking" },
+    { key: "booking-occupant-status:read", description: "View occupant status", category: "booking" },
+    { key: "booking-occupant-status:update", description: "Update occupant status", category: "booking" },
+    { key: "booking-mine:read", description: "View my bookings", category: "booking" },
+    
+    // Buildings
+    { key: "building:read", description: "View buildings", category: "property" },
+    { key: "building:create", description: "Create building", category: "property" },
+    { key: "building:update", description: "Update building", category: "property" },
+    { key: "building:delete", description: "Delete building", category: "property" },
+    
+    // Reports
+    { key: "reports:read", description: "View reports", category: "reports" },
+    { key: "reports:export", description: "Export reports", category: "reports" },
+    
+    // Property Management
+    { key: "property:read", description: "Access property menu", category: "property" },
+    
+    // Companies
     { key: "companies:read", description: "View companies", category: "property" },
-    { key: "areas:read", description: "View areas", category: "property" },
-    { key: "buildings:read", description: "View buildings", category: "property" },
+    { key: "companies:create", description: "Create company", category: "property" },
+    { key: "companies:update", description: "Update company", category: "property" },
+    { key: "companies:delete", description: "Delete company", category: "property" },
+    
+    // Areas
+    { key: "area:read", description: "View areas", category: "property" },
+    { key: "area:create", description: "Create area", category: "property" },
+    { key: "area:update", description: "Update area", category: "property" },
+    { key: "area:delete", description: "Delete area", category: "property" },
+    
+    // Building Types
+    { key: "building-type:read", description: "View building types", category: "property" },
+    { key: "building-type:create", description: "Create building type", category: "property" },
+    { key: "building-type:update", description: "Update building type", category: "property" },
+    { key: "building-type:delete", description: "Delete building type", category: "property" },
+    
+    // Room Types
+    { key: "room-type:read", description: "View room types", category: "property" },
+    { key: "room-type:create", description: "Create room type", category: "property" },
+    { key: "room-type:update", description: "Update room type", category: "property" },
+    { key: "room-type:delete", description: "Delete room type", category: "property" },
+    
+    // Administration
+    { key: "admin:read", description: "Access admin menu", category: "admin" },
+    
+    // Admin - Users
+    { key: "admin-users:read", description: "View users", category: "admin" },
+    { key: "admin-users:create", description: "Create user", category: "admin" },
+    { key: "admin-users:update", description: "Update user", category: "admin" },
+    { key: "admin-users:delete", description: "Delete user", category: "admin" },
+    
+    // Admin - Roles
+    { key: "admin-roles:read", description: "View roles & permissions", category: "admin" },
+    { key: "admin-roles:create", description: "Create role", category: "admin" },
+    { key: "admin-roles:update", description: "Update role", category: "admin" },
+    { key: "admin-roles:delete", description: "Delete role", category: "admin" },
+    
+    // Admin - Settings
+    { key: "admin-settings:read", description: "View system settings", category: "admin" },
+    { key: "admin-settings:update", description: "Update system settings", category: "admin" },
+    
+    // Admin - Logs
+    { key: "admin-logs:read", description: "View system logs", category: "admin" },
   ];
 
   for (const perm of permissions) {
@@ -45,38 +112,86 @@ async function main() {
   // ========================================
   console.log("👥 Creating roles...");
 
+  // Super Admin Role
   const superAdminRole = await prisma.role.upsert({
     where: { name: "super-admin" },
     update: {},
     create: {
       name: "super-admin",
-      description: "Full system access",
+      description: "Full system access - all permissions",
       isSystemRole: true,
     },
   });
 
-  // Link super-admin with all permissions
-  const allPerm = await prisma.permission.findUnique({ where: { key: "*" } });
-  if (allPerm) {
+  // Staff Role
+  const staffRole = await prisma.role.upsert({
+    where: { name: "staff" },
+    update: {},
+    create: {
+      name: "staff",
+      description: "Basic staff access - limited permissions",
+      isSystemRole: false,
+    },
+  });
+
+  console.log("   ✅ super-admin, staff roles");
+
+  // ========================================
+  // 3. ASSIGN PERMISSIONS TO ROLES
+  // ========================================
+  console.log("🔗 Assigning permissions to roles...");
+
+  // Get all permissions for super-admin
+  const allPermissions = await prisma.permission.findMany();
+  
+  for (const perm of allPermissions) {
     await prisma.rolePermission.upsert({
       where: {
         roleId_permissionId: {
           roleId: superAdminRole.id,
-          permissionId: allPerm.id,
+          permissionId: perm.id,
         },
       },
       update: {},
       create: {
         roleId: superAdminRole.id,
-        permissionId: allPerm.id,
+        permissionId: perm.id,
       },
     });
   }
 
-  console.log("   ✅ super-admin role");
+  // Staff permissions (limited)
+  const staffPermissionKeys = [
+    "home:read",
+    "booking:read",
+    "booking-mine:read",
+    "notifications:read",
+  ];
+
+  for (const key of staffPermissionKeys) {
+    const perm = await prisma.permission.findUnique({ where: { key } });
+    if (perm) {
+      await prisma.rolePermission.upsert({
+        where: {
+          roleId_permissionId: {
+            roleId: staffRole.id,
+            permissionId: perm.id,
+          },
+        },
+        update: {},
+        create: {
+          roleId: staffRole.id,
+          permissionId: perm.id,
+        },
+      });
+    }
+  }
+
+  console.log(`   ✅ ${allPermissions.length} permissions → super-admin`);
+  console.log(`   ✅ ${staffPermissionKeys.length} permissions → staff`);
 
   // ========================================
-  // 3. COMPANIES
+  // 4. COMPANIES
   // ========================================
   console.log("🏢 Creating companies...");
 
@@ -104,24 +219,54 @@ async function main() {
   console.log("   ✅ DCM, HPAL");
 
   // ========================================
-  // 4. USER ROLES
+  // 4. USERS
   // ========================================
-  console.log("👤 Creating user roles...");
+  console.log("👤 Creating users...");
 
-  await prisma.userRole.upsert({
-    where: {
-      usernameKey_roleId_companyId: {
-        usernameKey: "d12345",
-        roleId: superAdminRole.id,
-        companyId: dcm.id,
-      },
-    },
+  const superUser1 = await prisma.user.upsert({
+    where: { username: "D12345" },
     update: {},
     create: {
       username: "D12345",
       usernameKey: "d12345",
       displayName: "Super User",
       email: "superadmin@company.com",
+      nik: "12345",
+      status: true,
+    },
+  });
+
+  const superUser2 = await prisma.user.upsert({
+    where: { username: "D0525000109" },
+    update: {},
+    create: {
+      username: "D0525000109",
+      usernameKey: "d0525000109",
+      displayName: "Gandi Purna Jen",
+      email: "gpjen95@gmail.com",
+      nik: "0525000109",
+      status: true,
+    },
+  });
+
+  console.log("   ✅ 2 users created");
+
+  // ========================================
+  // 5. USER ROLES
+  // ========================================
+  console.log("🔑 Assigning user roles...");
+
+  await prisma.userRole.upsert({
+    where: {
+      userId_roleId_companyId: {
+        userId: superUser1.id,
+        roleId: superAdminRole.id,
+        companyId: dcm.id,
+      },
+    },
+    update: {},
+    create: {
+      userId: superUser1.id,
       roleId: superAdminRole.id,
       companyId: dcm.id,
     },
@@ -129,27 +274,24 @@ async function main() {
 
   await prisma.userRole.upsert({
     where: {
-      usernameKey_roleId_companyId: {
-        usernameKey: "d0525000109",
+      userId_roleId_companyId: {
+        userId: superUser2.id,
         roleId: superAdminRole.id,
         companyId: dcm.id,
       },
     },
     update: {},
     create: {
-      username: "D0525000109",
-      usernameKey: "d0525000109",
-      displayName: "Gandi Purna Jen",
-      email: "gpjen95@gmail.com",
+      userId: superUser2.id,
       roleId: superAdminRole.id,
       companyId: dcm.id,
     },
   });
 
-  console.log("   ✅ 2 super admins");
+  console.log("   ✅ 2 role assignments");
 
   // ========================================
-  // 5. AREAS
+  // 6. AREAS
   // ========================================
   console.log("🏗️  Creating areas...");
 
@@ -257,9 +399,10 @@ async function main() {
   console.log("\n🎉 DATABASE SEEDING COMPLETE!\n");
   console.log("📊 Summary:");
   console.log(`   - Permissions: ${permissions.length}`);
-  console.log("   - Roles: 1 (super-admin)");
+  console.log("   - Roles: 2 (super-admin, staff)");
   console.log("   - Companies: 2 (DCM, HPAL)");
-  console.log("   - Users: 2 super admins");
+  console.log("   - Users: 2");
+  console.log("   - User Roles: 2 assignments");
   console.log("   - Areas: 1");
   console.log("   - Building Types: 2");
   console.log("   - Room Types: 3");

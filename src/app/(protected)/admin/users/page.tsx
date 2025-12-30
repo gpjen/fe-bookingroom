@@ -1,101 +1,123 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Plus, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { DataTable } from "@/components/ui/data-table";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { AlertCircle, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
-import { UserForm, UserFormData } from "./_components/user-form";
-import { User } from "./_components/types";
-import { getColumns } from "./_components/columns";
+import { UserForm } from "./_components/user-form";
+import { User, Role, Company, Building } from "./_components/types";
+import {
+  getUsers,
+  createUser,
+  updateUser,
+  deleteUser,
+  assignRoles,
+  assignCompanies,
+  assignBuildings,
+} from "./_actions/users.actions";
+import { getMasterDataForUsers } from "./_actions/master-data.actions";
+import { UsersTable } from "./_components/users-table";
 
-// Mock Data
-const MOCK_ROLES = [
-  { id: "1", name: "Super Admin" },
-  { id: "2", name: "Building Manager" },
-  { id: "3", name: "Staff" },
-  { id: "4", name: "Viewer" },
-];
+// ========================================
+// LOADING STATE COMPONENT
+// ========================================
 
-const MOCK_COMPANIES = [
-  { id: "c1", name: "PT. Dharma Cipta Mulia" },
-  { id: "c2", name: "PT. Halmahera Persada Lygend" },
-  { id: "c3", name: "CV. Obi Nickel Sulfat" },
-];
+function LoadingState() {
+  return (
+    <Card className="p-3 md:p-6 lg:p-8">
+      <div className="space-y-6">
+        <div className="flex justify-between items-center">
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-10 w-40" />
+        </div>
+        <Skeleton className="h-[400px] w-full rounded-xl" />
+      </div>
+    </Card>
+  );
+}
 
-const MOCK_BUILDINGS = [
-  { id: "b1", name: "Gedung Utama" },
-  { id: "b2", name: "Gedung Annex" },
-  { id: "b3", name: "Menara Kembar A" },
-  { id: "b4", name: "Menara Kembar B" },
-  { id: "b5", name: "Gedung Parkir" },
-];
+// ========================================
+// ERROR STATE COMPONENT
+// ========================================
 
-const MOCK_USERS: User[] = [
-  {
-    id: "u1",
-    name: "Budi Santoso",
-    nik: "EMP001",
-    email: "budi@example.com",
-    roles: ["1"],
-    companyAccess: ["c1", "c2", "c3", "c4", "c5"],
-    buildingAccess: ["b1", "b2", "b3", "b4", "b5"],
-    status: "active",
-    lastLogin: new Date().toISOString(),
-  },
-  {
-    id: "u2",
-    name: "Siti Aminah",
-    nik: "EMP002",
-    email: "siti@example.com",
-    roles: ["2"],
-    companyAccess: ["c1"],
-    buildingAccess: ["b1", "b2"],
-    status: "active",
-    lastLogin: new Date(Date.now() - 86400000).toISOString(),
-  },
-  {
-    id: "u3",
-    name: "Andi Wijaya",
-    nik: "EMP003",
-    email: "andi@example.com",
-    roles: ["3"],
-    companyAccess: ["c2"],
-    buildingAccess: ["b3"],
-    status: "inactive",
-    lastLogin: new Date(Date.now() - 172800000).toISOString(),
-  },
-];
+interface ErrorStateProps {
+  error: string;
+  onRetry: () => void;
+}
+
+function ErrorState({ error, onRetry }: ErrorStateProps) {
+  return (
+    <Card className="p-3 md:p-6 lg:p-8">
+      <div className="flex flex-col items-center justify-center py-12 text-center">
+        <AlertCircle className="h-12 w-12 text-destructive mb-4" />
+        <h3 className="text-lg font-semibold mb-2">Terjadi Kesalahan</h3>
+        <p className="text-muted-foreground mb-6">{error}</p>
+        <Button onClick={onRetry} variant="outline" className="gap-2">
+          <RefreshCw className="h-4 w-4" />
+          Coba Lagi
+        </Button>
+      </div>
+    </Card>
+  );
+}
+
+// ========================================
+// MAIN PAGE COMPONENT
+// ========================================
 
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [roles, setRoles] = useState<Role[]>([]);
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [buildings, setBuildings] = useState<Building[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  // Dialog States
+  // Form state
   const [isFormOpen, setIsFormOpen] = useState(false);
-  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [formMode, setFormMode] = useState<"create" | "edit">("create");
 
-  useEffect(() => {
-    // Simulate API call
-    setTimeout(() => {
-      setUsers(MOCK_USERS);
-      setLoading(false);
-    }, 300);
+  // Prevent double fetch in React Strict Mode
+  const hasFetchedRef = useRef(false);
+
+  const fetchData = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      // Fetch users and master data in parallel
+      const [usersResult, masterData] = await Promise.all([
+        getUsers(),
+        getMasterDataForUsers(),
+      ]);
+
+      if (usersResult.success) {
+        setUsers(usersResult.data);
+        setRoles(masterData.roles);
+        setCompanies(masterData.companies);
+        setBuildings(masterData.buildings);
+      } else {
+        setError(usersResult.error);
+      }
+    } catch (err) {
+      console.error("[FETCH_USERS_ERROR]", err);
+      setError("Gagal mengambil data pengguna");
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
+
+  // Initial data fetch
+  useEffect(() => {
+    if (!hasFetchedRef.current) {
+      hasFetchedRef.current = true;
+      void fetchData();
+    }
+  }, [fetchData]);
 
   const handleAdd = () => {
     setFormMode("create");
@@ -109,133 +131,181 @@ export default function UsersPage() {
     setIsFormOpen(true);
   };
 
-  const handleDeleteClick = (user: User) => {
-    setSelectedUser(user);
-    setIsDeleteOpen(true);
-  };
+  const handleFormSubmit = async (data: {
+    username: string;
+    displayName: string;
+    email: string;
+    nik?: string;
+    status: boolean;
+    roleIds: string[];
+    companyIds: string[];
+    buildingIds: string[];
+  }) => {
+    try {
+      let result;
 
-  const handleFormSubmit = (data: UserFormData) => {
-    if (formMode === "create") {
-      const newUser: User = {
-        id: Math.random().toString(36).substr(2, 9),
-        ...data,
-      };
-      setUsers([...users, newUser]);
-      toast.success("Pengguna berhasil dibuat");
-    } else {
-      if (!selectedUser) return;
-      const updatedUsers = users.map((u) =>
-        u.id === selectedUser.id ? { ...u, ...data } : u
-      );
-      setUsers(updatedUsers);
-      toast.success("Pengguna berhasil diperbarui");
+      if (formMode === "create") {
+        // Create user
+        result = await createUser({
+          username: data.username,
+          displayName: data.displayName,
+          email: data.email,
+          nik: data.nik || null,
+          avatarUrl: null,
+          status: data.status,
+        });
+
+        if (result.success) {
+          const userId = result.data.id;
+
+          // Assign roles
+          if (data.roleIds.length > 0) {
+            await assignRoles({
+              userId,
+              roles: data.roleIds.map((roleId) => ({
+                roleId,
+                companyId: null,
+              })),
+            });
+          }
+
+          // Assign companies
+          if (data.companyIds.length > 0) {
+            await assignCompanies({
+              userId,
+              companyIds: data.companyIds,
+            });
+          }
+
+          // Assign buildings
+          if (data.buildingIds.length > 0) {
+            await assignBuildings({
+              userId,
+              buildingIds: data.buildingIds,
+            });
+          }
+
+          toast.success("Pengguna berhasil dibuat");
+        } else {
+          toast.error(result.error);
+          return;
+        }
+      } else {
+        // Update user
+        if (!selectedUser) return;
+
+        result = await updateUser(selectedUser.id, {
+          username: data.username,
+          displayName: data.displayName,
+          email: data.email,
+          nik: data.nik || null,
+          avatarUrl: null,
+          status: data.status,
+        });
+
+        if (result.success) {
+          const userId = selectedUser.id;
+
+          // Update roles
+          await assignRoles({
+            userId,
+            roles: data.roleIds.map((roleId) => ({ roleId, companyId: null })),
+          });
+
+          // Update companies
+          await assignCompanies({
+            userId,
+            companyIds: data.companyIds,
+          });
+
+          // Update buildings
+          await assignBuildings({
+            userId,
+            buildingIds: data.buildingIds,
+          });
+
+          toast.success("Pengguna berhasil diperbarui");
+        } else {
+          toast.error(result.error);
+          return;
+        }
+      }
+
+      // Refresh data
+      await fetchData();
+      setIsFormOpen(false);
+    } catch (err) {
+      console.error("[FORM_SUBMIT_ERROR]", err);
+      toast.error("Terjadi kesalahan saat menyimpan data");
     }
-    setIsFormOpen(false);
   };
 
-  const handleConfirmDelete = () => {
-    if (!selectedUser) return;
-    const updatedUsers = users.filter((u) => u.id !== selectedUser.id);
-    setUsers(updatedUsers);
-    setIsDeleteOpen(false);
-    toast.success("Pengguna berhasil dihapus");
+  const handleDelete = async (user: User) => {
+    const result = await deleteUser(user.id);
+
+    if (result.success) {
+      toast.success(`Pengguna "${user.displayName}" berhasil dihapus`);
+      await fetchData();
+    } else {
+      toast.error(result.error);
+    }
   };
 
-  // Maps for displaying names in columns
-  const roleMap = MOCK_ROLES.reduce(
-    (acc, r) => ({ ...acc, [r.id]: r.name }),
-    {}
-  );
-  const companyMap = MOCK_COMPANIES.reduce(
-    (acc, c) => ({ ...acc, [c.id]: c.name }),
-    {}
-  );
-  const buildingMap = MOCK_BUILDINGS.reduce(
-    (acc, b) => ({ ...acc, [b.id]: b.name }),
-    {}
-  );
-
-  const columns = getColumns({
-    onEdit: handleEdit,
-    onDelete: handleDeleteClick,
-    roleMap,
-    companyMap,
-    buildingMap,
-  });
-
-  if (loading) {
-    return (
-      <Card className="p-3 md:p-6 lg:p-8">
-        <div className="space-y-6">
-          <div className="flex justify-between items-center">
-            <Skeleton className="h-8 w-48" />
-            <Skeleton className="h-10 w-32" />
-          </div>
-          <Skeleton className="h-[400px] w-full rounded-xl" />
-        </div>
-      </Card>
-    );
+  // Loading state
+  if (isLoading) {
+    return <LoadingState />;
   }
 
+  // Error state
+  if (error) {
+    return <ErrorState error={error} onRetry={fetchData} />;
+  }
+
+  // Success state - render table
   return (
-    <Card className="p-3 md:p-6 lg:p-8">
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-              <Users className="h-6 w-6" /> Manajemen Pengguna
-            </h1>
-            <p className="text-muted-foreground mt-1">
-              Kelola data pengguna, hak akses, dan status akun.
-            </p>
+    <>
+      <Card className="p-3 md:p-6 lg:p-8">
+        <div className="space-y-6">
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <div className="flex items-center gap-2 text-foreground/90">
+                <Users className="size-6" />
+                <h2 className="text-3xl font-bold tracking-tight">
+                  Manajemen Pengguna
+                </h2>
+              </div>
+              <p className="text-muted-foreground mt-1.5">
+                Kelola data pengguna, hak akses, dan status akun
+              </p>
+            </div>
+
+            <Button onClick={handleAdd} className="gap-2 shadow-sm">
+              <Plus className="h-4 w-4" /> Tambah Pengguna
+            </Button>
           </div>
-          <Button onClick={handleAdd} className="gap-2">
-            <Plus className="h-4 w-4" /> Tambah Pengguna
-          </Button>
+
+          {/* Data Table */}
+          <UsersTable
+            users={users}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            onDataChange={fetchData}
+          />
         </div>
+      </Card>
 
-        {/* DataTable */}
-        <DataTable
-          columns={columns}
-          data={users}
-          searchKey="name"
-          searchPlaceholder="Cari nama pengguna..."
-        />
-
-        <UserForm
-          isOpen={isFormOpen}
-          onClose={() => setIsFormOpen(false)}
-          onSubmit={handleFormSubmit}
-          initialData={selectedUser || undefined}
-          roles={MOCK_ROLES}
-          companies={MOCK_COMPANIES}
-          buildings={MOCK_BUILDINGS}
-          mode={formMode}
-        />
-
-        <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Hapus Pengguna?</AlertDialogTitle>
-              <AlertDialogDescription>
-                Apakah Anda yakin ingin menghapus pengguna{" "}
-                <b>{selectedUser?.name}</b>? Tindakan ini tidak dapat
-                dibatalkan.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Batal</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={handleConfirmDelete}
-                className="bg-destructive hover:bg-destructive/90"
-              >
-                Hapus
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      </div>
-    </Card>
+      {/* Form Dialog */}
+      <UserForm
+        isOpen={isFormOpen}
+        onClose={() => setIsFormOpen(false)}
+        onSubmit={handleFormSubmit}
+        initialData={selectedUser ?? undefined}
+        roles={roles}
+        companies={companies}
+        buildings={buildings}
+        mode={formMode}
+      />
+    </>
   );
 }

@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { User } from "./types";
+import { User, Role, Company, Building } from "./types";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
@@ -39,24 +39,22 @@ import {
   CheckCircle2,
   XCircle,
 } from "lucide-react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { Switch } from "@/components/ui/switch";
 
 const formSchema = z.object({
-  name: z.string().min(1, "Nama wajib diisi"),
-  nik: z.string().min(1, "NIK wajib diisi"),
+  username: z
+    .string()
+    .min(3, "Username minimal 3 karakter")
+    .regex(/^[A-Z0-9]+$/i, "Username hanya boleh huruf dan angka"),
+  displayName: z.string().min(3, "Nama minimal 3 karakter"),
+  nik: z.string().optional(),
   email: z.string().email("Email tidak valid"),
-  roles: z.array(z.string()).min(1, "Minimal pilih satu role"),
-  companyAccess: z.array(z.string()),
-  buildingAccess: z.array(z.string()),
-  status: z.enum(["active", "inactive"]),
+  roleIds: z.array(z.string()).min(1, "Minimal pilih satu role"),
+  companyIds: z.array(z.string()),
+  buildingIds: z.array(z.string()),
+  status: z.boolean(),
 });
 
 export type UserFormData = z.infer<typeof formSchema>;
@@ -65,10 +63,10 @@ interface UserFormProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (data: UserFormData) => void;
-  initialData?: User;
-  roles: { id: string; name: string }[];
-  companies: { id: string; name: string }[];
-  buildings: { id: string; name: string }[];
+  initialData?: User | null;
+  roles: Role[];
+  companies: Company[];
+  buildings: Building[];
   mode: "create" | "edit";
 }
 
@@ -85,13 +83,14 @@ export function UserForm({
   const form = useForm<UserFormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      name: "",
+      username: "",
+      displayName: "",
       nik: "",
       email: "",
-      roles: [],
-      companyAccess: [],
-      buildingAccess: [],
-      status: "active",
+      roleIds: [],
+      companyIds: [],
+      buildingIds: [],
+      status: true,
     },
   });
 
@@ -103,23 +102,25 @@ export function UserForm({
     if (isOpen) {
       if (initialData) {
         form.reset({
-          name: initialData.name,
-          nik: initialData.nik,
+          username: initialData.username,
+          displayName: initialData.displayName,
+          nik: initialData.nik || "",
           email: initialData.email,
-          roles: initialData.roles,
-          companyAccess: initialData.companyAccess,
-          buildingAccess: initialData.buildingAccess,
+          roleIds: initialData.userRoles.map((ur) => ur.roleId),
+          companyIds: initialData.userCompanies.map((uc) => uc.companyId),
+          buildingIds: initialData.userBuildings.map((ub) => ub.buildingId),
           status: initialData.status,
         });
       } else {
         form.reset({
-          name: "",
+          username: "",
+          displayName: "",
           nik: "",
           email: "",
-          roles: [],
-          companyAccess: [],
-          buildingAccess: [],
-          status: "active",
+          roleIds: [],
+          companyIds: [],
+          buildingIds: [],
+          status: true,
         });
       }
       setActiveTab("profile");
@@ -139,9 +140,9 @@ export function UserForm({
     b.name.toLowerCase().includes(buildingSearch.toLowerCase())
   );
 
-  const selectedRolesCount = form.watch("roles").length;
-  const selectedCompaniesCount = form.watch("companyAccess").length;
-  const selectedBuildingsCount = form.watch("buildingAccess").length;
+  const selectedRolesCount = form.watch("roleIds").length;
+  const selectedCompaniesCount = form.watch("companyIds").length;
+  const selectedBuildingsCount = form.watch("buildingIds").length;
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -213,6 +214,30 @@ export function UserForm({
                   <div className="grid grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
+                      name="username"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel className="text-xs font-medium">
+                            Username <span className="text-destructive">*</span>
+                          </FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="Contoh: D12345"
+                              className="h-9 uppercase"
+                              {...field}
+                              onChange={(e) =>
+                                field.onChange(e.target.value.toUpperCase())
+                              }
+                              disabled={mode === "edit"}
+                            />
+                          </FormControl>
+                          <FormMessage className="text-xs" />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
                       name="nik"
                       render={({ field }) => (
                         <FormItem>
@@ -230,27 +255,28 @@ export function UserForm({
                         </FormItem>
                       )}
                     />
-
-                    <FormField
-                      control={form.control}
-                      name="name"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs font-medium">
-                            Nama Lengkap
-                          </FormLabel>
-                          <FormControl>
-                            <Input
-                              placeholder="Nama lengkap pengguna"
-                              className="h-9"
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage className="text-xs" />
-                        </FormItem>
-                      )}
-                    />
                   </div>
+
+                  <FormField
+                    control={form.control}
+                    name="displayName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs font-medium">
+                          Nama Lengkap{" "}
+                          <span className="text-destructive">*</span>
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="Nama lengkap pengguna"
+                            className="h-9"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage className="text-xs" />
+                      </FormItem>
+                    )}
+                  />
 
                   <FormField
                     control={form.control}
@@ -258,7 +284,7 @@ export function UserForm({
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel className="text-xs font-medium">
-                          Email
+                          Email <span className="text-destructive">*</span>
                         </FormLabel>
                         <FormControl>
                           <div className="relative">
@@ -288,38 +314,40 @@ export function UserForm({
                     control={form.control}
                     name="status"
                     render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-xs font-medium">
-                          Status
-                        </FormLabel>
-                        <Select
-                          onValueChange={field.onChange}
-                          defaultValue={field.value}
-                        >
-                          <FormControl>
-                            <SelectTrigger className="h-9">
-                              <SelectValue placeholder="Pilih status" />
-                            </SelectTrigger>
-                          </FormControl>
-                          <SelectContent>
-                            <SelectItem value="active">
-                              <div className="flex items-center gap-2">
-                                <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600" />
-                                <span>Aktif</span>
-                              </div>
-                            </SelectItem>
-                            <SelectItem value="inactive">
-                              <div className="flex items-center gap-2">
-                                <XCircle className="h-3.5 w-3.5 text-rose-600" />
-                                <span>Non-aktif</span>
-                              </div>
-                            </SelectItem>
-                          </SelectContent>
-                        </Select>
-                        <FormDescription className="text-xs">
-                          Pengguna non-aktif tidak dapat login ke sistem
-                        </FormDescription>
-                        <FormMessage className="text-xs" />
+                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
+                        <div className="space-y-0.5">
+                          <FormLabel className="text-sm font-medium">
+                            Status Aktif
+                          </FormLabel>
+                          <FormDescription className="text-xs">
+                            Pengguna non-aktif tidak dapat login ke sistem
+                          </FormDescription>
+                        </div>
+                        <FormControl>
+                          <div className="flex items-center gap-2">
+                            {field.value ? (
+                              <Badge
+                                variant="outline"
+                                className="bg-emerald-100 text-emerald-700 border-emerald-200"
+                              >
+                                <CheckCircle2 className="h-3 w-3 mr-1" />
+                                Aktif
+                              </Badge>
+                            ) : (
+                              <Badge
+                                variant="outline"
+                                className="bg-slate-100 text-slate-700 border-slate-200"
+                              >
+                                <XCircle className="h-3 w-3 mr-1" />
+                                Non-Aktif
+                              </Badge>
+                            )}
+                            <Switch
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                            />
+                          </div>
+                        </FormControl>
                       </FormItem>
                     )}
                   />
@@ -347,14 +375,14 @@ export function UserForm({
                   <div className="border rounded-lg p-4 bg-muted/30">
                     <FormField
                       control={form.control}
-                      name="roles"
+                      name="roleIds"
                       render={() => (
                         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                           {roles.map((role) => (
                             <FormField
                               key={role.id}
                               control={form.control}
-                              name="roles"
+                              name="roleIds"
                               render={({ field }) => {
                                 const isChecked = field.value?.includes(
                                   role.id
@@ -436,14 +464,14 @@ export function UserForm({
                       <div className="space-y-2">
                         <FormField
                           control={form.control}
-                          name="companyAccess"
+                          name="companyIds"
                           render={() => (
                             <>
                               {filteredCompanies.map((company) => (
                                 <FormField
                                   key={company.id}
                                   control={form.control}
-                                  name="companyAccess"
+                                  name="companyIds"
                                   render={({ field }) => {
                                     const isChecked = field.value?.includes(
                                       company.id
@@ -529,14 +557,14 @@ export function UserForm({
                       <div className="space-y-2">
                         <FormField
                           control={form.control}
-                          name="buildingAccess"
+                          name="buildingIds"
                           render={() => (
                             <>
                               {filteredBuildings.map((building) => (
                                 <FormField
                                   key={building.id}
                                   control={form.control}
-                                  name="buildingAccess"
+                                  name="buildingIds"
                                   render={({ field }) => {
                                     const isChecked = field.value?.includes(
                                       building.id

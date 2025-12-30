@@ -45,13 +45,14 @@ model RolePermission {
 // ========================================
 
 model Company {
-  id        String     @id @default(cuid())
-  code      String     @unique
-  name      String
-  status    Boolean    @default(true)
-  userRoles UserRole[]
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  id            String        @id @default(cuid())
+  code          String        @unique
+  name          String
+  status        Boolean       @default(true)
+  userRoles     UserRole[]
+  userCompanies UserCompany[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 }
 
 model Area {
@@ -163,44 +164,86 @@ model RoomType {
 // USER ACCESS MODELS
 // ========================================
 
+// Central User Table
+model User {
+  id          String  @id @default(cuid())
+  username    String  @unique // From Keycloak (preferred_username)
+  usernameKey String  @unique // Lowercase for case-insensitive search
+  displayName String
+  email       String  @unique
+  nik         String? @unique // Employee ID / NIK
+  avatarUrl   String?
+
+  status    Boolean   @default(true) // active/inactive
+  lastLogin DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  userRoles     UserRole[]
+  userCompanies UserCompany[]
+  userBuildings UserBuilding[]
+
+  @@index([usernameKey])
+  @@index([email])
+  @@index([nik])
+  @@index([status])
+}
+
+// User Role Assignment (with optional company scope)
 model UserRole {
   id String @id @default(cuid())
 
-  username    String
-  usernameKey String
-  displayName String
-  email       String
-
+  userId    String
   roleId    String
-  companyId String?
+  companyId String? // Optional: Role scoped to specific company
 
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   role    Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
   company Company? @relation(fields: [companyId], references: [id], onDelete: SetNull)
 
   assignedAt DateTime @default(now())
   updatedAt  DateTime @updatedAt
 
-  @@unique([usernameKey, roleId, companyId])
-  @@index([usernameKey])
-  @@index([email])
+  @@unique([userId, roleId, companyId])
+  @@index([userId])
+  @@index([roleId])
+  @@index([companyId])
 }
 
+// User Company Access
+model UserCompany {
+  id String @id @default(cuid())
+
+  userId    String
+  companyId String
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  grantedAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, companyId])
+  @@index([userId])
+  @@index([companyId])
+}
+
+// User Building Access
 model UserBuilding {
   id String @id @default(cuid())
 
-  username    String
-  usernameKey String
-  displayName String
-  email       String
-
+  userId     String
   buildingId String
 
+  user     User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   building Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
 
   grantedAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([usernameKey, buildingId])
-  @@index([usernameKey])
-  @@index([email])
+  @@unique([userId, buildingId])
+  @@index([userId])
+  @@index([buildingId])
 }

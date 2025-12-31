@@ -10,15 +10,11 @@ import { toast } from "sonner";
 import { UserForm } from "./_components/user-form";
 import { User, Role, Company, Building } from "./_components/types";
 import {
-  getUsers,
-  createUser,
-  updateUser,
   deleteUser,
-  assignRoles,
-  assignCompanies,
-  assignBuildings,
+  getDataForUsersPage,
+  createCompleteUser,
+  updateCompleteUser,
 } from "./_actions/users.actions";
-import { getMasterDataForUsers } from "./_actions/master-data.actions";
 import { UsersTable } from "./_components/users-table";
 
 // ========================================
@@ -81,42 +77,42 @@ export default function UsersPage() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [formMode, setFormMode] = useState<"create" | "edit">("create");
 
-  // Prevent double fetch in React Strict Mode
-  const hasFetchedRef = useRef(false);
+  // ✅ Use ref to prevent double fetch in Strict Mode
+  const isFetching = useRef(false);
 
+  // ✅ Fetch function with deduplication
   const fetchData = useCallback(async () => {
+    // Skip if already fetching
+    if (isFetching.current) return;
+    isFetching.current = true;
+
+    setIsLoading(true);
+    setError(null);
+
     try {
-      setIsLoading(true);
-      setError(null);
+      // Single server action request
+      const result = await getDataForUsersPage();
 
-      // Fetch users and master data in parallel
-      const [usersResult, masterData] = await Promise.all([
-        getUsers(),
-        getMasterDataForUsers(),
-      ]);
-
-      if (usersResult.success) {
-        setUsers(usersResult.data);
-        setRoles(masterData.roles);
-        setCompanies(masterData.companies);
-        setBuildings(masterData.buildings);
+      if (result.success && result.data) {
+        setUsers(result.data.users);
+        setRoles(result.data.roles);
+        setCompanies(result.data.companies);
+        setBuildings(result.data.buildings);
       } else {
-        setError(usersResult.error);
+        setError(result.error || "Gagal mengambil data");
       }
     } catch (err) {
       console.error("[FETCH_USERS_ERROR]", err);
       setError("Gagal mengambil data pengguna");
     } finally {
       setIsLoading(false);
+      isFetching.current = false;
     }
   }, []);
 
-  // Initial data fetch
+  // ✅ Fetch on mount
   useEffect(() => {
-    if (!hasFetchedRef.current) {
-      hasFetchedRef.current = true;
-      void fetchData();
-    }
+    fetchData();
   }, [fetchData]);
 
   const handleAdd = () => {
@@ -145,85 +141,42 @@ export default function UsersPage() {
       let result;
 
       if (formMode === "create") {
-        // Create user
-        result = await createUser({
+        // Create user with all relations
+        result = await createCompleteUser({
           username: data.username,
           displayName: data.displayName,
           email: data.email,
           nik: data.nik || null,
           avatarUrl: null,
           status: data.status,
+          roleIds: data.roleIds,
+          companyIds: data.companyIds,
+          buildingIds: data.buildingIds,
         });
 
         if (result.success) {
-          const userId = result.data.id;
-
-          // Assign roles
-          if (data.roleIds.length > 0) {
-            await assignRoles({
-              userId,
-              roles: data.roleIds.map((roleId) => ({
-                roleId,
-                companyId: null,
-              })),
-            });
-          }
-
-          // Assign companies
-          if (data.companyIds.length > 0) {
-            await assignCompanies({
-              userId,
-              companyIds: data.companyIds,
-            });
-          }
-
-          // Assign buildings
-          if (data.buildingIds.length > 0) {
-            await assignBuildings({
-              userId,
-              buildingIds: data.buildingIds,
-            });
-          }
-
           toast.success("Pengguna berhasil dibuat");
         } else {
           toast.error(result.error);
           return;
         }
       } else {
-        // Update user
+        // Update user with all relations
         if (!selectedUser) return;
 
-        result = await updateUser(selectedUser.id, {
+        result = await updateCompleteUser(selectedUser.id, {
           username: data.username,
           displayName: data.displayName,
           email: data.email,
           nik: data.nik || null,
           avatarUrl: null,
           status: data.status,
+          roleIds: data.roleIds,
+          companyIds: data.companyIds,
+          buildingIds: data.buildingIds,
         });
 
         if (result.success) {
-          const userId = selectedUser.id;
-
-          // Update roles
-          await assignRoles({
-            userId,
-            roles: data.roleIds.map((roleId) => ({ roleId, companyId: null })),
-          });
-
-          // Update companies
-          await assignCompanies({
-            userId,
-            companyIds: data.companyIds,
-          });
-
-          // Update buildings
-          await assignBuildings({
-            userId,
-            buildingIds: data.buildingIds,
-          });
-
           toast.success("Pengguna berhasil diperbarui");
         } else {
           toast.error(result.error);

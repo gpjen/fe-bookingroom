@@ -11,7 +11,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { signIn, useSession } from "next-auth/react";
 import { Settings, LogOut, User } from "lucide-react";
-import { performLogout } from "@/lib/auth/logout-utils"; // Import the new utility function
+import { performLogout } from "@/lib/auth/logout-utils";
 
 export function UserMenu() {
   const { data: session, status } = useSession();

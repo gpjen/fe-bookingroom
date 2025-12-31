@@ -2,10 +2,52 @@
 
 import { z } from "zod";
 import { prisma } from "@/lib/db";
+import { getMasterData } from "@/app/_actions/master-data.actions";
 
 // ========================================
 // VALIDATION SCHEMAS
 // ========================================
+
+/**
+ * Get all data required for Users Page (Users + Master Data)
+ * Reduces client-server roundtrips to 1
+ */
+export async function getDataForUsersPage() {
+  try {
+    const [usersResult, masterData] = await Promise.all([
+      getUsers(),
+      getMasterData({
+        roles: true,
+        companies: true,
+        buildings: true,
+      }),
+    ]);
+
+    if (!usersResult.success) {
+      return {
+        success: false,
+        error: usersResult.error,
+      };
+    }
+
+    return {
+      success: true,
+      data: {
+        users: usersResult.data,
+        roles: masterData.roles,
+        companies: masterData.companies,
+        buildings: masterData.buildings,
+      },
+    };
+  } catch (error) {
+    console.error("[GET_DATA_FOR_USERS_PAGE_ERROR]", error);
+    return {
+      success: false,
+      error: "Gagal mengambil data halaman pengguna",
+    };
+  }
+}
+
 
 const userSchema = z.object({
   username: z
@@ -651,6 +693,216 @@ export async function toggleUserStatus(
     return {
       success: false,
       error: "Gagal mengubah status pengguna",
+    };
+  }
+}
+
+/**
+ * Create new user with all relations (Roles, Companies, Buildings)
+ * Single Transaction
+ */
+export async function createCompleteUser(
+  input: UserInput & {
+    roleIds: string[];
+    companyIds: string[];
+    buildingIds: string[];
+  }
+): Promise<ActionResponse<User>> {
+  try {
+    // Validate input
+    const validation = userSchema.safeParse(input);
+    if (!validation.success) {
+      const errors = validation.error.issues.map((issue) => issue.message);
+      return {
+        success: false,
+        error: errors.join(", "),
+      };
+    }
+
+    const data = validation.data;
+
+    // Check unique fields
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { username: data.username },
+          { email: data.email },
+          { nik: data.nik || undefined },
+        ],
+      },
+    });
+
+    if (existingUser) {
+      if (existingUser.username === data.username)
+        return { success: false, error: "Username sudah digunakan" };
+      if (existingUser.email === data.email)
+        return { success: false, error: "Email sudah digunakan" };
+      if (data.nik && existingUser.nik === data.nik)
+        return { success: false, error: "NIK sudah digunakan" };
+    }
+
+    // Transaction: Create User -> Assign Relations
+    const user = await prisma.$transaction(async (tx) => {
+      // 1. Create User
+      const newUser = await tx.user.create({
+        data: {
+          username: data.username,
+          usernameKey: data.username.toLowerCase(),
+          displayName: data.displayName,
+          email: data.email,
+          nik: data.nik || null,
+          avatarUrl: data.avatarUrl || null,
+          status: data.status,
+          userRoles: {
+            create: input.roleIds.map((roleId) => ({
+              roleId,
+              companyId: null,
+            })),
+          },
+          userCompanies: {
+            create: input.companyIds.map((companyId) => ({
+              companyId,
+            })),
+          },
+          userBuildings: {
+            create: input.buildingIds.map((buildingId) => ({
+              buildingId,
+            })),
+          },
+        },
+        include: {
+          userRoles: { include: { role: true, company: true } },
+          userCompanies: { include: { company: true } },
+          userBuildings: { include: { building: true } },
+        },
+      });
+
+      return newUser;
+    });
+
+    return { success: true, data: user };
+  } catch (error) {
+    console.error("[CREATE_COMPLETE_USER_ERROR]", error);
+    return {
+      success: false,
+      error: "Gagal membuat pengguna",
+    };
+  }
+}
+
+/**
+ * Update user with all relations (Roles, Companies, Buildings)
+ * Single Transaction
+ */
+export async function updateCompleteUser(
+  id: string,
+  input: UserInput & {
+    roleIds: string[];
+    companyIds: string[];
+    buildingIds: string[];
+  }
+): Promise<ActionResponse<User>> {
+  try {
+    // Validate input
+    const validation = userSchema.safeParse(input);
+    if (!validation.success) {
+      const errors = validation.error.issues.map((issue) => issue.message);
+      return {
+        success: false,
+        error: errors.join(", "),
+      };
+    }
+
+    const data = validation.data;
+
+    // Check unique fields (excluding current user)
+    const existingUser = await prisma.user.findFirst({
+      where: {
+        id: { not: id },
+        OR: [
+          { username: data.username },
+          { email: data.email },
+          { nik: data.nik || undefined },
+        ],
+      },
+    });
+
+    if (existingUser) {
+      if (existingUser.username === data.username)
+        return { success: false, error: "Username sudah digunakan" };
+      if (existingUser.email === data.email)
+        return { success: false, error: "Email sudah digunakan" };
+      if (data.nik && existingUser.nik === data.nik)
+        return { success: false, error: "NIK sudah digunakan" };
+    }
+
+    // Transaction: Update User -> Reset & Assign Relations
+    const user = await prisma.$transaction(async (tx) => {
+      // 1. Update Basic Info
+      await tx.user.update({
+        where: { id },
+        data: {
+          username: data.username,
+          usernameKey: data.username.toLowerCase(),
+          displayName: data.displayName,
+          email: data.email,
+          nik: data.nik || null,
+          avatarUrl: data.avatarUrl || null,
+          status: data.status,
+        },
+      });
+
+      // 2. Update Roles (Delete All -> Create New)
+      await tx.userRole.deleteMany({ where: { userId: id } });
+      if (input.roleIds.length > 0) {
+        await tx.userRole.createMany({
+          data: input.roleIds.map((roleId) => ({
+            userId: id,
+            roleId,
+            companyId: null,
+          })),
+        });
+      }
+
+      // 3. Update Companies (Delete All -> Create New)
+      await tx.userCompany.deleteMany({ where: { userId: id } });
+      if (input.companyIds.length > 0) {
+        await tx.userCompany.createMany({
+          data: input.companyIds.map((companyId) => ({
+            userId: id,
+            companyId,
+          })),
+        });
+      }
+
+      // 4. Update Buildings (Delete All -> Create New)
+      await tx.userBuilding.deleteMany({ where: { userId: id } });
+      if (input.buildingIds.length > 0) {
+        await tx.userBuilding.createMany({
+          data: input.buildingIds.map((buildingId) => ({
+            userId: id,
+            buildingId,
+          })),
+        });
+      }
+
+      // Return fresh data
+      return await tx.user.findUniqueOrThrow({
+        where: { id },
+        include: {
+          userRoles: { include: { role: true, company: true } },
+          userCompanies: { include: { company: true } },
+          userBuildings: { include: { building: true } },
+        },
+      });
+    });
+
+    return { success: true, data: user };
+  } catch (error) {
+    console.error("[UPDATE_COMPLETE_USER_ERROR]", error);
+    return {
+      success: false,
+      error: "Gagal memperbarui pengguna",
     };
   }
 }

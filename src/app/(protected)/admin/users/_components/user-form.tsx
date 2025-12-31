@@ -8,10 +8,10 @@ import * as z from "zod";
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog";
 import {
   Form,
@@ -20,28 +20,20 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-  FormDescription,
 } from "@/components/ui/form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { User, Role, Company, Building } from "./types";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  Search,
-  UserCircle,
-  Shield,
-  Building2,
-  Mail,
-  IdCard,
-  CheckCircle2,
-  XCircle,
-} from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
-import { Switch } from "@/components/ui/switch";
+import { Search } from "lucide-react";
 
 const formSchema = z.object({
   username: z
@@ -96,7 +88,8 @@ export function UserForm({
 
   const [companySearch, setCompanySearch] = useState("");
   const [buildingSearch, setBuildingSearch] = useState("");
-  const [activeTab, setActiveTab] = useState("profile");
+
+  const isEditing = mode === "edit";
 
   useEffect(() => {
     if (isOpen) {
@@ -123,7 +116,6 @@ export function UserForm({
           status: true,
         });
       }
-      setActiveTab("profile");
     }
   }, [isOpen, initialData, form]);
 
@@ -140,492 +132,323 @@ export function UserForm({
     b.name.toLowerCase().includes(buildingSearch.toLowerCase())
   );
 
-  const selectedRolesCount = form.watch("roleIds").length;
-  const selectedCompaniesCount = form.watch("companyIds").length;
-  const selectedBuildingsCount = form.watch("buildingIds").length;
-
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[900px] h-[85vh] flex flex-col p-0">
-        <DialogHeader className="px-6 pt-6 pb-4 border-b bg-muted/30">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center h-10 w-10 rounded-lg bg-primary/10">
-              <UserCircle className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <DialogTitle className="text-xl">
-                {mode === "create" ? "Tambah Pengguna Baru" : "Edit Pengguna"}
-              </DialogTitle>
-              <DialogDescription className="text-xs mt-0.5">
-                {mode === "create"
-                  ? "Isi formulir berikut untuk menambahkan pengguna baru"
-                  : "Perbarui informasi pengguna dan hak akses"}
-              </DialogDescription>
-            </div>
-          </div>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="text-xl font-semibold">
+            {isEditing ? "Edit Pengguna" : "Tambah Pengguna Baru"}
+          </DialogTitle>
+          <DialogDescription>
+            Lengkapi informasi pengguna di bawah ini.
+          </DialogDescription>
         </DialogHeader>
 
         <Form {...form}>
           <form
             onSubmit={form.handleSubmit(handleSubmit)}
-            className="flex flex-col flex-1 overflow-hidden"
+            className="space-y-6"
           >
-            <Tabs
-              value={activeTab}
-              onValueChange={setActiveTab}
-              className="flex-1 flex flex-col overflow-hidden"
-            >
-              <div className="px-6 pt-3 pb-2 border-b bg-background">
-                <TabsList className="grid w-full max-w-[400px] grid-cols-2">
-                  <TabsTrigger value="profile" className="gap-2 text-xs">
-                    <UserCircle className="h-3.5 w-3.5" />
-                    Profil & Akun
-                  </TabsTrigger>
-                  <TabsTrigger value="access" className="gap-2 text-xs">
-                    <Shield className="h-3.5 w-3.5" />
-                    Hak Akses
-                    {(selectedRolesCount > 0 ||
-                      selectedCompaniesCount > 0 ||
-                      selectedBuildingsCount > 0) && (
-                      <Badge
-                        variant="secondary"
-                        className="h-4 text-[10px] px-1 ml-1"
-                      >
-                        {selectedRolesCount +
-                          selectedCompaniesCount +
-                          selectedBuildingsCount}
-                      </Badge>
-                    )}
-                  </TabsTrigger>
-                </TabsList>
+            {/* 1. INFORMASI UTAMA - Vertical Stack like CompaniesForm */}
+            <div className="space-y-4">
+              <h3 className="text-sm font-medium border-b pb-2 text-muted-foreground">
+                Informasi Utama
+              </h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="username"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        Username <span className="text-destructive">*</span>
+                      </FormLabel>
+                      <FormControl>
+                        <Input
+                          placeholder="Contoh: USER001"
+                          {...field}
+                          onChange={(e) =>
+                            field.onChange(e.target.value.toUpperCase())
+                          }
+                          disabled={isEditing}
+                          className="font-mono"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="nik"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>NIK</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Contoh: 2024001" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </div>
 
-              <TabsContent
-                value="profile"
-                className="flex-1 overflow-y-auto px-6 py-4 space-y-5 mt-0"
-              >
-                {/* Basic Info Section */}
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2 pb-2 border-b">
-                    <IdCard className="h-4 w-4 text-muted-foreground" />
-                    <h3 className="text-sm font-semibold">Informasi Dasar</h3>
-                  </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="displayName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        Nama Lengkap <span className="text-destructive">*</span>
+                      </FormLabel>
+                      <FormControl>
+                        <Input placeholder="Masukkan nama lengkap" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
 
-                  <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="username"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs font-medium">
-                            Username <span className="text-destructive">*</span>
-                          </FormLabel>
-                          <FormControl>
-                            <Input
-                              placeholder="Contoh: D12345"
-                              className="h-9 uppercase"
-                              {...field}
-                              onChange={(e) =>
-                                field.onChange(e.target.value.toUpperCase())
-                              }
-                              disabled={mode === "edit"}
-                            />
-                          </FormControl>
-                          <FormMessage className="text-xs" />
-                        </FormItem>
-                      )}
-                    />
-
-                    <FormField
-                      control={form.control}
-                      name="nik"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel className="text-xs font-medium">
-                            NIK
-                          </FormLabel>
-                          <FormControl>
-                            <Input
-                              placeholder="Contoh: EMP001"
-                              className="h-9"
-                              {...field}
-                            />
-                          </FormControl>
-                          <FormMessage className="text-xs" />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
-
-                  <FormField
-                    control={form.control}
-                    name="displayName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-xs font-medium">
-                          Nama Lengkap{" "}
-                          <span className="text-destructive">*</span>
-                        </FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="Nama lengkap pengguna"
-                            className="h-9"
-                            {...field}
-                          />
-                        </FormControl>
-                        <FormMessage className="text-xs" />
-                      </FormItem>
-                    )}
-                  />
-
-                  <FormField
-                    control={form.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-xs font-medium">
-                          Email <span className="text-destructive">*</span>
-                        </FormLabel>
-                        <FormControl>
-                          <div className="relative">
-                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                            <Input
-                              type="email"
-                              placeholder="email@perusahaan.com"
-                              className="h-9 pl-9"
-                              {...field}
-                            />
-                          </div>
-                        </FormControl>
-                        <FormMessage className="text-xs" />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-
-                {/* Status Section */}
-                <div className="space-y-4">
-                  <div className="flex items-center gap-2 pb-2 border-b">
-                    <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
-                    <h3 className="text-sm font-semibold">Status Akun</h3>
-                  </div>
-
-                  <FormField
-                    control={form.control}
-                    name="status"
-                    render={({ field }) => (
-                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                        <div className="space-y-0.5">
-                          <FormLabel className="text-sm font-medium">
-                            Status Aktif
-                          </FormLabel>
-                          <FormDescription className="text-xs">
-                            Pengguna non-aktif tidak dapat login ke sistem
-                          </FormDescription>
-                        </div>
-                        <FormControl>
-                          <div className="flex items-center gap-2">
-                            {field.value ? (
-                              <Badge
-                                variant="outline"
-                                className="bg-emerald-100 text-emerald-700 border-emerald-200"
-                              >
-                                <CheckCircle2 className="h-3 w-3 mr-1" />
-                                Aktif
-                              </Badge>
-                            ) : (
-                              <Badge
-                                variant="outline"
-                                className="bg-slate-100 text-slate-700 border-slate-200"
-                              >
-                                <XCircle className="h-3 w-3 mr-1" />
-                                Non-Aktif
-                              </Badge>
-                            )}
-                            <Switch
-                              checked={field.value}
-                              onCheckedChange={field.onChange}
-                            />
-                          </div>
-                        </FormControl>
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              </TabsContent>
-
-              <TabsContent
-                value="access"
-                className="flex-1 overflow-hidden flex flex-col gap-4 px-6 py-4 mt-0"
-              >
-                {/* Roles Section */}
-                <div className="space-y-3">
-                  <div className="flex items-center justify-between pb-2 border-b">
-                    <div className="flex items-center gap-2">
-                      <Shield className="h-4 w-4 text-muted-foreground" />
-                      <h3 className="text-sm font-semibold">Roles</h3>
-                    </div>
-                    {selectedRolesCount > 0 && (
-                      <Badge variant="secondary" className="text-xs">
-                        {selectedRolesCount} dipilih
-                      </Badge>
-                    )}
-                  </div>
-
-                  <div className="border rounded-lg p-4 bg-muted/30">
-                    <FormField
-                      control={form.control}
-                      name="roleIds"
-                      render={() => (
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                          {roles.map((role) => (
-                            <FormField
-                              key={role.id}
-                              control={form.control}
-                              name="roleIds"
-                              render={({ field }) => {
-                                const isChecked = field.value?.includes(
-                                  role.id
-                                );
-                                return (
-                                  <FormItem
-                                    key={role.id}
-                                    className={cn(
-                                      "flex items-center space-x-2 space-y-0 rounded-md border p-3 transition-colors",
-                                      isChecked
-                                        ? "bg-primary/5 border-primary"
-                                        : "hover:bg-muted/50"
-                                    )}
-                                  >
-                                    <FormControl>
-                                      <Checkbox
-                                        checked={isChecked}
-                                        onCheckedChange={(checked) => {
-                                          return checked
-                                            ? field.onChange([
-                                                ...field.value,
-                                                role.id,
-                                              ])
-                                            : field.onChange(
-                                                field.value?.filter(
-                                                  (value) => value !== role.id
-                                                )
-                                              );
-                                        }}
-                                      />
-                                    </FormControl>
-                                    <FormLabel className="font-normal cursor-pointer text-sm !mt-0">
-                                      {role.name}
-                                    </FormLabel>
-                                  </FormItem>
-                                );
-                              }}
-                            />
-                          ))}
-                        </div>
-                      )}
-                    />
-                    <FormMessage className="text-xs mt-2" />
-                  </div>
-                </div>
-
-                {/* Access Section */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1 min-h-0">
-                  {/* Company Access */}
-                  <div className="flex flex-col border rounded-lg overflow-hidden bg-card">
-                    <div className="p-3 bg-muted/50 border-b">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <Building2 className="h-4 w-4 text-muted-foreground" />
-                          <FormLabel className="text-xs font-semibold !m-0">
-                            Akses Perusahaan
-                          </FormLabel>
-                        </div>
-                        {selectedCompaniesCount > 0 && (
-                          <Badge
-                            variant="secondary"
-                            className="h-4 text-[10px] px-1.5"
-                          >
-                            {selectedCompaniesCount}
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="relative">
-                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <FormField
+                  control={form.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>
+                        Email <span className="text-destructive">*</span>
+                      </FormLabel>
+                      <FormControl>
                         <Input
-                          placeholder="Cari perusahaan..."
-                          className="h-8 pl-8 text-xs"
-                          value={companySearch}
-                          onChange={(e) => setCompanySearch(e.target.value)}
+                          type="email"
+                          placeholder="nama@perusahaan.com"
+                          {...field}
                         />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              {/* Status using Select like CompaniesForm */}
+              <FormField
+                control={form.control}
+                name="status"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      Status <span className="text-destructive">*</span>
+                    </FormLabel>
+                    <Select
+                      onValueChange={(value) =>
+                        field.onChange(value === "true")
+                      }
+                      value={field.value.toString()}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Pilih status" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="true">Aktif</SelectItem>
+                        <SelectItem value="false">Tidak Aktif</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+
+            {/* 2. HAK AKSES (ROLES) */}
+            <div className="space-y-4">
+              <h3 className="text-sm font-medium border-b pb-2 text-muted-foreground">
+                Hak Akses (Role) <span className="text-destructive">*</span>
+              </h3>
+
+              <FormField
+                control={form.control}
+                name="roleIds"
+                render={() => (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                    {roles.map((role) => (
+                      <FormField
+                        key={role.id}
+                        control={form.control}
+                        name="roleIds"
+                        render={({ field }) => {
+                          const isChecked = field.value?.includes(role.id);
+                          return (
+                            <FormItem className="flex items-start space-x-2 space-y-0">
+                              <FormControl>
+                                <Checkbox
+                                  checked={isChecked}
+                                  onCheckedChange={(checked) => {
+                                    if (checked) {
+                                      field.onChange([...field.value, role.id]);
+                                    } else {
+                                      field.onChange(
+                                        field.value?.filter(
+                                          (value) => value !== role.id
+                                        )
+                                      );
+                                    }
+                                  }}
+                                />
+                              </FormControl>
+                              <Label className="font-normal text-sm cursor-pointer leading-none pt-0.5">
+                                {role.name}
+                              </Label>
+                            </FormItem>
+                          );
+                        }}
+                      />
+                    ))}
+                    <FormMessage />
+                  </div>
+                )}
+              />
+            </div>
+
+            {/* 3. CAKUPAN DATA */}
+            <div className="space-y-4">
+              <h3 className="text-sm font-medium border-b pb-2 text-muted-foreground">
+                Cakupan Data
+              </h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
+                {/* Companies */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label>Akses Perusahaan</Label>
+                    <div className="relative w-40">
+                      <div className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
+                        <Search className="h-3 w-3" />
                       </div>
+                      <Input
+                        className="h-7 pl-7 text-xs"
+                        placeholder="Cari..."
+                        value={companySearch}
+                        onChange={(e) => setCompanySearch(e.target.value)}
+                      />
                     </div>
-                    <ScrollArea className="flex-1 p-3">
-                      <div className="space-y-2">
+                  </div>
+                  <div className="border rounded-md h-[250px] overflow-y-auto p-2 bg-muted/5">
+                    <div className="space-y-1">
+                      {filteredCompanies.map((company) => (
                         <FormField
+                          key={company.id}
                           control={form.control}
                           name="companyIds"
-                          render={() => (
-                            <>
-                              {filteredCompanies.map((company) => (
-                                <FormField
-                                  key={company.id}
-                                  control={form.control}
-                                  name="companyIds"
-                                  render={({ field }) => {
-                                    const isChecked = field.value?.includes(
-                                      company.id
-                                    );
-                                    return (
-                                      <FormItem
-                                        key={company.id}
-                                        className={cn(
-                                          "flex items-center space-x-2 space-y-0 rounded-md border p-2 transition-colors",
-                                          isChecked
-                                            ? "bg-primary/5 border-primary"
-                                            : "hover:bg-muted/50"
-                                        )}
-                                      >
-                                        <FormControl>
-                                          <Checkbox
-                                            checked={isChecked}
-                                            onCheckedChange={(checked) => {
-                                              return checked
-                                                ? field.onChange([
-                                                    ...field.value,
-                                                    company.id,
-                                                  ])
-                                                : field.onChange(
-                                                    field.value?.filter(
-                                                      (value) =>
-                                                        value !== company.id
-                                                    )
-                                                  );
-                                            }}
-                                          />
-                                        </FormControl>
-                                        <Label className="font-normal cursor-pointer text-xs flex-1 !mt-0">
-                                          {company.name}
-                                        </Label>
-                                      </FormItem>
-                                    );
+                          render={({ field }) => (
+                            <FormItem className="flex items-center space-x-2 space-y-0 py-1 px-1 hover:bg-muted/50 rounded">
+                              <FormControl>
+                                <Checkbox
+                                  checked={field.value?.includes(company.id)}
+                                  onCheckedChange={(checked) => {
+                                    if (checked) {
+                                      field.onChange([
+                                        ...field.value,
+                                        company.id,
+                                      ]);
+                                    } else {
+                                      field.onChange(
+                                        field.value?.filter(
+                                          (v) => v !== company.id
+                                        )
+                                      );
+                                    }
                                   }}
                                 />
-                              ))}
-                              {filteredCompanies.length === 0 && (
-                                <p className="text-xs text-muted-foreground text-center py-4">
-                                  Tidak ada perusahaan ditemukan
-                                </p>
-                              )}
-                            </>
+                              </FormControl>
+                              <Label className="text-sm font-normal cursor-pointer flex-1 truncate">
+                                {company.name}
+                              </Label>
+                            </FormItem>
                           )}
                         />
-                      </div>
-                    </ScrollArea>
-                  </div>
-
-                  {/* Building Access */}
-                  <div className="flex flex-col border rounded-lg overflow-hidden bg-card">
-                    <div className="p-3 bg-muted/50 border-b">
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center gap-2">
-                          <Building2 className="h-4 w-4 text-muted-foreground" />
-                          <FormLabel className="text-xs font-semibold !m-0">
-                            Akses Gedung
-                          </FormLabel>
-                        </div>
-                        {selectedBuildingsCount > 0 && (
-                          <Badge
-                            variant="secondary"
-                            className="h-4 text-[10px] px-1.5"
-                          >
-                            {selectedBuildingsCount}
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="relative">
-                        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                        <Input
-                          placeholder="Cari gedung..."
-                          className="h-8 pl-8 text-xs"
-                          value={buildingSearch}
-                          onChange={(e) => setBuildingSearch(e.target.value)}
-                        />
-                      </div>
+                      ))}
+                      {filteredCompanies.length === 0 && (
+                        <p className="text-xs text-muted-foreground text-center py-8">
+                          Tidak ada data
+                        </p>
+                      )}
                     </div>
-                    <ScrollArea className="flex-1 p-3">
-                      <div className="space-y-2">
-                        <FormField
-                          control={form.control}
-                          name="buildingIds"
-                          render={() => (
-                            <>
-                              {filteredBuildings.map((building) => (
-                                <FormField
-                                  key={building.id}
-                                  control={form.control}
-                                  name="buildingIds"
-                                  render={({ field }) => {
-                                    const isChecked = field.value?.includes(
-                                      building.id
-                                    );
-                                    return (
-                                      <FormItem
-                                        key={building.id}
-                                        className={cn(
-                                          "flex items-center space-x-2 space-y-0 rounded-md border p-2 transition-colors",
-                                          isChecked
-                                            ? "bg-primary/5 border-primary"
-                                            : "hover:bg-muted/50"
-                                        )}
-                                      >
-                                        <FormControl>
-                                          <Checkbox
-                                            checked={isChecked}
-                                            onCheckedChange={(checked) => {
-                                              return checked
-                                                ? field.onChange([
-                                                    ...field.value,
-                                                    building.id,
-                                                  ])
-                                                : field.onChange(
-                                                    field.value?.filter(
-                                                      (value) =>
-                                                        value !== building.id
-                                                    )
-                                                  );
-                                            }}
-                                          />
-                                        </FormControl>
-                                        <Label className="font-normal cursor-pointer text-xs flex-1 !mt-0">
-                                          {building.name}
-                                        </Label>
-                                      </FormItem>
-                                    );
-                                  }}
-                                />
-                              ))}
-                              {filteredBuildings.length === 0 && (
-                                <p className="text-xs text-muted-foreground text-center py-4">
-                                  Tidak ada gedung ditemukan
-                                </p>
-                              )}
-                            </>
-                          )}
-                        />
-                      </div>
-                    </ScrollArea>
                   </div>
                 </div>
-              </TabsContent>
-            </Tabs>
 
-            <DialogFooter className="shrink-0 px-6 py-4 border-t bg-muted/30">
+                {/* Buildings */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label>Akses Gedung</Label>
+                    <div className="relative w-40">
+                      <div className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground">
+                        <Search className="h-3 w-3" />
+                      </div>
+                      <Input
+                        className="h-7 pl-7 text-xs"
+                        placeholder="Cari..."
+                        value={buildingSearch}
+                        onChange={(e) => setBuildingSearch(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                  <div className="border rounded-md h-[250px] overflow-y-auto p-2 bg-muted/5">
+                    <div className="space-y-1">
+                      {filteredBuildings.map((building) => (
+                        <FormField
+                          key={building.id}
+                          control={form.control}
+                          name="buildingIds"
+                          render={({ field }) => (
+                            <FormItem className="flex items-center space-x-2 space-y-0 py-1 px-1 hover:bg-muted/50 rounded">
+                              <FormControl>
+                                <Checkbox
+                                  checked={field.value?.includes(building.id)}
+                                  onCheckedChange={(checked) => {
+                                    if (checked) {
+                                      field.onChange([
+                                        ...field.value,
+                                        building.id,
+                                      ]);
+                                    } else {
+                                      field.onChange(
+                                        field.value?.filter(
+                                          (v) => v !== building.id
+                                        )
+                                      );
+                                    }
+                                  }}
+                                />
+                              </FormControl>
+                              <Label className="text-sm font-normal cursor-pointer flex-1 truncate">
+                                {building.name}
+                              </Label>
+                            </FormItem>
+                          )}
+                        />
+                      ))}
+                      {filteredBuildings.length === 0 && (
+                        <p className="text-xs text-muted-foreground text-center py-8">
+                          Tidak ada data
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <DialogFooter className="gap-2 pt-4 border-t">
               <Button type="button" variant="outline" onClick={onClose}>
                 Batal
               </Button>
               <Button type="submit">
-                {mode === "create" ? "Tambah Pengguna" : "Simpan Perubahan"}
+                {isEditing ? "Simpan Perubahan" : "Simpan User"}
               </Button>
             </DialogFooter>
           </form>

@@ -1,3 +1,5 @@
+"use client";
+
 import { signOut } from "next-auth/react";
 import { Session } from "next-auth";
 
@@ -9,14 +11,31 @@ export const performLogout = async (session: Session | null) => {
     // Function to selectively clear storage
     const selectivelyClearStorage = (storage: Storage) => {
       const itemsToKeep: { [key: string]: string } = {};
+      
+      // Preserve specific keys
       keysToPreserve.forEach(key => {
         const value = storage.getItem(key);
         if (value !== null) {
           itemsToKeep[key] = value;
         }
       });
-      storage.clear(); // Clear all
-      for (const key in itemsToKeep) { // Restore preserved items
+      
+      // Preserve all sidebar-group-* keys
+      for (let i = 0; i < storage.length; i++) {
+        const key = storage.key(i);
+        if (key && key.startsWith("sidebar-group-")) {
+          const value = storage.getItem(key);
+          if (value !== null) {
+            itemsToKeep[key] = value;
+          }
+        }
+      }
+      
+      // Clear all
+      storage.clear();
+      
+      // Restore preserved items
+      for (const key in itemsToKeep) {
         storage.setItem(key, itemsToKeep[key]);
       }
     };

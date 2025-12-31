@@ -60,8 +60,8 @@ import {
   AppSidebarProps,
   GroupMenuItem as TypesGroupMenuItem,
 } from "@/types/sidebar-types";
-import { performLogout } from "@/lib/auth/logout-utils";
 import { usePermissions } from "@/providers/permissions-provider";
+import { performLogout } from "@/lib/auth/logout-utils";
 
 const menuConfig: MenuItem[] = [
   {

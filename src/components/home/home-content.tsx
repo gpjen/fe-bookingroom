@@ -30,10 +30,7 @@ export default function HomeContent() {
           style={{ backgroundImage: "url('/bg.webp')" }}
           aria-hidden
         />
-        <div
-          className="absolute inset-0 bg-white/60 dark:bg-black/60"
-          aria-hidden
-        />
+        <div className="absolute inset-0 bg-black/60" aria-hidden />
       </div>
       {/* Header Actions */}
       <div className="mx-auto max-w-6xl px-6 pt-6">
@@ -60,7 +57,7 @@ export default function HomeContent() {
           </div>
 
           {/* Headline */}
-          <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight text-foreground dark:text-white">
+          <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight text-white">
             {t("title")}
           </h1>
 
@@ -96,7 +93,7 @@ export default function HomeContent() {
 
             <Link
               href="/bookings"
-              className={`h-14 w-full md:w-[250px] px-8 inline-flex items-center justify-center gap-2 text-lg font-semibold rounded-xl transition-all shadow-lg border-2 border-border text-foreground hover:bg-accent`}
+              className={`h-14 text-white w-full md:w-[250px] px-8 inline-flex items-center justify-center gap-2 text-lg font-semibold rounded-xl transition-all shadow-lg border-2 border-border hover:bg-accent`}
             >
               {t("viewBookings")}
             </Link>

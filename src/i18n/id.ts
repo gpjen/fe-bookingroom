@@ -1,5 +1,5 @@
 const messages = {
-  title: "Sistem Booking Ruangan & Kamar",
+  title: "Sistem Manajemen Ruangan & Kamar",
   desc: "Kelola aset, gedung, kamar, dan pemesanan dengan cepat. Autentikasi aman via SSO.",
   openDashboard: "Buka Dashboard",
   viewBookings: "Lihat Booking",

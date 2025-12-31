@@ -20,12 +20,10 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-  FormDescription,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { Search, Shield } from "lucide-react";
@@ -145,8 +143,8 @@ export function RoleForm({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[700px] h-[85vh] flex flex-col p-0">
-        <DialogHeader className="px-6 pt-6 pb-4">
+      <DialogContent className="w-[95vw] sm:max-w-lg md:max-w-xl lg:max-w-5xl xl:max-w-6xl max-h-[90vh] overflow-y-auto p-0">
+        <DialogHeader className="px-6 py-4 border-b shrink-0 bg-background sticky top-0 z-20">
           <div className="flex items-center gap-3">
             <div className="flex items-center justify-center h-10 w-10 rounded-full bg-primary/10">
               <Shield className="h-5 w-5 text-primary" />
@@ -156,9 +154,7 @@ export function RoleForm({
                 {mode === "create" ? "Tambah Role" : "Edit Role"}
               </DialogTitle>
               <DialogDescription className="text-sm">
-                {mode === "create"
-                  ? "Buat role baru dan atur permissions"
-                  : "Ubah role dan permissions"}
+                Kelola informasi role dan permission.
               </DialogDescription>
             </div>
           </div>
@@ -167,180 +163,168 @@ export function RoleForm({
         <Form {...form}>
           <form
             onSubmit={form.handleSubmit(handleSubmit)}
-            className="flex flex-col flex-1 overflow-hidden"
+            className="space-y-6 p-6"
           >
-            <div className="flex-1 overflow-y-auto px-6 pb-4 space-y-5">
-              {/* Basic Info */}
-              <div className="space-y-4">
-                <h3 className="text-sm font-semibold text-foreground/80">
-                  Informasi Role
-                </h3>
+            {/* 1. INFORMASI ROLE */}
+            <div className="space-y-4">
+              <h3 className="text-sm font-medium border-b pb-2 text-muted-foreground">
+                Informasi Role
+              </h3>
 
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>
-                        Nama Role <span className="text-destructive">*</span>
-                      </FormLabel>
-                      <FormControl>
-                        <Input placeholder="Contoh: Manager" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>
+                      Nama Role <span className="text-destructive">*</span>
+                    </FormLabel>
+                    <FormControl>
+                      <Input placeholder="Contoh: Manager" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
-                <FormField
-                  control={form.control}
-                  name="description"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Deskripsi</FormLabel>
-                      <FormControl>
-                        <Textarea
-                          placeholder="Deskripsi role (opsional)"
-                          className="resize-none"
-                          rows={3}
-                          {...field}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              {/* Permissions */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-semibold text-foreground/80">
-                    Permissions
-                  </h3>
-                  <Badge variant="secondary">
-                    {selectedCount}/{totalPermissions} dipilih
-                  </Badge>
-                </div>
-
-                <div className="flex flex-col rounded-lg bg-muted/30 h-[400px]">
-                  {/* Search Header */}
-                  <div className="p-3 flex-shrink-0 space-y-2">
-                    <div className="relative">
-                      <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                      <Input
-                        placeholder="Cari permission..."
-                        className="pl-9 h-9 bg-background"
-                        value={permissionSearch}
-                        onChange={(e) => setPermissionSearch(e.target.value)}
+              <FormField
+                control={form.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Deskripsi</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        placeholder="Deskripsi role (opsional)"
+                        className="resize-none"
+                        rows={3}
+                        {...field}
                       />
-                    </div>
-                    {permissionSearch && (
-                      <p className="text-xs text-muted-foreground">
-                        Menampilkan hasil pencarian untuk &quot;
-                        {permissionSearch}&quot;
-                      </p>
-                    )}
-                  </div>
-
-                  {/* Scrollable Permissions */}
-                  <ScrollArea className="flex-1 min-h-0">
-                    <div className="px-3 pb-3 space-y-4">
-                      <FormField
-                        control={form.control}
-                        name="permissions"
-                        render={() => (
-                          <>
-                            {Object.entries(filteredGrouped).map(
-                              ([category, perms]) => (
-                                <div key={category} className="space-y-2">
-                                  <div className="sticky top-0 bg-muted/30 py-2 z-10">
-                                    <h4 className="text-sm font-semibold text-primary">
-                                      {category}
-                                    </h4>
-                                  </div>
-                                  <div className="space-y-1.5">
-                                    {perms.map((perm) => (
-                                      <FormField
-                                        key={perm.id}
-                                        control={form.control}
-                                        name="permissions"
-                                        render={({ field }) => {
-                                          const isChecked =
-                                            field.value?.includes(perm.id);
-                                          return (
-                                            <FormItem
-                                              className={cn(
-                                                "flex items-start space-x-2 space-y-0 rounded-md p-2.5 transition-all cursor-pointer",
-                                                isChecked
-                                                  ? "bg-primary/10"
-                                                  : "hover:bg-background/80"
-                                              )}
-                                            >
-                                              <FormControl>
-                                                <Checkbox
-                                                  checked={isChecked}
-                                                  onCheckedChange={(
-                                                    checked
-                                                  ) => {
-                                                    return checked
-                                                      ? field.onChange([
-                                                          ...field.value,
-                                                          perm.id,
-                                                        ])
-                                                      : field.onChange(
-                                                          field.value?.filter(
-                                                            (value) =>
-                                                              value !== perm.id
-                                                          )
-                                                        );
-                                                  }}
-                                                  className="mt-0.5"
-                                                />
-                                              </FormControl>
-                                              <div className="flex-1 cursor-pointer">
-                                                <FormLabel className="font-mono text-xs font-medium cursor-pointer !mt-0">
-                                                  {perm.key}
-                                                </FormLabel>
-                                                {perm.description && (
-                                                  <p className="text-xs text-muted-foreground mt-0.5">
-                                                    {perm.description}
-                                                  </p>
-                                                )}
-                                              </div>
-                                            </FormItem>
-                                          );
-                                        }}
-                                      />
-                                    ))}
-                                  </div>
-                                </div>
-                              )
-                            )}
-
-                            {Object.keys(filteredGrouped).length === 0 && (
-                              <div className="text-center py-12">
-                                <p className="text-sm text-muted-foreground">
-                                  {permissionSearch
-                                    ? "Tidak ada permission yang cocok"
-                                    : "Tidak ada permission tersedia"}
-                                </p>
-                              </div>
-                            )}
-                          </>
-                        )}
-                      />
-                    </div>
-                  </ScrollArea>
-                </div>
-                <FormDescription className="text-xs">
-                  Pilih permissions yang akan diberikan ke role ini
-                </FormDescription>
-                <FormMessage />
-              </div>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </div>
 
-            <DialogFooter className="shrink-0 px-6 py-4 border-t">
+            {/* 2. PERMISSIONS */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between border-b pb-2">
+                <h3 className="text-sm font-medium text-muted-foreground">
+                  Hak Akses (Permissions){" "}
+                  <span className="text-destructive">*</span>
+                </h3>
+                <Badge variant="secondary" className="font-mono text-xs">
+                  {selectedCount}/{totalPermissions} dipilih
+                </Badge>
+              </div>
+
+              {/* Search Bar */}
+              <div className="relative">
+                <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                  <Search className="h-4 w-4" />
+                </div>
+                <Input
+                  placeholder="Cari permission..."
+                  className="pl-9 bg-muted/5 border-muted/20 focus-visible:bg-background transition-colors"
+                  value={permissionSearch}
+                  onChange={(e) => setPermissionSearch(e.target.value)}
+                />
+              </div>
+
+              {/* Permission List - Natural Flow, no inner scroll */}
+              <div className="border rounded-md divide-y overflow-hidden">
+                <FormField
+                  control={form.control}
+                  name="permissions"
+                  render={() => (
+                    <div className="bg-muted/5">
+                      {Object.entries(filteredGrouped).length > 0 ? (
+                        Object.entries(filteredGrouped).map(
+                          ([category, perms]) => (
+                            <div key={category}>
+                              {/* Category Header */}
+                              <div className="px-4 py-2 bg-muted/20 border-b flex items-center justify-between">
+                                <span className="text-xs font-bold uppercase text-primary tracking-wider">
+                                  {category}
+                                </span>
+                                <span className="text-[10px] text-muted-foreground bg-background px-1.5 py-0.5 rounded border">
+                                  {perms.length} items
+                                </span>
+                              </div>
+                              {/* Permission Items */}
+                              <div className="grid grid-cols-1 md:grid-cols-2 gap-px bg-border/50">
+                                {perms.map((perm) => (
+                                  <FormField
+                                    key={perm.id}
+                                    control={form.control}
+                                    name="permissions"
+                                    render={({ field }) => {
+                                      const isChecked = field.value?.includes(
+                                        perm.id
+                                      );
+                                      return (
+                                        <FormItem
+                                          className={cn(
+                                            "flex items-start space-x-3 space-y-0 p-3 bg-background transition-all hover:bg-muted/30 cursor-pointer",
+                                            isChecked && "bg-primary/5"
+                                          )}
+                                        >
+                                          <FormControl>
+                                            <Checkbox
+                                              checked={isChecked}
+                                              onCheckedChange={(checked) => {
+                                                if (checked) {
+                                                  field.onChange([
+                                                    ...field.value,
+                                                    perm.id,
+                                                  ]);
+                                                } else {
+                                                  field.onChange(
+                                                    field.value?.filter(
+                                                      (v) => v !== perm.id
+                                                    )
+                                                  );
+                                                }
+                                              }}
+                                              className="mt-0.5"
+                                            />
+                                          </FormControl>
+                                          <div className="space-y-0.5 flex-1">
+                                            <FormLabel className="text-sm font-medium cursor-pointer block text-foreground/90">
+                                              {perm.key}
+                                            </FormLabel>
+                                            {perm.description && (
+                                              <p className="text-xs text-muted-foreground line-clamp-2">
+                                                {perm.description}
+                                              </p>
+                                            )}
+                                          </div>
+                                        </FormItem>
+                                      );
+                                    }}
+                                  />
+                                ))}
+                              </div>
+                            </div>
+                          )
+                        )
+                      ) : (
+                        <div className="p-8 text-center text-muted-foreground">
+                          <p className="text-sm">
+                            Tidak ada permission yang cocok dengan pencarian
+                            Anda.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                />
+              </div>
+              <FormMessage />
+            </div>
+
+            <DialogFooter className="gap-2 pt-2">
               <Button type="button" variant="outline" onClick={onClose}>
                 Batal
               </Button>

@@ -79,14 +79,18 @@ export default function UsersPage() {
 
   // ✅ Use ref to prevent double fetch in Strict Mode
   const isFetching = useRef(false);
+  const isInitialMount = useRef(true);
 
   // ✅ Fetch function with deduplication
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (showLoading = true) => {
     // Skip if already fetching
     if (isFetching.current) return;
     isFetching.current = true;
 
-    setIsLoading(true);
+    // Only show loading on initial fetch, not on refresh
+    if (showLoading) {
+      setIsLoading(true);
+    }
     setError(null);
 
     try {
@@ -105,14 +109,19 @@ export default function UsersPage() {
       console.error("[FETCH_USERS_ERROR]", err);
       setError("Gagal mengambil data pengguna");
     } finally {
-      setIsLoading(false);
+      if (showLoading) {
+        setIsLoading(false);
+      }
       isFetching.current = false;
     }
   }, []);
 
   // ✅ Fetch on mount
   useEffect(() => {
-    fetchData();
+    if (isInitialMount.current) {
+      fetchData(true); // Show loading on initial mount
+      isInitialMount.current = false;
+    }
   }, [fetchData]);
 
   const handleAdd = () => {
@@ -131,7 +140,7 @@ export default function UsersPage() {
     username: string;
     displayName: string;
     email: string;
-    nik?: string;
+    
     status: boolean;
     roleIds: string[];
     companyIds: string[];
@@ -146,7 +155,7 @@ export default function UsersPage() {
           username: data.username,
           displayName: data.displayName,
           email: data.email,
-          nik: data.nik || null,
+          
           avatarUrl: null,
           status: data.status,
           roleIds: data.roleIds,
@@ -168,7 +177,7 @@ export default function UsersPage() {
           username: data.username,
           displayName: data.displayName,
           email: data.email,
-          nik: data.nik || null,
+          
           avatarUrl: null,
           status: data.status,
           roleIds: data.roleIds,
@@ -184,8 +193,8 @@ export default function UsersPage() {
         }
       }
 
-      // Refresh data
-      await fetchData();
+      // Refresh data WITHOUT showing loading (preserves table state)
+      await fetchData(false);
       setIsFormOpen(false);
     } catch (err) {
       console.error("[FORM_SUBMIT_ERROR]", err);
@@ -198,7 +207,8 @@ export default function UsersPage() {
 
     if (result.success) {
       toast.success(`Pengguna "${user.displayName}" berhasil dihapus`);
-      await fetchData();
+      // Refresh data WITHOUT showing loading (preserves table state)
+      await fetchData(false);
     } else {
       toast.error(result.error);
     }
@@ -243,7 +253,7 @@ export default function UsersPage() {
             users={users}
             onEdit={handleEdit}
             onDelete={handleDelete}
-            onDataChange={fetchData}
+            onDataChange={() => fetchData(false)}
           />
         </div>
       </Card>

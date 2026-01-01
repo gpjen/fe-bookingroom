@@ -28,16 +28,19 @@ import {
   Trash2,
   Calendar,
   Mail,
-  IdCard,
   Shield,
   Building2,
   CheckCircle2,
   XCircle,
+  Eye,
+  Key,
 } from "lucide-react";
 import { DataTable } from "@/components/ui/data-table";
 import { DataTableColumnHeader } from "@/components/ui/data-table-column-header";
 import { User } from "./types";
 import { formatDate } from "@/lib/utils";
+import { UserDetailModal } from "./user-detail-modal";
+import { UserPermissionModal } from "./user-permission-modal";
 
 // ========================================
 // TYPES
@@ -54,8 +57,23 @@ interface UsersTableProps {
 // MAIN TABLE COMPONENT
 // ========================================
 
-export function UsersTable({ users, onEdit, onDelete }: UsersTableProps) {
+export function UsersTable({
+  users,
+  onEdit,
+  onDelete,
+  onDataChange,
+}: UsersTableProps) {
   const [deleteDialog, setDeleteDialog] = useState<{
+    open: boolean;
+    user: User | null;
+  }>({ open: false, user: null });
+
+  const [detailModal, setDetailModal] = useState<{
+    open: boolean;
+    user: User | null;
+  }>({ open: false, user: null });
+
+  const [permissionModal, setPermissionModal] = useState<{
     open: boolean;
     user: User | null;
   }>({ open: false, user: null });
@@ -69,6 +87,14 @@ export function UsersTable({ users, onEdit, onDelete }: UsersTableProps) {
       onDelete(deleteDialog.user);
       setDeleteDialog({ open: false, user: null });
     }
+  };
+
+  const handleDetailClick = (user: User) => {
+    setDetailModal({ open: true, user });
+  };
+
+  const handlePermissionClick = (user: User) => {
+    setPermissionModal({ open: true, user });
   };
 
   // ========================================
@@ -92,20 +118,12 @@ export function UsersTable({ users, onEdit, onDelete }: UsersTableProps) {
     {
       accessorKey: "username",
       header: ({ column }) => (
-        <DataTableColumnHeader column={column} title="Username" />
+        <DataTableColumnHeader column={column} title="Username (NIK)" />
       ),
       cell: ({ row }) => (
-        <div className="flex flex-col gap-0.5">
-          <span className="font-mono text-sm font-medium">
-            {row.getValue("username")}
-          </span>
-          {row.original.nik && (
-            <span className="text-xs text-muted-foreground flex items-center gap-1">
-              <IdCard className="h-3 w-3" />
-              {row.original.nik}
-            </span>
-          )}
-        </div>
+        <span className="font-mono text-sm font-medium">
+          {row.getValue("username")}
+        </span>
       ),
     },
     {
@@ -155,7 +173,7 @@ export function UsersTable({ users, onEdit, onDelete }: UsersTableProps) {
     },
     {
       accessorKey: "userCompanies",
-      header: "Perusahaan",
+      header: "Akses Perusahaan",
       cell: ({ row }) => {
         const companies = row.original.userCompanies;
         if (!companies || companies.length === 0) {
@@ -164,7 +182,12 @@ export function UsersTable({ users, onEdit, onDelete }: UsersTableProps) {
         return (
           <div className="flex flex-wrap gap-1">
             {companies.slice(0, 2).map((uc) => (
-              <Badge key={uc.id} variant="outline" className="text-xs">
+              <Badge
+                key={uc.id}
+                variant="outline"
+                className="text-xs flex items-center gap-1"
+              >
+                <Building2 className="h-3 w-3" />
                 {uc.company.code}
               </Badge>
             ))}
@@ -173,25 +196,6 @@ export function UsersTable({ users, onEdit, onDelete }: UsersTableProps) {
                 +{companies.length - 2}
               </Badge>
             )}
-          </div>
-        );
-      },
-      enableSorting: false,
-    },
-    {
-      accessorKey: "userBuildings",
-      header: "Gedung",
-      cell: ({ row }) => {
-        const buildings = row.original.userBuildings;
-        if (!buildings || buildings.length === 0) {
-          return <span className="text-xs text-muted-foreground">-</span>;
-        }
-        return (
-          <div className="flex items-center gap-1">
-            <Building2 className="h-3 w-3 text-muted-foreground" />
-            <Badge variant="secondary" className="text-xs">
-              {buildings.length} Gedung
-            </Badge>
           </div>
         );
       },
@@ -250,13 +254,27 @@ export function UsersTable({ users, onEdit, onDelete }: UsersTableProps) {
                   <span className="sr-only">Open menu</span>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-[160px]">
+              <DropdownMenuContent align="end" className="w-[180px]">
                 <DropdownMenuLabel>Aksi</DropdownMenuLabel>
                 <DropdownMenuSeparator />
+
+                <DropdownMenuItem onClick={() => handleDetailClick(user)}>
+                  <Eye className="mr-2 h-4 w-4" />
+                  Detail
+                </DropdownMenuItem>
+
                 <DropdownMenuItem onClick={() => onEdit(user)}>
                   <Edit className="mr-2 h-4 w-4" />
                   Edit
                 </DropdownMenuItem>
+
+                <DropdownMenuItem onClick={() => handlePermissionClick(user)}>
+                  <Key className="mr-2 h-4 w-4" />
+                  Set Permission
+                </DropdownMenuItem>
+
+                <DropdownMenuSeparator />
+
                 <DropdownMenuItem
                   className="text-destructive focus:text-destructive"
                   onClick={() => handleDeleteClick(user)}
@@ -284,43 +302,44 @@ export function UsersTable({ users, onEdit, onDelete }: UsersTableProps) {
         columns={columns}
         data={users}
         searchKey="displayName"
-        searchPlaceholder="Cari nama atau username..."
+        searchPlaceholder="Cari nama, username, atau email..."
         pageSizeOptions={[10, 20, 50, 100]}
         emptyMessage="Belum ada data pengguna."
         enableGlobalFilter={true}
-        globalFilterFn={(row, filterValue) => {
-          const searchValue = filterValue.toLowerCase().trim();
-          if (!searchValue) return true;
-
-          const username = (row.username || "").toLowerCase();
-          const displayName = (row.displayName || "").toLowerCase();
-          const email = (row.email || "").toLowerCase();
-          const nik = (row.nik || "").toLowerCase();
+        globalFilterFn={(user, filterValue) => {
+          // Search across multiple fields (removed NIK since username IS NIK)
+          const searchValue = filterValue.toLowerCase();
+          const username = user.username?.toLowerCase() || "";
+          const displayName = user.displayName?.toLowerCase() || "";
+          const email = user.email?.toLowerCase() || "";
 
           return (
             username.includes(searchValue) ||
             displayName.includes(searchValue) ||
-            email.includes(searchValue) ||
-            nik.includes(searchValue)
+            email.includes(searchValue)
           );
         }}
       />
 
-      {/* Delete Dialog */}
+      {/* Delete Confirmation Dialog */}
       <AlertDialog
         open={deleteDialog.open}
-        onOpenChange={(open) => !open && setDeleteDialog({ open, user: null })}
+        onOpenChange={(open) =>
+          !open && setDeleteDialog({ open: false, user: null })
+        }
       >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Konfirmasi Hapus</AlertDialogTitle>
             <AlertDialogDescription>
               Apakah Anda yakin ingin menghapus pengguna{" "}
-              <span className="font-semibold">
-                {deleteDialog.user?.displayName}
+              <span className="font-semibold text-foreground">
+                &quot;{deleteDialog.user?.displayName}&quot;
               </span>
-              ? Semua data terkait (roles, akses perusahaan, akses gedung) akan
-              ikut terhapus. Tindakan ini tidak dapat dibatalkan.
+              ?
+              <br />
+              <br />
+              Data akan di-soft delete dan bisa dikembalikan nanti.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -334,6 +353,29 @@ export function UsersTable({ users, onEdit, onDelete }: UsersTableProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* User Detail Modal */}
+      {detailModal.user && (
+        <UserDetailModal
+          open={detailModal.open}
+          onOpenChange={(open) =>
+            !open && setDetailModal({ open: false, user: null })
+          }
+          user={detailModal.user}
+        />
+      )}
+
+      {/* User Permission Modal */}
+      {permissionModal.user && (
+        <UserPermissionModal
+          open={permissionModal.open}
+          onOpenChange={(open) =>
+            !open && setPermissionModal({ open: false, user: null })
+          }
+          user={permissionModal.user}
+          onSuccess={() => onDataChange?.()}
+        />
+      )}
     </>
   );
 }

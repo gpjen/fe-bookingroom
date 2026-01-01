@@ -7,6 +7,7 @@ import { prisma } from "@/lib/db";
  * GET /api/permissions
  * Returns user's roles, permissions, companies, and buildings
  * Uses case-insensitive username lookup (usernameKey)
+ * Supports soft delete and user-specific permissions
  */
 export async function GET() {
   try {
@@ -21,20 +22,42 @@ export async function GET() {
     const usernameKey = username.toLowerCase(); // Case-insensitive search
 
     // Fetch user with all relations
-    const user = await prisma.user.findUnique({
-      where: { usernameKey },
+    const user = await prisma.user.findFirst({
+      where: {
+        usernameKey,
+        deletedAt: null, // ⭐ FILTER SOFT DELETED USERS
+        status: true, // ⭐ ONLY ACTIVE USERS
+      },
       include: {
         userRoles: {
           include: {
             role: {
               include: {
-                rolePermissions:{
+                rolePermissions: {
                   include: {
                     permission: true,
                   },
                 },
               },
             },
+            company: true,
+          },
+        },
+        // ⭐ NEW: User-specific permission grants
+        userPermissions: {
+          include: {
+            permission: true,
+          },
+          where: {
+            OR: [
+              { expiresAt: null }, // No expiration
+              { expiresAt: { gt: new Date() } }, // Not expired yet
+            ],
+          },
+        },
+        // ⭐ NEW: Fetch companies from UserCompany table
+        userCompanies: {
+          include: {
             company: true,
           },
         },
@@ -50,8 +73,21 @@ export async function GET() {
       },
     });
 
-    // If user not found, return empty permissions
-    if (!user || user.userRoles.length === 0) {
+    // If user not found or inactive/deleted, return empty permissions
+    if (!user) {
+      return NextResponse.json(
+        {
+          roles: [],
+          permissions: [],
+          companies: [],
+          buildings: [],
+        },
+        { status: 401 }
+      );
+    }
+
+    // No roles assigned
+    if (user.userRoles.length === 0) {
       return NextResponse.json({
         roles: [],
         permissions: [],
@@ -64,9 +100,10 @@ export async function GET() {
     const permissions = new Set<string>();
     const roles: string[] = [];
     const companies: string[] = [];
-    const buildings: { id: string; code: string; name: string; area: string }[] = [];
+    const buildings: { id: string; code: string; name: string; area: string }[] =
+      [];
 
-    // Process roles and permissions
+    // 1. Process roles and role-based permissions
     user.userRoles.forEach((ur) => {
       // Add role name (unique)
       if (!roles.includes(ur.role.name)) {
@@ -78,13 +115,25 @@ export async function GET() {
         permissions.add(rp.permission.key);
       });
 
-      // Add company access (unique)
+      // Add company access from UserRole (role-scoped company)
       if (ur.company && !companies.includes(ur.company.code.toLowerCase())) {
         companies.push(ur.company.code.toLowerCase());
       }
     });
 
-    // Process building access
+    // ⭐ 2. Add user-specific permissions (overrides/additions)
+    user.userPermissions?.forEach((up) => {
+      permissions.add(up.permission.key);
+    });
+
+    // ⭐ 3. Merge companies from UserCompany table (data access permissions)
+    user.userCompanies?.forEach((uc) => {
+      if (!companies.includes(uc.company.code.toLowerCase())) {
+        companies.push(uc.company.code.toLowerCase());
+      }
+    });
+
+    // 4. Process building access
     user.userBuildings.forEach((ub) => {
       const buildingExists = buildings.some((b) => b.id === ub.building.id);
       if (!buildingExists) {

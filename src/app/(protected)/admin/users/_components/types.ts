@@ -1,13 +1,17 @@
 export interface User {
   id: string;
-  username: string;
+  username: string; // NIK is stored here
   displayName: string;
   email: string;
-  nik: string | null;
   status: boolean;
   lastLogin: Date | null;
+  // ⭐ Audit Trail
+  createdBy: string | null;
   createdAt: Date;
+  updatedBy: string | null;
   updatedAt: Date;
+  deletedAt: Date | null;
+  deletedBy: string | null;
   userRoles: {
     id: string;
     roleId: string;

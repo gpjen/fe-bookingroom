@@ -3,6 +3,23 @@
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { getMasterData } from "@/app/_actions/master-data.actions";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/auth";
+
+// ========================================
+// HELPER: Get Current Username
+// ========================================
+
+async function getCurrentUsername(): Promise<string | null> {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.username) return null;
+    
+    return session.user.username; // Return username directly
+  } catch {
+    return null;
+  }
+}
 
 // ========================================
 // VALIDATION SCHEMAS
@@ -52,8 +69,8 @@ export async function getDataForUsersPage() {
 const userSchema = z.object({
   username: z
     .string()
-    .min(3, { message: "Username minimal 3 karakter" })
-    .max(50, { message: "Username maksimal 50 karakter" })
+    .min(3, { message: "Username (NIK) minimal 3 karakter" })
+    .max(50, { message: "Username (NIK) maksimal 50 karakter" })
     .regex(/^[A-Z0-9]+$/i, {
       message: "Username hanya boleh huruf dan angka",
     }),
@@ -62,7 +79,6 @@ const userSchema = z.object({
     .min(3, { message: "Nama minimal 3 karakter" })
     .max(100, { message: "Nama maksimal 100 karakter" }),
   email: z.string().email({ message: "Email tidak valid" }),
-  nik: z.string().max(50, { message: "NIK maksimal 50 karakter" }).optional().nullable(),
   avatarUrl: z.string().url().optional().nullable(),
   status: z.boolean(),
 });
@@ -99,28 +115,34 @@ export type AssignBuildingsInput = z.infer<typeof assignBuildingsSchema>;
 // RESPONSE TYPES
 // ========================================
 
-type ActionResponse<T = unknown> =
-  | { success: true; data: T }
-  | { success: false; error: string };
+type ActionResponse<T> =
+  | {
+      success: true;
+      data: T;
+    }
+  | {
+      success: false;
+      error: string;
+    };
 
-// ========================================
-// TYPE DEFINITIONS
-// ========================================
-
-export type User = {
+type User = {
   id: string;
-  username: string;
+  username: string; // NIK is stored here
   usernameKey: string;
   displayName: string;
   email: string;
-  nik: string | null;
   avatarUrl: string | null;
   status: boolean;
   lastLogin: Date | null;
+  createdBy: string | null;
   createdAt: Date;
+  updatedBy: string | null;
   updatedAt: Date;
+  deletedAt: Date | null;
+  deletedBy: string | null;
   userRoles: {
     id: string;
+    userId: string;
     roleId: string;
     companyId: string | null;
     role: {
@@ -136,6 +158,7 @@ export type User = {
   }[];
   userCompanies: {
     id: string;
+    userId: string;
     companyId: string;
     company: {
       id: string;
@@ -145,6 +168,7 @@ export type User = {
   }[];
   userBuildings: {
     id: string;
+    userId: string;
     buildingId: string;
     building: {
       id: string;
@@ -159,11 +183,14 @@ export type User = {
 // ========================================
 
 /**
- * Get all users with their roles and access
+ * Get all active users (exclude soft deleted)
  */
 export async function getUsers(): Promise<ActionResponse<User[]>> {
   try {
     const users = await prisma.user.findMany({
+      where: {
+        deletedAt: null, // ⭐ FILTER SOFT DELETE
+      },
       orderBy: { createdAt: "desc" },
       include: {
         userRoles: {
@@ -220,12 +247,15 @@ export async function getUsers(): Promise<ActionResponse<User[]>> {
 }
 
 /**
- * Get single user by ID
+ * Get single user by ID (exclude soft deleted)
  */
 export async function getUserById(id: string): Promise<ActionResponse<User>> {
   try {
-    const user = await prisma.user.findUnique({
-      where: { id },
+    const user = await prisma.user.findFirst({
+      where: {
+        id,
+        deletedAt: null, // ⭐ FILTER SOFT DELETE
+      },
       include: {
         userRoles: {
           include: {
@@ -285,380 +315,17 @@ export async function getUserById(id: string): Promise<ActionResponse<User>> {
 }
 
 /**
- * Create new user
- */
-export async function createUser(
-  input: UserInput
-): Promise<ActionResponse<User>> {
-  try {
-    // Validate input
-    const validation = userSchema.safeParse(input);
-    if (!validation.success) {
-      const errors = validation.error.issues.map((issue) => issue.message);
-      return {
-        success: false,
-        error: errors.join(", "),
-      };
-    }
-
-    const data = validation.data;
-
-    // Check if username exists
-    const existingUser = await prisma.user.findUnique({
-      where: { username: data.username },
-    });
-
-    if (existingUser) {
-      return {
-        success: false,
-        error: `Username "${data.username}" sudah digunakan`,
-      };
-    }
-
-    // Check if email exists
-    const existingEmail = await prisma.user.findUnique({
-      where: { email: data.email },
-    });
-
-    if (existingEmail) {
-      return {
-        success: false,
-        error: `Email "${data.email}" sudah digunakan`,
-      };
-    }
-
-    // Check if NIK exists (if provided)
-    if (data.nik) {
-      const existingNik = await prisma.user.findUnique({
-        where: { nik: data.nik },
-      });
-
-      if (existingNik) {
-        return {
-          success: false,
-          error: `NIK "${data.nik}" sudah digunakan`,
-        };
-      }
-    }
-
-    // Create user
-    const user = await prisma.user.create({
-      data: {
-        username: data.username,
-        usernameKey: data.username.toLowerCase(),
-        displayName: data.displayName,
-        email: data.email,
-        nik: data.nik || null,
-        avatarUrl: data.avatarUrl || null,
-        status: data.status,
-      },
-      include: {
-        userRoles: {
-          include: {
-            role: true,
-            company: true,
-          },
-        },
-        userCompanies: {
-          include: {
-            company: true,
-          },
-        },
-        userBuildings: {
-          include: {
-            building: true,
-          },
-        },
-      },
-    });
-
-    return { success: true, data: user };
-  } catch (error) {
-    console.error("[CREATE_USER_ERROR]", error);
-    return {
-      success: false,
-      error: "Gagal membuat pengguna baru",
-    };
-  }
-}
-
-/**
- * Update existing user
- */
-export async function updateUser(
-  id: string,
-  input: UserInput
-): Promise<ActionResponse<User>> {
-  try {
-    // Validate input
-    const validation = userSchema.safeParse(input);
-    if (!validation.success) {
-      const errors = validation.error.issues.map((issue) => issue.message);
-      return {
-        success: false,
-        error: errors.join(", "),
-      };
-    }
-
-    const data = validation.data;
-
-    // Check if user exists
-    const existingUser = await prisma.user.findUnique({
-      where: { id },
-    });
-
-    if (!existingUser) {
-      return {
-        success: false,
-        error: "Pengguna tidak ditemukan",
-      };
-    }
-
-    // Check if username already exists (excluding current user)
-    if (data.username !== existingUser.username) {
-      const usernameExists = await prisma.user.findUnique({
-        where: { username: data.username },
-      });
-
-      if (usernameExists) {
-        return {
-          success: false,
-          error: `Username "${data.username}" sudah digunakan`,
-        };
-      }
-    }
-
-    // Check if email already exists (excluding current user)
-    if (data.email !== existingUser.email) {
-      const emailExists = await prisma.user.findUnique({
-        where: { email: data.email },
-      });
-
-      if (emailExists) {
-        return {
-          success: false,
-          error: `Email "${data.email}" sudah digunakan`,
-        };
-      }
-    }
-
-    // Check if NIK already exists (excluding current user)
-    if (data.nik && data.nik !== existingUser.nik) {
-      const nikExists = await prisma.user.findUnique({
-        where: { nik: data.nik },
-      });
-
-      if (nikExists) {
-        return {
-          success: false,
-          error: `NIK "${data.nik}" sudah digunakan`,
-        };
-      }
-    }
-
-    // Update user
-    const user = await prisma.user.update({
-      where: { id },
-      data: {
-        username: data.username,
-        usernameKey: data.username.toLowerCase(),
-        displayName: data.displayName,
-        email: data.email,
-        nik: data.nik || null,
-        avatarUrl: data.avatarUrl || null,
-        status: data.status,
-      },
-      include: {
-        userRoles: {
-          include: {
-            role: true,
-            company: true,
-          },
-        },
-        userCompanies: {
-          include: {
-            company: true,
-          },
-        },
-        userBuildings: {
-          include: {
-            building: true,
-          },
-        },
-      },
-    });
-
-    return { success: true, data: user };
-  } catch (error) {
-    console.error("[UPDATE_USER_ERROR]", error);
-    return {
-      success: false,
-      error: "Gagal memperbarui pengguna",
-    };
-  }
-}
-
-/**
- * Delete user
- */
-export async function deleteUser(id: string): Promise<ActionResponse<void>> {
-  try {
-    // Check if user exists
-    const user = await prisma.user.findUnique({
-      where: { id },
-    });
-
-    if (!user) {
-      return {
-        success: false,
-        error: "Pengguna tidak ditemukan",
-      };
-    }
-
-    // Delete user (cascade will handle related records)
-    await prisma.user.delete({
-      where: { id },
-    });
-
-    return { success: true, data: undefined };
-  } catch (error) {
-    console.error("[DELETE_USER_ERROR]", error);
-    return {
-      success: false,
-      error: "Gagal menghapus pengguna",
-    };
-  }
-}
-
-/**
- * Assign roles to user
- */
-export async function assignRoles(
-  input: AssignRolesInput
-): Promise<ActionResponse<void>> {
-  try {
-    const { userId, roles } = input;
-
-    // Check if user exists
-    const user = await prisma.user.findUnique({ where: { id: userId } });
-    if (!user) {
-      return { success: false, error: "Pengguna tidak ditemukan" };
-    }
-
-    // Delete existing roles
-    await prisma.userRole.deleteMany({
-      where: { userId },
-    });
-
-    // Create new role assignments
-    for (const roleAssignment of roles) {
-      await prisma.userRole.create({
-        data: {
-          userId,
-          roleId: roleAssignment.roleId,
-          companyId: roleAssignment.companyId,
-        },
-      });
-    }
-
-    return { success: true, data: undefined };
-  } catch (error) {
-    console.error("[ASSIGN_ROLES_ERROR]", error);
-    return {
-      success: false,
-      error: "Gagal mengatur role pengguna",
-    };
-  }
-}
-
-/**
- * Assign companies to user
- */
-export async function assignCompanies(
-  input: AssignCompaniesInput
-): Promise<ActionResponse<void>> {
-  try {
-    const { userId, companyIds } = input;
-
-    // Check if user exists
-    const user = await prisma.user.findUnique({ where: { id: userId } });
-    if (!user) {
-      return { success: false, error: "Pengguna tidak ditemukan" };
-    }
-
-    // Delete existing company access
-    await prisma.userCompany.deleteMany({
-      where: { userId },
-    });
-
-    // Create new company assignments
-    for (const companyId of companyIds) {
-      await prisma.userCompany.create({
-        data: {
-          userId,
-          companyId,
-        },
-      });
-    }
-
-    return { success: true, data: undefined };
-  } catch (error) {
-    console.error("[ASSIGN_COMPANIES_ERROR]", error);
-    return {
-      success: false,
-      error: "Gagal mengatur akses perusahaan",
-    };
-  }
-}
-
-/**
- * Assign buildings to user
- */
-export async function assignBuildings(
-  input: AssignBuildingsInput
-): Promise<ActionResponse<void>> {
-  try {
-    const { userId, buildingIds } = input;
-
-    // Check if user exists
-    const user = await prisma.user.findUnique({ where: { id: userId } });
-    if (!user) {
-      return { success: false, error: "Pengguna tidak ditemukan" };
-    }
-
-    // Delete existing building access
-    await prisma.userBuilding.deleteMany({
-      where: { userId },
-    });
-
-    // Create new building assignments
-    for (const buildingId of buildingIds) {
-      await prisma.userBuilding.create({
-        data: {
-          userId,
-          buildingId,
-        },
-      });
-    }
-
-    return { success: true, data: undefined };
-  } catch (error) {
-    console.error("[ASSIGN_BUILDINGS_ERROR]", error);
-    return {
-      success: false,
-      error: "Gagal mengatur akses gedung",
-    };
-  }
-}
-
-/**
  * Toggle user status (activate/deactivate)
  */
 export async function toggleUserStatus(
   id: string
 ): Promise<ActionResponse<User>> {
   try {
-    const user = await prisma.user.findUnique({ where: { id } });
+    const currentUsername = await getCurrentUsername();
+    
+    const user = await prisma.user.findFirst({
+      where: { id, deletedAt: null },
+    });
 
     if (!user) {
       return { success: false, error: "Pengguna tidak ditemukan" };
@@ -666,7 +333,10 @@ export async function toggleUserStatus(
 
     const updatedUser = await prisma.user.update({
       where: { id },
-      data: { status: !user.status },
+      data: {
+        status: !user.status,
+        updatedBy: currentUsername, // ⭐ TRACK WHO UPDATED
+      },
       include: {
         userRoles: {
           include: {
@@ -709,6 +379,8 @@ export async function createCompleteUser(
   }
 ): Promise<ActionResponse<User>> {
   try {
+    const currentUsername = await getCurrentUsername();
+    
     // Validate input
     const validation = userSchema.safeParse(input);
     if (!validation.success) {
@@ -721,24 +393,22 @@ export async function createCompleteUser(
 
     const data = validation.data;
 
-    // Check unique fields
+    // Check unique fields (exclude soft deleted)
     const existingUser = await prisma.user.findFirst({
       where: {
+        deletedAt: null, // ⭐ FILTER SOFT DELETE
         OR: [
           { username: data.username },
           { email: data.email },
-          { nik: data.nik || undefined },
         ],
       },
     });
 
     if (existingUser) {
       if (existingUser.username === data.username)
-        return { success: false, error: "Username sudah digunakan" };
+        return { success: false, error: "Username (NIK) sudah digunakan" };
       if (existingUser.email === data.email)
         return { success: false, error: "Email sudah digunakan" };
-      if (data.nik && existingUser.nik === data.nik)
-        return { success: false, error: "NIK sudah digunakan" };
     }
 
     // Transaction: Create User -> Assign Relations
@@ -750,9 +420,9 @@ export async function createCompleteUser(
           usernameKey: data.username.toLowerCase(),
           displayName: data.displayName,
           email: data.email,
-          nik: data.nik || null,
           avatarUrl: data.avatarUrl || null,
           status: data.status,
+          createdBy: currentUsername, // ⭐ TRACK WHO CREATED
           userRoles: {
             create: input.roleIds.map((roleId) => ({
               roleId,
@@ -803,6 +473,8 @@ export async function updateCompleteUser(
   }
 ): Promise<ActionResponse<User>> {
   try {
+    const currentUsername = await getCurrentUsername();
+    
     // Validate input
     const validation = userSchema.safeParse(input);
     if (!validation.success) {
@@ -815,25 +487,23 @@ export async function updateCompleteUser(
 
     const data = validation.data;
 
-    // Check unique fields (excluding current user)
+    // Check unique fields (excluding current user & soft deleted)
     const existingUser = await prisma.user.findFirst({
       where: {
         id: { not: id },
+        deletedAt: null, // ⭐ FILTER SOFT DELETE
         OR: [
           { username: data.username },
           { email: data.email },
-          { nik: data.nik || undefined },
         ],
       },
     });
 
     if (existingUser) {
       if (existingUser.username === data.username)
-        return { success: false, error: "Username sudah digunakan" };
+        return { success: false, error: "Username (NIK) sudah digunakan" };
       if (existingUser.email === data.email)
         return { success: false, error: "Email sudah digunakan" };
-      if (data.nik && existingUser.nik === data.nik)
-        return { success: false, error: "NIK sudah digunakan" };
     }
 
     // Transaction: Update User -> Reset & Assign Relations
@@ -846,9 +516,9 @@ export async function updateCompleteUser(
           usernameKey: data.username.toLowerCase(),
           displayName: data.displayName,
           email: data.email,
-          nik: data.nik || null,
           avatarUrl: data.avatarUrl || null,
           status: data.status,
+          updatedBy: currentUsername, // ⭐ TRACK WHO UPDATED
         },
       });
 
@@ -903,6 +573,275 @@ export async function updateCompleteUser(
     return {
       success: false,
       error: "Gagal memperbarui pengguna",
+    };
+  }
+}
+
+/**
+ * Soft delete user
+ * Sets deletedAt timestamp and deletedBy user ID
+ */
+export async function deleteUser(id: string): Promise<ActionResponse<User>> {
+  try {
+    const currentUsername = await getCurrentUsername();
+    
+    const user = await prisma.user.findFirst({
+      where: { id, deletedAt: null },
+    });
+
+    if (!user) {
+      return { success: false, error: "Pengguna tidak ditemukan" };
+    }
+
+    const deletedUser = await prisma.user.update({
+      where: { id },
+      data: {
+        deletedAt: new Date(), // ⭐ SOFT DELETE
+        deletedBy: currentUsername, // ⭐ TRACK WHO DELETED
+        status: false, // Also deactivate
+      },
+      include: {
+        userRoles: { include: { role: true, company: true } },
+        userCompanies: { include: { company: true } },
+        userBuildings: { include: { building: true } },
+      },
+    });
+
+    return { success: true, data: deletedUser };
+  } catch (error) {
+    console.error("[DELETE_USER_ERROR]", error);
+    return {
+      success: false,
+      error: "Gagal menghapus pengguna",
+    };
+  }
+}
+
+/**
+ * Restore soft deleted user
+ */
+export async function restoreUser(id: string): Promise<ActionResponse<User>> {
+  try {
+    const currentUsername = await getCurrentUsername();
+    
+    const user = await prisma.user.findFirst({
+      where: { id, deletedAt: { not: null } },
+    });
+
+    if (!user) {
+      return { success: false, error: "Pengguna tidak ditemukan di trash" };
+    }
+
+    const restoredUser = await prisma.user.update({
+      where: { id },
+      data: {
+        deletedAt: null, // ⭐ RESTORE
+        deletedBy: null,
+        updatedBy: currentUsername, // ⭐ TRACK WHO RESTORED
+      },
+      include: {
+        userRoles: { include: { role: true, company: true } },
+        userCompanies: { include: { company: true } },
+        userBuildings: { include: { building: true } },
+      },
+    });
+
+    return { success: true, data: restoredUser };
+  } catch (error) {
+    console.error("[RESTORE_USER_ERROR]", error);
+    return {
+      success: false,
+      error: "Gagal mengembalikan pengguna",
+    };
+  }
+}
+
+// ========================================
+// USER PERMISSION MANAGEMENT (User-Specific Grants)
+// ========================================
+
+/**
+ * Grant user-specific permission (outside of roles)
+ * Supports expiration date for temporary access
+ */
+export async function grantUserPermission(input: {
+  userId: string;
+  permissionKey: string;
+  reason?: string;
+  expiresAt?: Date;
+}): Promise<ActionResponse<{ id: string }>> {
+  try {
+    const currentUsername = await getCurrentUsername();
+
+    // Find permission by key
+    const permission = await prisma.permission.findUnique({
+      where: { key: input.permissionKey },
+    });
+
+    if (!permission) {
+      return {
+        success: false,
+        error: `Permission "${input.permissionKey}" tidak ditemukan`,
+      };
+    }
+
+    // Check if user exists and not deleted
+    const user = await prisma.user.findFirst({
+      where: { id: input.userId, deletedAt: null },
+    });
+
+    if (!user) {
+      return { success: false, error: "User tidak ditemukan" };
+    }
+
+    // Check if permission already granted
+    const existing = await prisma.userPermission.findUnique({
+      where: {
+        userId_permissionId: {
+          userId: input.userId,
+          permissionId: permission.id,
+        },
+      },
+    });
+
+    if (existing) {
+      return {
+        success: false,
+        error: "Permission sudah diberikan ke user ini",
+      };
+    }
+
+    // Grant permission
+    const userPermission = await prisma.userPermission.create({
+      data: {
+        userId: input.userId,
+        permissionId: permission.id,
+        grantedBy: currentUsername,
+        reason: input.reason || null,
+        expiresAt: input.expiresAt || null,
+      },
+    });
+
+    return { success: true, data: { id: userPermission.id } };
+  } catch (error) {
+    console.error("[GRANT_USER_PERMISSION_ERROR]", error);
+    return {
+      success: false,
+      error: "Gagal memberikan permission ke user",
+    };
+  }
+}
+
+/**
+ * Revoke user-specific permission
+ */
+export async function revokeUserPermission(
+  userId: string,
+  permissionKey: string
+): Promise<ActionResponse<void>> {
+  try {
+    const permission = await prisma.permission.findUnique({
+      where: { key: permissionKey },
+    });
+
+    if (!permission) {
+      return {
+        success: false,
+        error: `Permission "${permissionKey}" tidak ditemukan`,
+      };
+    }
+
+    await prisma.userPermission.deleteMany({
+      where: {
+        userId,
+        permissionId: permission.id,
+      },
+    });
+
+    return { success: true, data: undefined };
+  } catch (error) {
+    console.error("[REVOKE_USER_PERMISSION_ERROR]", error);
+    return {
+      success: false,
+      error: "Gagal mencabut permission dari user",
+    };
+  }
+}
+
+/**
+ * Get all user-specific permissions for a user
+ */
+export async function getUserPermissions(userId: string): Promise<
+  ActionResponse<
+    {
+      id: string;
+      permissionKey: string;
+      permissionDescription: string | null;
+      grantedBy: string | null;
+      reason: string | null;
+      expiresAt: Date | null;
+      grantedAt: Date;
+      isExpired: boolean;
+    }[]
+  >
+> {
+  try {
+    const userPermissions = await prisma.userPermission.findMany({
+      where: { userId },
+      include: {
+        permission: {
+          select: {
+            key: true,
+            description: true,
+          },
+        },
+      },
+      orderBy: { grantedAt: "desc" },
+    });
+
+    const now = new Date();
+    const data = userPermissions.map((up) => ({
+      id: up.id,
+      permissionKey: up.permission.key,
+      permissionDescription: up.permission.description,
+      grantedBy: up.grantedBy,
+      reason: up.reason,
+      expiresAt: up.expiresAt,
+      grantedAt: up.grantedAt,
+      isExpired: up.expiresAt ? up.expiresAt < now : false,
+    }));
+
+    return { success: true, data };
+  } catch (error) {
+    console.error("[GET_USER_PERMISSIONS_ERROR]", error);
+    return {
+      success: false,
+      error: "Gagal mengambil user permissions",
+    };
+  }
+}
+
+/**
+ * Cleanup expired user permissions (for cron job)
+ */
+export async function revokeExpiredUserPermissions(): Promise<
+  ActionResponse<{ count: number }>
+> {
+  try {
+    const result = await prisma.userPermission.deleteMany({
+      where: {
+        expiresAt: {
+          lte: new Date(),
+        },
+      },
+    });
+
+    return { success: true, data: { count: result.count } };
+  } catch (error) {
+    console.error("[REVOKE_EXPIRED_PERMISSIONS_ERROR]", error);
+    return {
+      success: false,
+      error: "Gagal membersihkan expired permissions",
     };
   }
 }

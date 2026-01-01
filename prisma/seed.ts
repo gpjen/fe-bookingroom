@@ -231,7 +231,6 @@ async function main() {
       usernameKey: "d12345",
       displayName: "Super User",
       email: "superadmin@company.com",
-      nik: "12345",
       status: true,
     },
   });
@@ -244,7 +243,6 @@ async function main() {
       usernameKey: "d0525000109",
       displayName: "Gandi Purna Jen",
       email: "gpjen95@gmail.com",
-      nik: "0525000109",
       status: true,
     },
   });

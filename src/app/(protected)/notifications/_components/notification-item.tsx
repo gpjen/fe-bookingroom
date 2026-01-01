@@ -22,21 +22,34 @@ import Link from "next/link";
 function ContentWrapper({
   children,
   link,
+  onClick,
 }: {
   children: React.ReactNode;
   link?: string;
+  onClick?: () => void;
 }) {
   if (link) {
     return (
       <Link
         href={link}
         className="flex-1 flex items-start gap-3 p-3 group/link"
+        onClick={onClick}
       >
         {children}
       </Link>
     );
   }
-  return <div className="flex-1 flex items-start gap-3 p-3">{children}</div>;
+  return (
+    <div
+      className={cn(
+        "flex-1 flex items-start gap-3 p-3",
+        onClick && "cursor-pointer"
+      )}
+      onClick={onClick}
+    >
+      {children}
+    </div>
+  );
 }
 
 export interface Notification {
@@ -109,7 +122,10 @@ export function NotificationItem({
         !notification.isRead && "bg-primary/[0.02] border-l-2 border-l-primary"
       )}
     >
-      <ContentWrapper link={notification.link}>
+      <ContentWrapper
+        link={notification.link}
+        onClick={() => !notification.isRead && onMarkAsRead(notification.id)}
+      >
         {/* Icon - Compact */}
         <div
           className={cn(

@@ -67,3 +67,39 @@ export async function markAllNotificationsAsRead(userId: string) {
     return { success: false, error: "Gagal update semua notifikasi" };
   }
 }
+
+// ==========================================
+// NEW ACTIONS FOR DROPDOWN
+// ==========================================
+
+export async function getUnreadNotificationsCount(userId: string) {
+  if (!userId) return { success: false, count: 0 };
+  try {
+    const count = await prisma.notificationRecipient.count({
+      where: { userId, isRead: false },
+    });
+    return { success: true, count };
+  } catch {
+    return { success: false, count: 0 };
+  }
+}
+
+export async function getRecentUnreadNotifications(userId: string, limit = 5) {
+  if (!userId) return { success: false, data: [] };
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const data: any = await prisma.notificationRecipient.findMany({
+      where: { userId, isRead: false },
+      include: {
+        notification: true,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+      take: limit,
+    });
+    return { success: true, data: data as NotificationWithDetail[] };
+  } catch {
+    return { success: false, data: [] };
+  }
+}

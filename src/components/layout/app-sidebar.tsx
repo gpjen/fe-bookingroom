@@ -128,7 +128,7 @@ const menuConfig: MenuItem[] = [
   },
   {
     type: "group",
-    label: "Property Management",
+    label: "Master Data",
     active: true,
     permissions: ["property:read"],
     icon: Folder,

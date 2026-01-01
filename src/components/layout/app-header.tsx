@@ -13,15 +13,19 @@ import { Separator } from "@/components/ui/separator";
 import { usePathname } from "next/navigation";
 import { LangSelect } from "@/components/settings/lang-select";
 import { ThemeToggle } from "@/components/settings/theme-toggle";
-import { Search, Bell, Home } from "lucide-react";
+import { Search, Home } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
+import { NotificationDropdown } from "@/components/layout/notification-dropdown";
 
-export function AppHeader({}: {
+export function AppHeader({
+  userId,
+}: {
   userName?: string;
   email?: string;
   isLoggedIn: boolean;
+  userId?: string;
 }) {
   const pathname = usePathname();
   const parts = pathname.split("/").filter(Boolean);
@@ -93,12 +97,8 @@ export function AppHeader({}: {
             <span className="sr-only">Search</span>
           </Button>
 
-          {/* Notifications */}
-          <Button variant="ghost" size="icon" className="relative h-9 w-9">
-            <Bell className="h-4 w-4" />
-            <span className="absolute top-1 right-1 h-2 w-2 rounded-full bg-destructive" />
-            <span className="sr-only">Notifications</span>
-          </Button>
+          {/* Notifications Dropdown */}
+          <NotificationDropdown userId={userId} />
 
           <Separator orientation="vertical" className="h-6 hidden sm:block" />
 
@@ -110,14 +110,7 @@ export function AppHeader({}: {
 
           <Separator orientation="vertical" className="h-6 hidden sm:block" />
 
-          {/* User Menu */}
-          {/* <span className="block md:hidden">
-            <UserMenu
-              isLoggedIn={isLoggedIn}
-              userName={userName}
-              email={email}
-            />
-          </span> */}
+          {/* User Menu can be added here if needed */}
         </div>
       </div>
     </header>

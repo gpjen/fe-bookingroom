@@ -250,6 +250,65 @@ async function main() {
   console.log("   ✅ 2 users created");
 
   // ========================================
+  // 4a. NOTIFICATIONS (SEED DATA)
+  // ========================================
+  console.log("🔔 Creating example notifications...");
+
+  // Example 1: System Info
+  await prisma.notification.create({
+    data: {
+      title: "Selamat Datang D12345",
+      message: "Akun Anda di Booking Room System telah aktif. Anda dapat mulai melakukan pemesanan ruangan.",
+      type: "INFO",
+      category: "SYSTEM",
+      link: "/profile",
+      recipients: {
+        create: {
+          userId: superUser1.id,
+          isRead: false,
+        }
+      }
+    }
+  });
+
+  // Example 2: Booking Success
+  await prisma.notification.create({
+    data: {
+      title: "Booking Dikonfirmasi",
+      message: "Pemesanan Meeting Room A untuk tanggal 25 Nov 2024 telah disetujui.",
+      type: "SUCCESS",
+      category: "BOOKING",
+      link: "/bookings/123",
+      createdAt: new Date(Date.now() - 3600000), // 1 hour ago
+      recipients: {
+        create: {
+          userId: superUser1.id,
+          isRead: false,
+        }
+      }
+    }
+  });
+
+  // Example 3: Maintenance Warning
+  await prisma.notification.create({
+    data: {
+      title: "Jadwal Maintenance",
+      message: "AC Ruang Server akan diperbaiki besok jam 09:00 - 11:00 WITA.",
+      type: "WARNING",
+      category: "MAINTENANCE",
+      createdAt: new Date(Date.now() - 86400000), // Yesterday
+      recipients: {
+        create: {
+          userId: superUser1.id,
+          isRead: true, // Already read
+          readAt: new Date(Date.now() - 40000000),
+        }
+      }
+    }
+  });
+
+
+  // ========================================
   // 5. USER ROLES
   // ========================================
   console.log("🔑 Assigning user roles...");

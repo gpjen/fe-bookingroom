@@ -190,6 +190,7 @@ model User {
   userPermissions UserPermission[] // User-specific permission overrides
   userCompanies   UserCompany[]
   userBuildings   UserBuilding[]
+  notifications   NotificationRecipient[]
 
   @@index([usernameKey])
   @@index([email])
@@ -293,4 +294,52 @@ model SystemSetting {
   id        Int      @id @default(1) // Singleton ID
   config    Json // Stores all system configuration (General, Booking, Notifications, etc.)
   updatedAt DateTime @updatedAt
+}
+
+// ==========================================
+// NOTIFICATION SYSTEM
+// ==========================================
+
+enum NotificationType {
+  INFO
+  SUCCESS
+  WARNING
+  ERROR
+}
+
+enum NotificationCategory {
+  SYSTEM
+  BOOKING
+  MAINTENANCE
+}
+
+model Notification {
+  id        String               @id @default(cuid())
+  title     String
+  message   String               @db.Text
+  type      NotificationType     @default(INFO)
+  category  NotificationCategory @default(SYSTEM)
+  link      String?
+  createdAt DateTime             @default(now())
+  updatedAt DateTime             @updatedAt
+
+  recipients NotificationRecipient[]
+
+  @@map("notifications")
+}
+
+model NotificationRecipient {
+  id             String    @id @default(cuid())
+  notificationId String
+  userId         String
+  isRead         Boolean   @default(false)
+  readAt         DateTime?
+  createdAt      DateTime  @default(now())
+
+  notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, isRead])
+  @@index([notificationId])
+  @@map("notification_recipients")
 }

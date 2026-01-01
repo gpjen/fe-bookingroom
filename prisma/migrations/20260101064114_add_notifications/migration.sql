@@ -1,6 +1,12 @@
 -- CreateEnum
 CREATE TYPE "AreaStatus" AS ENUM ('ACTIVE', 'INACTIVE', 'DEVELOPMENT');
 
+-- CreateEnum
+CREATE TYPE "NotificationType" AS ENUM ('INFO', 'SUCCESS', 'WARNING', 'ERROR');
+
+-- CreateEnum
+CREATE TYPE "NotificationCategory" AS ENUM ('SYSTEM', 'BOOKING', 'MAINTENANCE');
+
 -- CreateTable
 CREATE TABLE "Role" (
     "id" TEXT NOT NULL,
@@ -117,16 +123,15 @@ CREATE TABLE "User" (
     "usernameKey" TEXT NOT NULL,
     "displayName" TEXT NOT NULL,
     "email" TEXT NOT NULL,
-    "nik" TEXT,
     "avatarUrl" TEXT,
     "status" BOOLEAN NOT NULL DEFAULT true,
     "lastLogin" TIMESTAMP(3),
     "createdBy" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
     "updatedBy" TEXT,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
     "deletedAt" TIMESTAMP(3),
     "deletedBy" TEXT,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "User_pkey" PRIMARY KEY ("id")
 );
@@ -177,6 +182,41 @@ CREATE TABLE "UserPermission" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "UserPermission_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "SystemSetting" (
+    "id" INTEGER NOT NULL DEFAULT 1,
+    "config" JSONB NOT NULL,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "SystemSetting_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "notifications" (
+    "id" TEXT NOT NULL,
+    "title" TEXT NOT NULL,
+    "message" TEXT NOT NULL,
+    "type" "NotificationType" NOT NULL DEFAULT 'INFO',
+    "category" "NotificationCategory" NOT NULL DEFAULT 'SYSTEM',
+    "link" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "notifications_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "notification_recipients" (
+    "id" TEXT NOT NULL,
+    "notificationId" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "isRead" BOOLEAN NOT NULL DEFAULT false,
+    "readAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "notification_recipients_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateIndex
@@ -237,16 +277,10 @@ CREATE UNIQUE INDEX "User_usernameKey_key" ON "User"("usernameKey");
 CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "User_nik_key" ON "User"("nik");
-
--- CreateIndex
 CREATE INDEX "User_usernameKey_idx" ON "User"("usernameKey");
 
 -- CreateIndex
 CREATE INDEX "User_email_idx" ON "User"("email");
-
--- CreateIndex
-CREATE INDEX "User_nik_idx" ON "User"("nik");
 
 -- CreateIndex
 CREATE INDEX "User_status_idx" ON "User"("status");
@@ -296,6 +330,12 @@ CREATE INDEX "UserPermission_expiresAt_idx" ON "UserPermission"("expiresAt");
 -- CreateIndex
 CREATE UNIQUE INDEX "UserPermission_userId_permissionId_key" ON "UserPermission"("userId", "permissionId");
 
+-- CreateIndex
+CREATE INDEX "notification_recipients_userId_isRead_idx" ON "notification_recipients"("userId", "isRead");
+
+-- CreateIndex
+CREATE INDEX "notification_recipients_notificationId_idx" ON "notification_recipients"("notificationId");
+
 -- AddForeignKey
 ALTER TABLE "RolePermission" ADD CONSTRAINT "RolePermission_roleId_fkey" FOREIGN KEY ("roleId") REFERENCES "Role"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
@@ -337,3 +377,9 @@ ALTER TABLE "UserPermission" ADD CONSTRAINT "UserPermission_userId_fkey" FOREIGN
 
 -- AddForeignKey
 ALTER TABLE "UserPermission" ADD CONSTRAINT "UserPermission_permissionId_fkey" FOREIGN KEY ("permissionId") REFERENCES "Permission"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "notification_recipients" ADD CONSTRAINT "notification_recipients_notificationId_fkey" FOREIGN KEY ("notificationId") REFERENCES "notifications"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "notification_recipients" ADD CONSTRAINT "notification_recipients_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;

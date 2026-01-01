@@ -206,7 +206,7 @@ const menuConfig: MenuItem[] = [
     label: "Notifications",
     icon: Bell,
     active: true,
-    badge: "3",
+    // badge: "3",
     permissions: ["notifications:read"],
   },
 ];

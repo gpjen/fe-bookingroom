@@ -392,6 +392,51 @@ async function main() {
   console.log("   ✅ 2 building types, 3 room types");
 
   // ========================================
+  // 7. SYSTEM SETTINGS
+  // ========================================
+  console.log("⚙️  Seeding system settings...");
+
+  const defaultSettings = {
+    general: {
+      appName: "Booking Room System",
+      supportEmail: "booking@obi-site.com",
+      supportWhatsapp: "https://wa.me/628123456789",
+      supportHelpdesk: "http://helpdesk.obi-site.com",
+      timezone: "Asia/Jakarta",
+      dateFormat: "dd/MM/yyyy",
+    },
+    booking: {
+      allowWeekendBooking: false,
+      requiresApproval: true,
+      maxBookingDuration: 8,
+      minAdvanceBooking: 1,
+      maxAdvanceBooking: 30,
+      operatingHoursStart: "08:00",
+      operatingHoursEnd: "18:00",
+    },
+    notifications: {
+      enableEmail: true,
+      enablePush: true,
+      reminderTime: "30",
+    },
+    maintenance: {
+      enabled: false,
+      message: "Sistem sedang dalam pemeliharaan. Silakan coba beberapa saat lagi.",
+    },
+  };
+
+  await prisma.systemSetting.upsert({
+    where: { id: 1 },
+    update: {}, // Don't overwrite if exists
+    create: {
+      id: 1,
+      config: defaultSettings,
+    },
+  });
+
+  console.log("   ✅ System settings seeded");
+
+  // ========================================
   // SUMMARY
   // ========================================
   console.log("\n🎉 DATABASE SEEDING COMPLETE!\n");

@@ -284,3 +284,13 @@ model UserPermission {
   @@index([permissionId])
   @@index([expiresAt]) // For efficient cleanup queries
 }
+
+// ========================================
+// SYSTEM CONFIGURATION
+// ========================================
+
+model SystemSetting {
+  id        Int      @id @default(1) // Singleton ID
+  config    Json // Stores all system configuration (General, Booking, Notifications, etc.)
+  updatedAt DateTime @updatedAt
+}

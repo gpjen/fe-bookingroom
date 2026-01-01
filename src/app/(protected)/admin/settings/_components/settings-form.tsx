@@ -1,10 +1,8 @@
-/* eslint-disable react-hooks/incompatible-library */
 "use client";
 
 import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -36,81 +34,58 @@ import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertTriangle, Save } from "lucide-react";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 
-// Define the schema
-const settingsSchema = z.object({
-  // General
-  appName: z.string().min(1, "Nama aplikasi wajib diisi"),
-  supportEmail: z.string().email("Email tidak valid"),
-  supportWhatsapp: z.string().url("Link tidak valid"),
-  supportHelpdesk: z.string().url("Link tidak valid"),
-  timezone: z.string(),
-  dateFormat: z.string(),
+// Imports from new structure
+import {
+  systemSettingsSchema,
+  type SystemSettingsInput,
+} from "../_actions/settings.schema";
+import { updateSystemSettings } from "../_actions/settings.actions";
 
-  // Booking
-  allowWeekendBooking: z.boolean(),
-  requiresApproval: z.boolean(),
-  maxBookingDuration: z.number().min(1),
-  minAdvanceBooking: z.number().min(0),
-  maxAdvanceBooking: z.number().min(1),
-  operatingHoursStart: z.string(),
-  operatingHoursEnd: z.string(),
+interface SettingsFormProps {
+  initialData: SystemSettingsInput;
+}
 
-  // Notifications
-  enableEmail: z.boolean(),
-  enablePush: z.boolean(),
-  reminderTime: z.string(),
-
-  // Maintenance
-  maintenanceMode: z.boolean(),
-  maintenanceMessage: z.string().optional(),
-});
-
-export type SystemSettings = z.infer<typeof settingsSchema>;
-
-// Default values
-const defaultSettings: SystemSettings = {
-  appName: "Booking Room System",
-  supportEmail: "booking@obi-site.com",
-  supportWhatsapp: "https://wa.me/628123456789",
-  supportHelpdesk: "http://helpdesk.obi-site.com",
-  timezone: "Asia/Jakarta",
-  dateFormat: "dd/MM/yyyy",
-  allowWeekendBooking: false,
-  requiresApproval: true,
-  maxBookingDuration: 8,
-  minAdvanceBooking: 1,
-  maxAdvanceBooking: 30,
-  operatingHoursStart: "08:00",
-  operatingHoursEnd: "18:00",
-  enableEmail: true,
-  enablePush: true,
-  reminderTime: "30",
-  maintenanceMode: false,
-  maintenanceMessage:
-    "Sistem sedang dalam pemeliharaan. Silakan coba beberapa saat lagi.",
-};
-
-export function SettingsForm() {
+export function SettingsForm({ initialData }: SettingsFormProps) {
   const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
 
+  // FIX: Removed explicit generic <SystemSettingsInput> to allow correct type inference from resolver
+  // This solves specific lint errors with optional vs undefined types
   const form = useForm({
-    resolver: zodResolver(settingsSchema),
-    defaultValues: defaultSettings,
+    resolver: zodResolver(systemSettingsSchema),
+    defaultValues: initialData,
+    mode: "onChange",
   });
 
-  function onSubmit(data: SystemSettings) {
+  async function onSubmit(data: SystemSettingsInput) {
     setIsLoading(true);
-    // Simulate API call
-    setTimeout(() => {
-      console.log(data);
-      toast.success("Pengaturan berhasil disimpan");
+    try {
+      const result = await updateSystemSettings(data);
+      if (result.success) {
+        toast.success("Pengaturan berhasil disimpan");
+        router.refresh();
+      } else {
+        toast.error(result.error);
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("Terjadi kesalahan sistem");
+    } finally {
       setIsLoading(false);
-    }, 1000);
+    }
   }
+
+  // Watch maintenance mode for conditional rendering
+  const maintenanceEnabled = form.watch("maintenance.enabled");
 
   return (
     <Form {...form}>
+      {/* 
+          Note: We cast handleSubmit argument to any to bypass strict checks 
+          if type inference mismatch persists, but with schema fix it should be fine.
+      */}
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
         <Tabs defaultValue="general" className="w-full">
           <TabsList className="grid w-full grid-cols-4 lg:w-[600px]">
@@ -132,7 +107,7 @@ export function SettingsForm() {
               <CardContent className="space-y-4">
                 <FormField
                   control={form.control}
-                  name="appName"
+                  name="general.appName"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Nama Aplikasi</FormLabel>
@@ -148,7 +123,7 @@ export function SettingsForm() {
                 />
                 <FormField
                   control={form.control}
-                  name="supportEmail"
+                  name="general.supportEmail"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Email Support</FormLabel>
@@ -165,7 +140,7 @@ export function SettingsForm() {
                 {/* Whatsapp */}
                 <FormField
                   control={form.control}
-                  name="supportWhatsapp"
+                  name="general.supportWhatsapp"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Whatsapp Support</FormLabel>
@@ -173,6 +148,7 @@ export function SettingsForm() {
                         <Input
                           placeholder="https://wa.me/628123456789"
                           {...field}
+                          value={field.value || ""}
                         />
                       </FormControl>
                       <FormDescription>
@@ -186,7 +162,7 @@ export function SettingsForm() {
                 {/* Helpdesk */}
                 <FormField
                   control={form.control}
-                  name="supportHelpdesk"
+                  name="general.supportHelpdesk"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Helpdesk Support</FormLabel>
@@ -194,6 +170,7 @@ export function SettingsForm() {
                         <Input
                           placeholder="http://helpdesk.obi-site.com"
                           {...field}
+                          value={field.value || ""}
                         />
                       </FormControl>
                       <FormDescription>
@@ -207,13 +184,14 @@ export function SettingsForm() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <FormField
                     control={form.control}
-                    name="timezone"
+                    name="general.timezone"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Zona Waktu</FormLabel>
                         <Select
                           onValueChange={field.onChange}
                           defaultValue={field.value}
+                          value={field.value}
                         >
                           <FormControl>
                             <SelectTrigger>
@@ -238,13 +216,14 @@ export function SettingsForm() {
                   />
                   <FormField
                     control={form.control}
-                    name="dateFormat"
+                    name="general.dateFormat"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Format Tanggal</FormLabel>
                         <Select
                           onValueChange={field.onChange}
                           defaultValue={field.value}
+                          value={field.value}
                         >
                           <FormControl>
                             <SelectTrigger>
@@ -295,7 +274,7 @@ export function SettingsForm() {
                   <FormControl>
                     <FormField
                       control={form.control}
-                      name="allowWeekendBooking"
+                      name="booking.allowWeekendBooking"
                       render={({ field }) => (
                         <Switch
                           checked={field.value}
@@ -317,7 +296,7 @@ export function SettingsForm() {
                   <FormControl>
                     <FormField
                       control={form.control}
-                      name="requiresApproval"
+                      name="booking.requiresApproval"
                       render={({ field }) => (
                         <Switch
                           checked={field.value}
@@ -333,17 +312,16 @@ export function SettingsForm() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <FormField
                     control={form.control}
-                    name="maxBookingDuration"
+                    name="booking.maxBookingDuration"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Durasi Maksimal (Jam)</FormLabel>
                         <FormControl>
                           <Input
                             type="number"
+                            min={1}
                             {...field}
-                            onChange={(e) =>
-                              field.onChange(e.target.valueAsNumber)
-                            }
+                            value={(field.value as string | number) || ""}
                           />
                         </FormControl>
                         <FormDescription>
@@ -353,34 +331,50 @@ export function SettingsForm() {
                       </FormItem>
                     )}
                   />
-                  <FormField
-                    control={form.control}
-                    name="maxAdvanceBooking"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Booking Dimuka (Hari)</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            {...field}
-                            onChange={(e) =>
-                              field.onChange(e.target.valueAsNumber)
-                            }
-                          />
-                        </FormControl>
-                        <FormDescription>
-                          Seberapa jauh ke depan user bisa booking.
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  <div className="grid grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="booking.minAdvanceBooking"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Minimal Dimuka (Hari)</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              min={0}
+                              {...field}
+                              value={(field.value as string | number) || ""}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <FormField
+                      control={form.control}
+                      name="booking.maxAdvanceBooking"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Maksimal Dimuka (Hari)</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              min={1}
+                              {...field}
+                              value={(field.value as string | number) || ""}
+                            />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <FormField
                     control={form.control}
-                    name="operatingHoursStart"
+                    name="booking.operatingHoursStart"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Jam Mulai Operasional</FormLabel>
@@ -393,7 +387,7 @@ export function SettingsForm() {
                   />
                   <FormField
                     control={form.control}
-                    name="operatingHoursEnd"
+                    name="booking.operatingHoursEnd"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Jam Selesai Operasional</FormLabel>
@@ -432,7 +426,7 @@ export function SettingsForm() {
                   <FormControl>
                     <FormField
                       control={form.control}
-                      name="enableEmail"
+                      name="notifications.enableEmail"
                       render={({ field }) => (
                         <Switch
                           checked={field.value}
@@ -454,7 +448,7 @@ export function SettingsForm() {
                   <FormControl>
                     <FormField
                       control={form.control}
-                      name="enablePush"
+                      name="notifications.enablePush"
                       render={({ field }) => (
                         <Switch
                           checked={field.value}
@@ -467,13 +461,14 @@ export function SettingsForm() {
 
                 <FormField
                   control={form.control}
-                  name="reminderTime"
+                  name="notifications.reminderTime"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Waktu Pengingat</FormLabel>
                       <Select
                         onValueChange={field.onChange}
                         defaultValue={field.value}
+                        value={field.value}
                       >
                         <FormControl>
                           <SelectTrigger>
@@ -530,7 +525,7 @@ export function SettingsForm() {
                   <FormControl>
                     <FormField
                       control={form.control}
-                      name="maintenanceMode"
+                      name="maintenance.enabled"
                       render={({ field }) => (
                         <Switch
                           checked={field.value}
@@ -542,15 +537,15 @@ export function SettingsForm() {
                   </FormControl>
                 </div>
 
-                {form.watch("maintenanceMode") && (
+                {maintenanceEnabled && (
                   <FormField
                     control={form.control}
-                    name="maintenanceMessage"
+                    name="maintenance.message"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Pesan Pemeliharaan</FormLabel>
                         <FormControl>
-                          <Input {...field} />
+                          <Input {...field} value={field.value || ""} />
                         </FormControl>
                         <FormDescription>
                           Pesan yang akan ditampilkan kepada pengguna saat

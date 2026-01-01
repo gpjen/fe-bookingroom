@@ -168,7 +168,6 @@ export function AreasForm({
       <SheetContent
         className="w-full lg:max-w-2xl xl:max-w-2xl flex flex-col p-0"
         side="right"
-        aria-describedby="area-form-desc"
       >
         <SheetHeader className="sticky top-0 bg-background z-10 px-6 py-4 border-b shrink-0">
           <div className="flex items-center gap-3">
@@ -179,7 +178,7 @@ export function AreasForm({
               <SheetTitle className="text-xl font-semibold">
                 {isEditing ? "Edit Area" : "Tambah Area Baru"}
               </SheetTitle>
-              <SheetDescription id="area-form-desc" className="text-sm">
+              <SheetDescription className="text-sm">
                 Lengkapi informasi area di bawah ini. Field dengan tanda (*)
                 wajib diisi.
               </SheetDescription>

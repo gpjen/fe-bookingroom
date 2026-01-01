@@ -235,7 +235,6 @@ export function RoleForm({
       <SheetContent
         className="w-full lg:max-w-2xl xl:max-w-2xl flex flex-col p-0"
         side="right"
-        aria-describedby="role-form-desc"
       >
         <SheetHeader className="sticky top-0 bg-background z-10 px-6 py-4 border-b shrink-0">
           <div className="flex items-center gap-3">
@@ -246,7 +245,7 @@ export function RoleForm({
               <SheetTitle className="text-xl">
                 {mode === "create" ? "Tambah Role Baru" : "Edit Role"}
               </SheetTitle>
-              <SheetDescription id="role-form-desc" className="text-sm">
+              <SheetDescription className="text-sm">
                 Kelola informasi role dan permission yang akan diberikan.
               </SheetDescription>
             </div>

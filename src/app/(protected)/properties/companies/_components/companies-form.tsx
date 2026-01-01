@@ -150,7 +150,6 @@ export function CompaniesForm({
       <SheetContent
         className="w-full sm:max-w-md md:max-w-lg flex flex-col p-0"
         side="right"
-        aria-describedby="company-form-desc"
       >
         <SheetHeader className="sticky top-0 bg-background z-10 px-6 py-4 border-b shrink-0">
           <div className="flex items-center gap-3">
@@ -161,7 +160,7 @@ export function CompaniesForm({
               <SheetTitle className="text-xl font-semibold">
                 {isEditing ? "Edit Perusahaan" : "Tambah Perusahaan Baru"}
               </SheetTitle>
-              <SheetDescription id="company-form-desc" className="text-sm">
+              <SheetDescription className="text-sm">
                 Lengkapi informasi perusahaan di bawah ini. Field dengan tanda
                 (*) wajib diisi.
               </SheetDescription>

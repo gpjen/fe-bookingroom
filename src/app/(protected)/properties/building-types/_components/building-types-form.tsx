@@ -197,7 +197,6 @@ export function BuildingTypesForm({
       <SheetContent
         className="w-full lg:max-w-lg xl:max-w-xl flex flex-col p-0"
         side="right"
-        aria-describedby="building-type-form-desc"
       >
         <SheetHeader className="sticky top-0 bg-background z-10 px-6 py-4 border-b shrink-0">
           <div className="flex items-center gap-3">
@@ -208,10 +207,7 @@ export function BuildingTypesForm({
               <SheetTitle className="text-xl font-semibold">
                 {isEditing ? "Edit Tipe Bangunan" : "Tambah Tipe Bangunan"}
               </SheetTitle>
-              <SheetDescription
-                id="building-type-form-desc"
-                className="text-sm"
-              >
+              <SheetDescription className="text-sm">
                 Lengkapi informasi tipe bangunan. Field dengan (*) wajib diisi.
               </SheetDescription>
             </div>

@@ -1,39 +1,11 @@
 "use server";
 
-import { z } from "zod";
+import { revalidatePath } from "next/cache";
+
 import { prisma } from "@/lib/db";
+import { Area } from "@prisma/client";
+import { AreaFormInput, areaFormSchema } from "./areas.schema";
 
-// ========================================
-// VALIDATION SCHEMAS
-// ========================================
-
-const areaSchema = z.object({
-  code: z
-    .string()
-    .min(2, { message: "Kode minimal 2 karakter" })
-    .max(20, { message: "Kode maksimal 20 karakter" })
-    .regex(/^[A-Z0-9-]+$/, {
-      message: "Kode hanya boleh huruf kapital, angka, dan dash",
-    }),
-  name: z
-    .string()
-    .min(3, { message: "Nama minimal 3 karakter" })
-    .max(100, { message: "Nama maksimal 100 karakter" }),
-  location: z
-    .string()
-    .min(3, { message: "Lokasi minimal 3 karakter" })
-    .max(200, { message: "Lokasi maksimal 200 karakter" }),
-  status: z.enum(["ACTIVE", "INACTIVE", "DEVELOPMENT"]),
-  description: z
-    .string()
-    .max(500, { message: "Deskripsi maksimal 500 karakter" })
-    .optional()
-    .nullable(),
-  polygon: z.string().optional().nullable(),
-  parentId: z.string().optional().nullable(),
-});
-
-export type AreaInput = z.infer<typeof areaSchema>;
 
 // ========================================
 // RESPONSE TYPES
@@ -42,23 +14,6 @@ export type AreaInput = z.infer<typeof areaSchema>;
 type ActionResponse<T = unknown> =
   | { success: true; data: T }
   | { success: false; error: string };
-
-// ========================================
-// TYPE DEFINITIONS
-// ========================================
-
-export type Area = {
-  id: string;
-  code: string;
-  name: string;
-  location: string;
-  status: "ACTIVE" | "INACTIVE" | "DEVELOPMENT";
-  description: string | null;
-  polygon: string | null;
-  parentId: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-};
 
 // ========================================
 // SERVER ACTIONS
@@ -134,11 +89,11 @@ export async function getAreaById(id: string): Promise<ActionResponse<Area>> {
  * Create new area
  */
 export async function createArea(
-  input: AreaInput
+  input: AreaFormInput
 ): Promise<ActionResponse<Area>> {
   try {
     // Validate input
-    const validation = areaSchema.safeParse(input);
+    const validation = areaFormSchema.safeParse(input);
     if (!validation.success) {
       const errors = validation.error.issues.map((issue) => issue.message);
       return {
@@ -186,6 +141,8 @@ export async function createArea(
       },
     });
 
+    revalidatePath("/properties/areas");
+
     return { success: true, data: area };
   } catch (error) {
     console.error("[CREATE_AREA_ERROR]", error);
@@ -201,11 +158,11 @@ export async function createArea(
  */
 export async function updateArea(
   id: string,
-  input: AreaInput
+  input: AreaFormInput
 ): Promise<ActionResponse<Area>> {
   try {
     // Validate input
-    const validation = areaSchema.safeParse(input);
+    const validation = areaFormSchema.safeParse(input);
     if (!validation.success) {
       const errors = validation.error.issues.map((issue) => issue.message);
       return {
@@ -268,6 +225,8 @@ export async function updateArea(
       },
     });
 
+    revalidatePath("/properties/areas");
+
     return { success: true, data: area };
   } catch (error) {
     console.error("[UPDATE_AREA_ERROR]", error);
@@ -319,6 +278,8 @@ export async function deleteArea(id: string): Promise<ActionResponse<void>> {
     await prisma.area.delete({
       where: { id },
     });
+
+    revalidatePath("/properties/areas");
 
     return { success: true, data: undefined };
   } catch (error) {
@@ -372,6 +333,8 @@ export async function toggleAreaStatus(
         updatedAt: true,
       },
     });
+
+    revalidatePath("/properties/areas");
 
     return { success: true, data: updatedArea };
   } catch (error) {

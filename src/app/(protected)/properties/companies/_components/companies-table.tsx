@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useMemo } from "react";
 import { ColumnDef } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -45,19 +45,7 @@ import { deleteCompany } from "../_actions/companies.actions";
 import { toast } from "sonner";
 import { formatDate } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
-
-// ========================================
-// TYPES
-// ========================================
-
-export type Company = {
-  id: string;
-  code: string;
-  name: string;
-  status: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-};
+import { Company } from "@prisma/client";
 
 // ========================================
 // STATUS BADGE COMPONENT
@@ -98,6 +86,9 @@ export function CompaniesTable({
     open: boolean;
     company: Company | null;
   }>({ open: false, company: null });
+
+  // ✅ Memoize data to prevent unnecessary re-renders
+  const memoizedData = useMemo(() => initialData, [initialData]);
 
   // ========================================
   // HANDLERS
@@ -273,7 +264,7 @@ export function CompaniesTable({
           {/* Data Table */}
           <DataTable
             columns={columns}
-            data={initialData}
+            data={memoizedData}
             searchKey="name"
             searchPlaceholder="Cari kode atau nama perusahaan..."
             pageSizeOptions={[20, 50, 100, 250]}

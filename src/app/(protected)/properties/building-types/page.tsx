@@ -2,13 +2,13 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { getBuildingTypes } from "./_actions/building-types.actions";
-import type { BuildingType } from "./_actions/building-types.actions";
 import { BuildingTypesTable } from "./_components/building-types-table";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card } from "@/components/ui/card";
 import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { RefreshCw } from "lucide-react";
+import { BuildingType } from "@prisma/client";
 
 // ========================================
 // LOADING STATE COMPONENT
@@ -70,11 +70,19 @@ export default function BuildingTypesPage() {
   const [error, setError] = useState<string | null>(null);
 
   // Deduplication: prevent double fetch in React Strict Mode
-  const hasFetchedRef = useRef(false);
+  const isFetching = useRef(false);
+  const isInitialMount = useRef(true);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (showLoading = true) => {
+    // Skip if already fetching
+    if (isFetching.current) return;
+    isFetching.current = true;
+
     try {
-      setIsLoading(true);
+      // Only show loading on initial fetch, not on refresh
+      if (showLoading) {
+        setIsLoading(true);
+      }
       setError(null);
 
       const result = await getBuildingTypes();
@@ -88,21 +96,24 @@ export default function BuildingTypesPage() {
       console.error("[FETCH_BUILDING_TYPES_ERROR]", err);
       setError("Gagal mengambil data tipe bangunan");
     } finally {
-      setIsLoading(false);
+      if (showLoading) {
+        setIsLoading(false);
+      }
+      isFetching.current = false;
     }
   }, []);
 
   // Initial data fetch
   useEffect(() => {
-    if (!hasFetchedRef.current) {
-      hasFetchedRef.current = true;
-      void fetchData();
+    if (isInitialMount.current) {
+      fetchData(true); // Show loading on initial mount
+      isInitialMount.current = false;
     }
   }, [fetchData]);
 
-  // Callback for child components to trigger refresh
+  // Callback for child components to trigger refresh (WITHOUT loading)
   const handleDataChange = useCallback(() => {
-    void fetchData();
+    fetchData(false); // Preserve table state (pagination, filters)
   }, [fetchData]);
 
   // Loading state

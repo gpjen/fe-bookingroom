@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useMemo } from "react";
 import { ColumnDef } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -34,11 +34,11 @@ import {
 import { DataTable } from "@/components/ui/data-table";
 import { DataTableColumnHeader } from "@/components/ui/data-table-column-header";
 import { deleteBuildingType } from "../_actions/building-types.actions";
-import type { BuildingType } from "../_actions/building-types.actions";
 import { toast } from "sonner";
 import { formatDate } from "@/lib/utils";
 import { Card } from "@/components/ui/card";
 import { BuildingTypesForm } from "./building-types-form";
+import { BuildingType } from "@prisma/client";
 
 // ========================================
 // TYPES
@@ -64,6 +64,9 @@ export function BuildingTypesTable({
     open: boolean;
     type: BuildingType | null;
   }>({ open: false, type: null });
+
+  // ✅ Memoize data to prevent unnecessary re-renders
+  const memoizedData = useMemo(() => initialData, [initialData]);
 
   // ========================================
   // HANDLERS
@@ -287,7 +290,7 @@ export function BuildingTypesTable({
           {/* Data Table */}
           <DataTable
             columns={columns}
-            data={initialData}
+            data={memoizedData}
             searchKey="name"
             searchPlaceholder="Cari kode atau nama tipe..."
             pageSizeOptions={[10, 20, 50, 100]}

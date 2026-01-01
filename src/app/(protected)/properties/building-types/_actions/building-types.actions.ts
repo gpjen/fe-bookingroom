@@ -1,44 +1,11 @@
 "use server";
 
-import { z } from "zod";
 import { prisma } from "@/lib/db";
-
-// ========================================
-// VALIDATION SCHEMAS
-// ========================================
-
-const buildingTypeSchema = z.object({
-  code: z
-    .string()
-    .min(2, { message: "Kode minimal 2 karakter" })
-    .max(20, { message: "Kode maksimal 20 karakter" })
-    .regex(/^[A-Z0-9-]+$/, {
-      message: "Kode hanya boleh huruf kapital, angka, dan dash",
-    }),
-  name: z
-    .string()
-    .min(3, { message: "Nama minimal 3 karakter" })
-    .max(100, { message: "Nama maksimal 100 karakter" }),
-  description: z
-    .string()
-    .max(500, { message: "Deskripsi maksimal 500 karakter" })
-    .optional()
-    .nullable(),
-  defaultMaxFloors: z
-    .number()
-    .int()
-    .min(1, { message: "Minimal 1 lantai" })
-    .max(100, { message: "Maksimal 100 lantai" })
-    .default(5),
-  defaultFacilities: z
-    .array(z.string())
-    .optional()
-    .default([]),
-  icon: z.string().optional().nullable(),
-  status: z.boolean().default(true),
-});
-
-export type BuildingTypeInput = z.infer<typeof buildingTypeSchema>;
+import {
+  buildingTypeFormSchema,
+  type BuildingTypeInput,
+} from "./building-types.schema";
+import { BuildingType } from "@prisma/client";
 
 // ========================================
 // RESPONSE TYPES
@@ -49,24 +16,7 @@ type ActionResponse<T = unknown> =
   | { success: false; error: string };
 
 // ========================================
-// TYPE DEFINITIONS
-// ========================================
-
-export type BuildingType = {
-  id: string;
-  code: string;
-  name: string;
-  description: string | null;
-  defaultMaxFloors: number;
-  defaultFacilities: string[];
-  icon: string | null;
-  status: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-};
-
-// ========================================
-// SERVER ACTIONS
+// SERVER ACTIONS (HANYA ASYNC FUNCTIONS)
 // ========================================
 
 /**
@@ -147,7 +97,7 @@ export async function createBuildingType(
 ): Promise<ActionResponse<BuildingType>> {
   try {
     // Validate input
-    const validation = buildingTypeSchema.safeParse(input);
+    const validation = buildingTypeFormSchema.safeParse(input);
     if (!validation.success) {
       const errors = validation.error.issues.map((issue) => issue.message);
       return {
@@ -214,7 +164,7 @@ export async function updateBuildingType(
 ): Promise<ActionResponse<BuildingType>> {
   try {
     // Validate input
-    const validation = buildingTypeSchema.safeParse(input);
+    const validation = buildingTypeFormSchema.safeParse(input);
     if (!validation.success) {
       const errors = validation.error.issues.map((issue) => issue.message);
       return {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useMemo } from "react";
 import { ColumnDef } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -112,6 +112,14 @@ export function AreasTable({ initialData, onDataChange }: AreasTableProps) {
     open: boolean;
     area: Area | null;
   }>({ open: false, area: null });
+
+  // ✅ Memoize data to prevent unnecessary re-renders
+  const memoizedData = useMemo(() => initialData, [initialData]);
+
+  // ✅ Create a map for O(1) parent area lookup
+  const areaMap = useMemo(() => {
+    return new Map(initialData.map((a) => [a.id, a]));
+  }, [initialData]);
 
   // ========================================
   // HANDLERS
@@ -226,8 +234,9 @@ export function AreasTable({ initialData, onDataChange }: AreasTableProps) {
         <DataTableColumnHeader column={column} title="Parent" />
       ),
       cell: ({ row }) => {
-        const parentId = row.getValue("parentId");
-        const parentArea = initialData.find((a) => a.id === parentId);
+        const parentId = row.getValue("parentId") as string | null;
+        // ✅ Use map for O(1) lookup
+        const parentArea = parentId ? areaMap.get(parentId) : null;
 
         return parentArea ? (
           <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
@@ -320,7 +329,7 @@ export function AreasTable({ initialData, onDataChange }: AreasTableProps) {
           {/* Data Table */}
           <DataTable
             columns={columns}
-            data={initialData}
+            data={memoizedData}
             searchKey="name"
             searchPlaceholder="Cari kode, nama, atau lokasi area..."
             pageSizeOptions={[20, 50, 100, 250]}

@@ -8,23 +8,7 @@ import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { RefreshCw } from "lucide-react";
 import { AreasTable } from "./_components/areas-table";
-
-// ========================================
-// TYPES
-// ========================================
-
-type Area = {
-  id: string;
-  code: string;
-  name: string;
-  location: string;
-  status: "ACTIVE" | "INACTIVE" | "DEVELOPMENT";
-  description: string | null;
-  polygon: string | null;
-  parentId: string | null;
-  createdAt: Date;
-  updatedAt: Date;
-};
+import { Area } from "@prisma/client";
 
 // ========================================
 // LOADING COMPONENT
@@ -94,14 +78,18 @@ export default function AreasPage() {
 
   // ✅ Use ref to prevent double fetch in Strict Mode
   const isFetching = useRef(false);
+  const isInitialMount = useRef(true);
 
-  // ✅ Fetch function with deduplication
-  const fetchData = useCallback(async () => {
+  // ✅ Fetch function with deduplication and loading control
+  const fetchData = useCallback(async (showLoading = true) => {
     // Skip if already fetching
     if (isFetching.current) return;
     isFetching.current = true;
 
-    setIsLoading(true);
+    // Only show loading on initial fetch, not on refresh
+    if (showLoading) {
+      setIsLoading(true);
+    }
     setError(null);
 
     try {
@@ -116,20 +104,25 @@ export default function AreasPage() {
       setError("Terjadi kesalahan saat memuat data");
       console.error(err);
     } finally {
-      setIsLoading(false);
+      if (showLoading) {
+        setIsLoading(false);
+      }
       isFetching.current = false;
     }
   }, []);
 
-  // ✅ Fetch on mount
+  // ✅ Fetch on mount only
   useEffect(() => {
-    fetchData();
+    if (isInitialMount.current) {
+      fetchData(true); // Show loading on initial mount
+      isInitialMount.current = false;
+    }
   }, [fetchData]);
 
-  // ✅ Callback untuk refresh data setelah CRUD
+  // ✅ Callback untuk refresh data setelah CRUD (WITHOUT showing loading)
   const handleDataChange = useCallback(() => {
-    // Re-fetch data after CRUD operation
-    fetchData();
+    // Re-fetch data after CRUD operation WITHOUT loading state
+    fetchData(false); // Preserve table state (pagination, filters)
   }, [fetchData]);
 
   if (isLoading) {

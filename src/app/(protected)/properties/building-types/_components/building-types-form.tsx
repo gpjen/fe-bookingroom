@@ -1,17 +1,17 @@
+/* eslint-disable react-hooks/incompatible-library */
 "use client";
 
 import { useEffect, useTransition, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetFooter,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import {
   Form,
   FormControl,
@@ -30,41 +30,13 @@ import {
   createBuildingType,
   updateBuildingType,
 } from "../_actions/building-types.actions";
-import type { BuildingType } from "../_actions/building-types.actions";
 import { toast } from "sonner";
-import { Loader2, X } from "lucide-react";
-
-// ========================================
-// VALIDATION SCHEMA
-// ========================================
-
-const buildingTypeFormSchema = z.object({
-  code: z
-    .string()
-    .min(2, { message: "Kode minimal 2 karakter" })
-    .max(20, { message: "Kode maksimal 20 karakter" })
-    .regex(/^[A-Z0-9-]+$/, {
-      message: "Kode hanya boleh huruf kapital, angka, dan dash",
-    }),
-  name: z
-    .string()
-    .min(3, { message: "Nama minimal 3 karakter" })
-    .max(100, { message: "Nama maksimal 100 karakter" }),
-  description: z
-    .string()
-    .max(500, { message: "Deskripsi maksimal 500 karakter" })
-    .optional(),
-  defaultMaxFloors: z
-    .number()
-    .int()
-    .min(1, { message: "Minimal 1 lantai" })
-    .max(100, { message: "Maksimal 100 lantai" }),
-  defaultFacilities: z.array(z.string()),
-  icon: z.string().optional(),
-  status: z.boolean(),
-});
-
-type BuildingTypeFormInput = z.infer<typeof buildingTypeFormSchema>;
+import { Loader2, X, Building, Layers, ListPlus } from "lucide-react";
+import { BuildingType } from "@prisma/client";
+import {
+  buildingTypeFormSchema,
+  BuildingTypeInput,
+} from "../_actions/building-types.schema";
 
 // ========================================
 // COMPONENT PROPS
@@ -91,7 +63,7 @@ export function BuildingTypesForm({
   const [facilityInput, setFacilityInput] = useState("");
   const isEditing = !!buildingType;
 
-  const form = useForm<BuildingTypeFormInput>({
+  const form = useForm<BuildingTypeInput>({
     resolver: zodResolver(buildingTypeFormSchema),
     defaultValues: {
       code: "",
@@ -104,9 +76,19 @@ export function BuildingTypesForm({
     },
   });
 
-  // Reset form when dialog opens/closes or buildingType changes
+  // Reset form when sheet opens/closes or buildingType changes
   useEffect(() => {
     if (!open) {
+      form.reset({
+        code: "",
+        name: "",
+        description: "",
+        defaultMaxFloors: 5,
+        defaultFacilities: [],
+        icon: "",
+        status: true,
+      });
+      setFacilityInput("");
       return;
     }
 
@@ -131,8 +113,8 @@ export function BuildingTypesForm({
         status: true,
       });
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, buildingType?.id]);
+    setFacilityInput("");
+  }, [open, buildingType, form]);
 
   // ========================================
   // FACILITIES MANAGEMENT
@@ -148,7 +130,9 @@ export function BuildingTypesForm({
       return;
     }
 
-    form.setValue("defaultFacilities", [...currentFacilities, trimmed]);
+    form.setValue("defaultFacilities", [...currentFacilities, trimmed], {
+      shouldValidate: true,
+    });
     setFacilityInput("");
   };
 
@@ -156,7 +140,8 @@ export function BuildingTypesForm({
     const currentFacilities = form.getValues("defaultFacilities");
     form.setValue(
       "defaultFacilities",
-      currentFacilities.filter((_, i) => i !== index)
+      currentFacilities.filter((_, i) => i !== index),
+      { shouldValidate: true }
     );
   };
 
@@ -164,13 +149,13 @@ export function BuildingTypesForm({
   // FORM SUBMISSION
   // ========================================
 
-  const onSubmit = async (values: BuildingTypeFormInput) => {
+  const onSubmit = async (values: BuildingTypeInput) => {
     startTransition(async () => {
       try {
         const submitData = {
           ...values,
-          description: values.description || null,
-          icon: values.icon || null,
+          description: values.description || undefined,
+          icon: values.icon || undefined,
         };
 
         let result;
@@ -189,7 +174,6 @@ export function BuildingTypesForm({
           toast.success(successMessage);
 
           onOpenChange(false);
-          form.reset();
 
           if (onSuccess) {
             onSuccess();
@@ -209,226 +193,320 @@ export function BuildingTypesForm({
   // ========================================
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent
-        className="w-full md:max-w-[550px] max-h-[90vh] overflow-y-auto"
-        onInteractOutside={(e) => e.preventDefault()}
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent
+        className="w-full lg:max-w-lg xl:max-w-xl flex flex-col p-0"
+        side="right"
+        aria-describedby="building-type-form-desc"
       >
-        <DialogHeader>
-          <DialogTitle className="text-xl font-semibold">
-            {isEditing ? "Edit Tipe Bangunan" : "Tambah Tipe Bangunan"}
-          </DialogTitle>
-          <DialogDescription>
-            Lengkapi informasi tipe bangunan. Field dengan (*) wajib diisi.
-          </DialogDescription>
-        </DialogHeader>
+        <SheetHeader className="sticky top-0 bg-background z-10 px-6 py-4 border-b shrink-0">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center justify-center h-10 w-10 rounded-full bg-primary/10">
+              <Building className="h-5 w-5 text-primary" />
+            </div>
+            <div className="text-left">
+              <SheetTitle className="text-xl font-semibold">
+                {isEditing ? "Edit Tipe Bangunan" : "Tambah Tipe Bangunan"}
+              </SheetTitle>
+              <SheetDescription
+                id="building-type-form-desc"
+                className="text-sm"
+              >
+                Lengkapi informasi tipe bangunan. Field dengan (*) wajib diisi.
+              </SheetDescription>
+            </div>
+          </div>
+        </SheetHeader>
 
         <Form {...form}>
           <form
             onSubmit={form.handleSubmit(onSubmit)}
-            className="space-y-5 py-4"
+            className="flex-1 overflow-y-auto"
           >
-            {/* CODE */}
-            <FormField
-              control={form.control}
-              name="code"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>
-                    Kode <span className="text-destructive">*</span>
-                  </FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="Contoh: MESS, HOTEL"
-                      {...field}
-                      disabled={isPending}
-                      className="uppercase"
-                      onChange={(e) =>
-                        field.onChange(e.target.value.toUpperCase())
-                      }
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <div className="p-6 space-y-8">
+              {/* INFORMASI DASAR */}
+              <div className="space-y-5">
+                <div className="space-y-1">
+                  <h3 className="text-base font-semibold text-foreground">
+                    Informasi Dasar
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    Data identitas tipe bangunan
+                  </p>
+                </div>
 
-            {/* NAME */}
-            <FormField
-              control={form.control}
-              name="name"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>
-                    Nama Tipe <span className="text-destructive">*</span>
-                  </FormLabel>
-                  <FormControl>
-                    <Input
-                      placeholder="Contoh: Mess Karyawan"
-                      {...field}
-                      disabled={isPending}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {/* DEFAULT MAX FLOORS */}
-            <FormField
-              control={form.control}
-              name="defaultMaxFloors"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>
-                    Maksimal Lantai Default{" "}
-                    <span className="text-destructive">*</span>
-                  </FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      min="1"
-                      max="100"
-                      {...field}
-                      value={field.value || 5}
-                      onChange={(e) => {
-                        const value = parseInt(e.target.value);
-                        field.onChange(isNaN(value) ? 5 : value);
-                      }}
-                      disabled={isPending}
-                    />
-                  </FormControl>
-                  <FormDescription>
-                    Jumlah maksimal lantai untuk tipe bangunan ini
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            {/* DEFAULT FACILITIES */}
-            <FormField
-              control={form.control}
-              name="defaultFacilities"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Fasilitas Default</FormLabel>
-                  <div className="space-y-3">
-                    <div className="flex gap-2">
-                      <Input
-                        placeholder="Contoh: WiFi, Laundry"
-                        value={facilityInput}
-                        onChange={(e) => setFacilityInput(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") {
-                            e.preventDefault();
-                            addFacility();
-                          }
-                        }}
-                        disabled={isPending}
-                      />
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        onClick={addFacility}
-                        disabled={isPending}
-                      >
-                        Tambah
-                      </Button>
-                    </div>
-
-                    {field.value.length > 0 && (
-                      <div className="flex flex-wrap gap-2">
-                        {field.value.map((facility, index) => (
-                          <Badge
-                            key={index}
-                            variant="secondary"
-                            className="gap-1 pr-1"
-                          >
-                            {facility}
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              className="h-4 w-4 hover:bg-transparent"
-                              onClick={() => removeFacility(index)}
-                              disabled={isPending}
-                            >
-                              <X className="h-3 w-3" />
-                            </Button>
-                          </Badge>
-                        ))}
-                      </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  {/* CODE */}
+                  <FormField
+                    control={form.control}
+                    name="code"
+                    render={({ field }) => (
+                      <FormItem className="space-y-2">
+                        <FormLabel className="text-sm font-medium">
+                          Kode <span className="text-destructive">*</span>
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="Contoh: MESS, HOTEL"
+                            {...field}
+                            disabled={isPending || isEditing}
+                            className="h-10 font-mono"
+                            onChange={(e) =>
+                              field.onChange(e.target.value.toUpperCase())
+                            }
+                          />
+                        </FormControl>
+                        <FormMessage className="text-xs" />
+                      </FormItem>
                     )}
+                  />
+
+                  {/* DEFAULT MAX FLOORS */}
+                  <FormField
+                    control={form.control}
+                    name="defaultMaxFloors"
+                    render={({ field }) => (
+                      <FormItem className="space-y-2">
+                        <FormLabel className="text-sm font-medium">
+                          Maksimal Lantai{" "}
+                          <span className="text-destructive">*</span>
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            min="1"
+                            max="20"
+                            {...field}
+                            value={field.value || 5}
+                            onChange={(e) => {
+                              const value = parseInt(e.target.value);
+                              field.onChange(isNaN(value) ? 5 : value);
+                            }}
+                            disabled={isPending}
+                            className="h-10"
+                          />
+                        </FormControl>
+                        <FormMessage className="text-xs" />
+                      </FormItem>
+                    )}
+                  />
+
+                  {/* NAME */}
+                  <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem className="space-y-2 md:col-span-2">
+                        <FormLabel className="text-sm font-medium">
+                          Nama Tipe Bangunan{" "}
+                          <span className="text-destructive">*</span>
+                        </FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="Contoh: Mess Karyawan, Gedung Perkantoran"
+                            {...field}
+                            disabled={isPending}
+                            className="h-10"
+                          />
+                        </FormControl>
+                        <FormMessage className="text-xs" />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              </div>
+
+              {/* FASILITAS DEFAULT */}
+              <div className="space-y-5">
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-base font-semibold text-foreground flex items-center gap-2">
+                        <ListPlus className="h-4 w-4" />
+                        Fasilitas Default
+                      </h3>
+                      <p className="text-sm text-muted-foreground">
+                        Tambahkan fasilitas standar untuk tipe bangunan ini
+                      </p>
+                    </div>
+                    <Badge variant="outline" className="text-xs">
+                      {form.watch("defaultFacilities").length} fasilitas
+                    </Badge>
                   </div>
-                  <FormDescription>
-                    Tekan Enter atau klik Tambah untuk menambah fasilitas
-                  </FormDescription>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                </div>
 
-            {/* DESCRIPTION */}
-            <FormField
-              control={form.control}
-              name="description"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Deskripsi</FormLabel>
-                  <FormControl>
-                    <Textarea
-                      placeholder="Deskripsi tipe bangunan..."
-                      rows={3}
-                      {...field}
-                      disabled={isPending}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+                <FormField
+                  control={form.control}
+                  name="defaultFacilities"
+                  render={({ field }) => (
+                    <FormItem className="space-y-3">
+                      <div className="flex gap-2">
+                        <div className="relative flex-1">
+                          <FormControl>
+                            <Input
+                              placeholder="Contoh: WiFi, Laundry, Parkir"
+                              value={facilityInput}
+                              onChange={(e) => setFacilityInput(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") {
+                                  e.preventDefault();
+                                  addFacility();
+                                }
+                              }}
+                              disabled={isPending}
+                              className="h-10 pl-9"
+                            />
+                          </FormControl>
+                          <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
+                            <Layers className="h-4 w-4" />
+                          </div>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          onClick={addFacility}
+                          disabled={isPending || !facilityInput.trim()}
+                          className="h-10 px-4"
+                        >
+                          Tambah
+                        </Button>
+                      </div>
 
-            {/* STATUS */}
-            <FormField
-              control={form.control}
-              name="status"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3">
-                  <div className="space-y-0.5">
-                    <FormLabel>Status Aktif</FormLabel>
-                    <FormDescription>
-                      Tipe bangunan aktif dapat digunakan
-                    </FormDescription>
-                  </div>
-                  <FormControl>
-                    <Switch
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                      disabled={isPending}
-                    />
-                  </FormControl>
-                </FormItem>
-              )}
-            />
+                      {field.value.length > 0 && (
+                        <div className="flex flex-wrap gap-2 p-3 border rounded-lg bg-muted/20 min-h-[60px]">
+                          {field.value.map((facility, index) => (
+                            <Badge
+                              key={index}
+                              variant="secondary"
+                              className="gap-1 pr-1.5 pl-2.5 py-1.5 text-sm font-medium"
+                            >
+                              {facility}
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="h-4 w-4 ml-1 hover:bg-transparent hover:text-destructive"
+                                onClick={() => removeFacility(index)}
+                                disabled={isPending}
+                              >
+                                <X className="h-3 w-3" />
+                              </Button>
+                            </Badge>
+                          ))}
+                        </div>
+                      )}
 
-            <DialogFooter className="gap-2 pt-4">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => onOpenChange(false)}
-                disabled={isPending}
-              >
-                Batal
-              </Button>
-              <Button type="submit" disabled={isPending}>
-                {isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {isEditing ? "Simpan Perubahan" : "Tambah Tipe"}
-              </Button>
-            </DialogFooter>
+                      {field.value.length === 0 && (
+                        <div className="p-6 text-center border rounded-lg bg-muted/10">
+                          <Layers className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
+                          <p className="text-sm text-muted-foreground">
+                            Belum ada fasilitas. Tambahkan fasilitas standar
+                            untuk tipe bangunan ini.
+                          </p>
+                        </div>
+                      )}
+
+                      <FormDescription className="text-xs">
+                        Tekan Enter atau klik Tambah untuk menambah fasilitas
+                      </FormDescription>
+                      <FormMessage className="text-xs" />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              {/* DESKRIPSI */}
+              <div className="space-y-5">
+                <div className="space-y-1">
+                  <h3 className="text-base font-semibold text-foreground">
+                    Deskripsi
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    Informasi tambahan tentang tipe bangunan
+                  </p>
+                </div>
+
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem className="space-y-2">
+                      <FormControl>
+                        <Textarea
+                          placeholder="Deskripsi tentang karakteristik, fungsi, atau spesifikasi tipe bangunan ini..."
+                          rows={4}
+                          {...field}
+                          disabled={isPending}
+                          className="min-h-[120px] resize-none"
+                        />
+                      </FormControl>
+                      <FormMessage className="text-xs" />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              {/* STATUS */}
+              <div className="space-y-5">
+                <div className="space-y-1">
+                  <h3 className="text-base font-semibold text-foreground">
+                    Status
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    Aktifkan atau nonaktifkan tipe bangunan
+                  </p>
+                </div>
+
+                <FormField
+                  control={form.control}
+                  name="status"
+                  render={({ field }) => (
+                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4 bg-card">
+                      <div className="space-y-0.5">
+                        <FormLabel className="text-sm font-medium">
+                          Status Aktif
+                        </FormLabel>
+                        <FormDescription className="text-xs">
+                          Tipe bangunan aktif dapat digunakan untuk bangunan
+                          baru
+                        </FormDescription>
+                      </div>
+                      <FormControl>
+                        <Switch
+                          checked={field.value}
+                          onCheckedChange={field.onChange}
+                          disabled={isPending}
+                          className="data-[state=checked]:bg-primary"
+                        />
+                      </FormControl>
+                    </FormItem>
+                  )}
+                />
+              </div>
+            </div>
+
+            <SheetFooter className="sticky bottom-0 bg-background border-t p-4 shrink-0">
+              <div className="flex w-full justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => onOpenChange(false)}
+                  disabled={isPending}
+                  size="sm"
+                >
+                  Batal
+                </Button>
+                <Button type="submit" disabled={isPending} size="sm">
+                  {isPending && (
+                    <Loader2 className="mr-2 h-3 w-3 animate-spin" />
+                  )}
+                  {isEditing ? "Simpan Perubahan" : "Tambah Tipe"}
+                </Button>
+              </div>
+            </SheetFooter>
           </form>
         </Form>
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   );
 }

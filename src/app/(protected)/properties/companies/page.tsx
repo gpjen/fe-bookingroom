@@ -8,19 +8,7 @@ import { getCompanies } from "./_actions/companies.actions";
 import { AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { RefreshCw } from "lucide-react";
-
-// ========================================
-// TYPES
-// ========================================
-
-type Company = {
-  id: string;
-  code: string;
-  name: string;
-  status: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-};
+import { Company } from "@prisma/client";
 
 // ========================================
 // LOADING COMPONENT
@@ -90,14 +78,18 @@ export default function CompaniesPage() {
 
   // ✅ Use ref to prevent double fetch in Strict Mode
   const isFetching = useRef(false);
+  const isInitialMount = useRef(true);
 
   // ✅ Fetch function with deduplication
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (showLoading = true) => {
     // Skip if already fetching
     if (isFetching.current) return;
     isFetching.current = true;
 
-    setIsLoading(true);
+    // Only show loading on initial fetch, not on refresh
+    if (showLoading) {
+      setIsLoading(true);
+    }
     setError(null);
 
     try {
@@ -112,20 +104,25 @@ export default function CompaniesPage() {
       setError("Terjadi kesalahan saat memuat data");
       console.error(err);
     } finally {
-      setIsLoading(false);
+      if (showLoading) {
+        setIsLoading(false);
+      }
       isFetching.current = false;
     }
   }, []);
 
-  // ✅ Fetch on mount
+  // ✅ Fetch on mount only
   useEffect(() => {
-    fetchData();
+    if (isInitialMount.current) {
+      fetchData(true); // Show loading on initial mount
+      isInitialMount.current = false;
+    }
   }, [fetchData]);
 
-  // ✅ Callback untuk refresh data setelah CRUD
+  // ✅ Callback untuk refresh data setelah CRUD (WITHOUT showing loading)
   const handleDataChange = useCallback(() => {
-    // Re-fetch data after CRUD operation
-    fetchData();
+    // Re-fetch data after CRUD operation WITHOUT loading state
+    fetchData(false); // Preserve table state (pagination, filters)
   }, [fetchData]);
 
   if (isLoading) {

@@ -1,37 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { z } from "zod";
 import { prisma } from "@/lib/db";
-
-// ========================================
-// VALIDATION SCHEMAS
-// ========================================
-
-const companySchema = z.object({
-  code: z
-    .string()
-    .min(2, { message: "Kode minimal 2 karakter" })
-    .max(10, { message: "Kode maksimal 10 karakter" })
-    .regex(/^[A-Z0-9-]+$/, {
-      message: "Kode hanya boleh huruf kapital, angka, dan dash",
-    }),
-  name: z
-    .string()
-    .min(3, { message: "Nama minimal 3 karakter" })
-    .max(100, { message: "Nama maksimal 100 karakter" }),
-  status: z.boolean().default(true),
-});
-
-export type CompanyInput = z.infer<typeof companySchema>;
-
-// ========================================
-// RESPONSE TYPES
-// ========================================
-
-type ActionResponse<T = unknown> =
-  | { success: true; data: T }
-  | { success: false; error: string };
+import { ActionResponse, CompanyFormInput, companyFormSchema } from "./companies.schema";
 
 // ========================================
 // SERVER ACTIONS
@@ -124,7 +95,7 @@ export async function getCompanyById(
  * Create new company
  */
 export async function createCompany(
-  data: CompanyInput
+  data: CompanyFormInput
 ): Promise<
   ActionResponse<{
     id: string;
@@ -135,7 +106,7 @@ export async function createCompany(
 > {
   try {
     // Validate input
-    const validated = companySchema.safeParse(data);
+    const validated = companyFormSchema.safeParse(data);
     if (!validated.success) {
       return {
         success: false,
@@ -183,7 +154,7 @@ export async function createCompany(
  */
 export async function updateCompany(
   id: string,
-  data: CompanyInput
+  data: CompanyFormInput
 ): Promise<
   ActionResponse<{
     id: string;
@@ -194,7 +165,7 @@ export async function updateCompany(
 > {
   try {
     // Validate input
-    const validated = companySchema.safeParse(data);
+    const validated = companyFormSchema.safeParse(data);
     if (!validated.success) {
       return {
         success: false,

@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 "use server";
 
 import { prisma } from "@/lib/db";
@@ -23,7 +24,6 @@ export async function getUserNotifications(userId: string) {
   if (!userId) return { success: false, error: "User ID wajib diisi" };
 
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const data: any = await prisma.notificationRecipient.findMany({
       where: { userId },
       include: {
@@ -87,7 +87,6 @@ export async function getUnreadNotificationsCount(userId: string) {
 export async function getRecentUnreadNotifications(userId: string, limit = 5) {
   if (!userId) return { success: false, data: [] };
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const data: any = await prisma.notificationRecipient.findMany({
       where: { userId, isRead: false },
       include: {
@@ -101,5 +100,29 @@ export async function getRecentUnreadNotifications(userId: string, limit = 5) {
     return { success: true, data: data as NotificationWithDetail[] };
   } catch {
     return { success: false, data: [] };
+  }
+}
+
+/**
+ * Combined action to reduce network requests
+ */
+export async function getNotificationState(userId: string, limit = 10) {
+  if (!userId) return { success: false, count: 0, data: [] };
+  try {
+     const [count, data] = await prisma.$transaction([
+        prisma.notificationRecipient.count({
+            where: { userId, isRead: false },
+        }),
+        prisma.notificationRecipient.findMany({
+            where: { userId, isRead: false },
+            include: { notification: true },
+            orderBy: { createdAt: "desc" },
+            take: limit,
+        }) as any
+     ]);
+     
+     return { success: true, count, data: data as unknown as NotificationWithDetail[] };
+  } catch {
+     return { success: false, count: 0, data: [] };
   }
 }

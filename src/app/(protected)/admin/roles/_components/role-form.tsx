@@ -4,7 +4,8 @@
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
+// z removed
+
 import {
   Sheet,
   SheetContent,
@@ -32,6 +33,12 @@ import { cn } from "@/lib/utils";
 // TYPES (Inline - no separate types.ts)
 // ========================================
 
+import { roleFormSchema, type RoleFormInput } from "../_actions/roles.schema";
+
+// ========================================
+// TYPES
+// ========================================
+
 type Permission = {
   id: string;
   key: string;
@@ -52,18 +59,16 @@ type Role = {
 // FORM SCHEMA
 // ========================================
 
-const formSchema = z.object({
-  name: z.string().min(2, "Nama minimal 2 karakter"),
-  description: z.string().optional(),
-  permissions: z.array(z.string()).min(1, "Minimal pilih 1 permission"),
-});
+// ========================================
+// FORM SCHEMA
+// ========================================
 
-export type RoleFormData = z.infer<typeof formSchema>;
+// Schema imported from roles.schema.ts
 
 interface RoleFormProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: RoleFormData) => void;
+  onSubmit: (data: RoleFormInput) => void;
   initialData?: Role;
   permissions: Permission[];
   mode: "create" | "edit";
@@ -82,8 +87,8 @@ export function RoleForm({
     Record<string, boolean>
   >({});
 
-  const form = useForm<RoleFormData>({
-    resolver: zodResolver(formSchema),
+  const form = useForm<RoleFormInput>({
+    resolver: zodResolver(roleFormSchema),
     defaultValues: {
       name: "",
       description: "",
@@ -118,7 +123,7 @@ export function RoleForm({
     }
   }, [isOpen, initialData, form, permissions]);
 
-  const handleSubmit = (data: RoleFormData) => {
+  const handleSubmit = (data: RoleFormInput) => {
     onSubmit(data);
   };
 

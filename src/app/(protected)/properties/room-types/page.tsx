@@ -72,9 +72,11 @@ export default function RoomTypesPage() {
   // Deduplication: prevent double fetch in React Strict Mode
   const hasFetchedRef = useRef(false);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (showLoading = true) => {
     try {
-      setIsLoading(true);
+      if (showLoading) {
+        setIsLoading(true);
+      }
       setError(null);
 
       const result = await getRoomTypes();
@@ -102,7 +104,7 @@ export default function RoomTypesPage() {
 
   // Callback for child components to trigger refresh
   const handleDataChange = useCallback(() => {
-    void fetchData();
+    void fetchData(false);
   }, [fetchData]);
 
   // Loading state

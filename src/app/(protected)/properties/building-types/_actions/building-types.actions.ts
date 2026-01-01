@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import {
   buildingTypeFormSchema,
@@ -145,6 +146,8 @@ export async function createBuildingType(
       },
     });
 
+    revalidatePath("/properties/building-types");
+
     return { success: true, data: buildingType };
   } catch (error) {
     console.error("[CREATE_BUILDING_TYPE_ERROR]", error);
@@ -227,6 +230,8 @@ export async function updateBuildingType(
       },
     });
 
+    revalidatePath("/properties/building-types");
+
     return { success: true, data: buildingType };
   } catch (error) {
     console.error("[UPDATE_BUILDING_TYPE_ERROR]", error);
@@ -271,6 +276,8 @@ export async function deleteBuildingType(
     await prisma.buildingType.delete({
       where: { id },
     });
+
+    revalidatePath("/properties/building-types");
 
     return { success: true, data: undefined };
   } catch (error) {

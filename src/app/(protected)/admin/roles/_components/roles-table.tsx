@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { ColumnDef } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -42,7 +42,12 @@ interface RolesTableProps {
 // MAIN TABLE COMPONENT
 // ========================================
 
+//
+
 export function RolesTable({ roles, onEdit, onDelete }: RolesTableProps) {
+  // ✅ Memoize data
+  const memoizedRoles = useMemo(() => roles, [roles]);
+
   const [deleteDialog, setDeleteDialog] = useState<{
     open: boolean;
     role: RoleWithPermissions | null;
@@ -188,7 +193,7 @@ export function RolesTable({ roles, onEdit, onDelete }: RolesTableProps) {
     <>
       <DataTable
         columns={columns}
-        data={roles}
+        data={memoizedRoles}
         searchKey="name"
         searchPlaceholder="Cari role..."
         pageSizeOptions={[10, 20, 50]}

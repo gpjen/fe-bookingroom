@@ -1,11 +1,37 @@
 "use server";
 
-import { z } from "zod";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
 import { getPermissions } from "@/app/_actions/master-data.actions";
+import { roleFormSchema, RoleFormInput, ActionResponse } from "./roles.schema";
 
 // ========================================
-// VALIDATION SCHEMAS
+// TYPE DEFINITIONS
+// ========================================
+
+export type RoleWithPermissions = {
+  id: string;
+  name: string;
+  description: string | null;
+  isSystemRole: boolean;
+  createdAt: Date;
+  updatedAt: Date;
+  rolePermissions: {
+    permissionId: string;
+    permission: {
+      id: string;
+      key: string;
+      description: string | null;
+      category: string | null;
+    };
+  }[];
+  userRoles: {
+    userId: string;
+  }[];
+};
+
+// ========================================
+// SERVER ACTIONS
 // ========================================
 
 /**
@@ -42,52 +68,6 @@ export async function getDataForRolesPage() {
   }
 }
 
-
-const roleSchema = z.object({
-  name: z.string().min(2, { message: "Nama minimal 2 karakter" }),
-  description: z.string().optional(),
-  permissionIds: z.array(z.string()).min(1, { message: "Minimal pilih 1 permission" }),
-});
-
-export type RoleInput = z.infer<typeof roleSchema>;
-
-// ========================================
-// RESPONSE TYPES
-// ========================================
-
-type ActionResponse<T = unknown> =
-  | { success: true; data: T }
-  | { success: false; error: string };
-
-// ========================================
-// TYPE DEFINITIONS
-// ========================================
-
-export type RoleWithPermissions = {
-  id: string;
-  name: string;
-  description: string | null;
-  isSystemRole: boolean;
-  createdAt: Date;
-  updatedAt: Date;
-  rolePermissions: {
-    permissionId: string;
-    permission: {
-      id: string;
-      key: string;
-      description: string | null;
-      category: string | null;
-    };
-  }[];
-  userRoles: {
-    userId: string;
-  }[];
-};
-
-// ========================================
-// SERVER ACTIONS
-// ========================================
-
 /**
  * Get all roles with permissions and user count
  */
@@ -100,14 +80,7 @@ export async function getRolesWithPermissions(): Promise<
       include: {
         rolePermissions: {
           include: {
-            permission: {
-              select: {
-                id: true,
-                key: true,
-                description: true,
-                category: true,
-              },
-            },
+            permission: true,
           },
         },
         userRoles: {
@@ -129,45 +102,58 @@ export async function getRolesWithPermissions(): Promise<
 }
 
 /**
- * Create new role with permissions
+ * Create new role
  */
 export async function createRole(
-  input: RoleInput
+  input: RoleFormInput
 ): Promise<ActionResponse<RoleWithPermissions>> {
   try {
-    // Validate input
-    const validation = roleSchema.safeParse(input);
+    const validation = roleFormSchema.safeParse(input);
     if (!validation.success) {
-      const errors = validation.error.issues.map((issue) => issue.message);
-      return { success: false, error: errors.join(", ") };
+      return {
+        success: false,
+        error: validation.error.issues[0].message,
+      };
     }
 
     const data = validation.data;
 
-    // Check if role exists
-    const existingRole = await prisma.role.findUnique({
+    const existing = await prisma.role.findUnique({
       where: { name: data.name },
     });
 
-    if (existingRole) {
+    if (existing) {
       return {
         success: false,
-        error: `Role "${data.name}" sudah ada`,
+        error: `Role dengan nama "${data.name}" sudah ada`,
       };
     }
 
-    // Create role with permissions
-    const role = await prisma.role.create({
-      data: {
-        name: data.name,
-        description: data.description || null,
-        isSystemRole: false,
-        rolePermissions: {
-          create: data.permissionIds.map((permissionId) => ({
+    // Create role with permissions transaction
+    const role = await prisma.$transaction(async (tx) => {
+      const newRole = await tx.role.create({
+        data: {
+          name: data.name,
+          description: data.description,
+          isSystemRole: false,
+        },
+      });
+
+      if (data.permissions.length > 0) {
+        await tx.rolePermission.createMany({
+          data: data.permissions.map((permissionId) => ({
+            roleId: newRole.id,
             permissionId,
           })),
-        },
-      },
+        });
+      }
+
+      return newRole;
+    });
+
+    // Fetch complete data to return
+    const completeRole = await prisma.role.findUnique({
+      where: { id: role.id },
       include: {
         rolePermissions: {
           include: {
@@ -182,13 +168,16 @@ export async function createRole(
       },
     });
 
-    return { success: true, data: role };
+    if (!completeRole) {
+      throw new Error("Gagal mengambil data role baru");
+    }
+
+    revalidatePath("/admin/roles");
+
+    return { success: true, data: completeRole };
   } catch (error) {
     console.error("[CREATE_ROLE_ERROR]", error);
-    return {
-      success: false,
-      error: "Gagal membuat role baru",
-    };
+    return { success: false, error: "Gagal membuat role" };
   }
 }
 
@@ -197,19 +186,19 @@ export async function createRole(
  */
 export async function updateRole(
   id: string,
-  input: RoleInput
+  input: RoleFormInput
 ): Promise<ActionResponse<RoleWithPermissions>> {
   try {
-    // Validate input
-    const validation = roleSchema.safeParse(input);
+    const validation = roleFormSchema.safeParse(input);
     if (!validation.success) {
-      const errors = validation.error.issues.map((issue) => issue.message);
-      return { success: false, error: errors.join(", ") };
+      return {
+        success: false,
+        error: validation.error.issues[0].message,
+      };
     }
 
     const data = validation.data;
 
-    // Check if role exists
     const existingRole = await prisma.role.findUnique({
       where: { id },
     });
@@ -218,43 +207,52 @@ export async function updateRole(
       return { success: false, error: "Role tidak ditemukan" };
     }
 
-    // Check if system role
     if (existingRole.isSystemRole) {
-      return {
-        success: false,
-        error: "System role tidak dapat diubah",
-      };
+      return { success: false, error: "System role tidak dapat diubah" };
     }
 
-    // Check if name already exists (excluding current role)
+    // Check name uniqueness
     if (data.name !== existingRole.name) {
       const nameExists = await prisma.role.findUnique({
         where: { name: data.name },
       });
-
       if (nameExists) {
         return {
           success: false,
-          error: `Role "${data.name}" sudah ada`,
+          error: `Role dengan nama "${data.name}" sudah ada`,
         };
       }
     }
 
-    // Update role and permissions
-    const role = await prisma.role.update({
-      where: { id },
-      data: {
-        name: data.name,
-        description: data.description || null,
-        rolePermissions: {
-          // Delete all existing permissions
-          deleteMany: {},
-          // Create new permissions
-          create: data.permissionIds.map((permissionId) => ({
+    // Update role transaction
+    await prisma.$transaction(async (tx) => {
+      // Update basic info
+      await tx.role.update({
+        where: { id },
+        data: {
+          name: data.name,
+          description: data.description,
+        },
+      });
+
+      // Update permissions (delete all then add new)
+      await tx.rolePermission.deleteMany({
+        where: { roleId: id },
+      });
+
+      if (data.permissions.length > 0) {
+        await tx.rolePermission.createMany({
+          data: data.permissions.map((permissionId) => ({
+            roleId: id,
             permissionId,
           })),
-        },
-      },
+        });
+      }
+    });
+
+    // Fetch updated data
+    const updatedRole = await prisma.role.findUnique({
+      where: { id },
       include: {
         rolePermissions: {
           include: {
@@ -269,13 +267,16 @@ export async function updateRole(
       },
     });
 
-    return { success: true, data: role };
+    if (!updatedRole) {
+      throw new Error("Gagal mengambil data role yang diupdate");
+    }
+
+    revalidatePath("/admin/roles");
+
+    return { success: true, data: updatedRole };
   } catch (error) {
     console.error("[UPDATE_ROLE_ERROR]", error);
-    return {
-      success: false,
-      error: "Gagal memperbarui role",
-    };
+    return { success: false, error: "Gagal mengupdate role" };
   }
 }
 
@@ -284,27 +285,19 @@ export async function updateRole(
  */
 export async function deleteRole(id: string): Promise<ActionResponse<void>> {
   try {
-    // Check if role exists
     const role = await prisma.role.findUnique({
       where: { id },
-      include: {
-        userRoles: true,
-      },
+      include: { userRoles: true },
     });
 
     if (!role) {
       return { success: false, error: "Role tidak ditemukan" };
     }
 
-    // Check if system role
     if (role.isSystemRole) {
-      return {
-        success: false,
-        error: "System role tidak dapat dihapus",
-      };
+      return { success: false, error: "System role tidak dapat dihapus" };
     }
 
-    // Check if role is assigned to users
     if (role.userRoles.length > 0) {
       return {
         success: false,
@@ -312,17 +305,15 @@ export async function deleteRole(id: string): Promise<ActionResponse<void>> {
       };
     }
 
-    // Delete role (cascade will handle rolePermissions)
     await prisma.role.delete({
       where: { id },
     });
 
+    revalidatePath("/admin/roles");
+
     return { success: true, data: undefined };
   } catch (error) {
     console.error("[DELETE_ROLE_ERROR]", error);
-    return {
-      success: false,
-      error: "Gagal menghapus role",
-    };
+    return { success: false, error: "Gagal menghapus role" };
   }
 }

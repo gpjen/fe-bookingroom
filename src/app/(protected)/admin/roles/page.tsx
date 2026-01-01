@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { AlertCircle, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
-import { RoleForm, type RoleFormData } from "./_components/role-form";
+import { RoleForm } from "./_components/role-form";
 import {
   createRole,
   updateRole,
@@ -16,9 +16,10 @@ import {
   type RoleWithPermissions,
 } from "./_actions/roles.actions";
 import { RolesTable } from "./_components/roles-table";
+import { RoleFormInput } from "./_actions/roles.schema";
 
 // ========================================
-// TYPES (Inline - consistent with Companies pattern)
+// TYPES
 // ========================================
 
 type Permission = {
@@ -120,13 +121,15 @@ export default function RolesPage() {
   const hasFetchedRef = useRef(false);
   const isFetching = useRef(false);
 
-  // ✅ Fetch function with deduplication
-  const fetchData = useCallback(async () => {
+  // ✅ Fetch function with deduplication and loading control
+  const fetchData = useCallback(async (showLoading = true) => {
     // Skip if already fetching
     if (isFetching.current) return;
     isFetching.current = true;
 
-    setIsLoading(true);
+    if (showLoading) {
+      setIsLoading(true);
+    }
     setError(null);
 
     try {
@@ -143,7 +146,9 @@ export default function RolesPage() {
       console.error("[FETCH_ROLES_ERROR]", err);
       setError("Gagal mengambil data roles");
     } finally {
-      setIsLoading(false);
+      if (showLoading) {
+        setIsLoading(false);
+      }
       isFetching.current = false;
     }
   }, []);
@@ -169,7 +174,7 @@ export default function RolesPage() {
     setIsFormOpen(true);
   };
 
-  const handleFormSubmit = async (data: RoleFormData) => {
+  const handleFormSubmit = async (data: RoleFormInput) => {
     try {
       let result;
 
@@ -177,7 +182,7 @@ export default function RolesPage() {
         result = await createRole({
           name: data.name,
           description: data.description,
-          permissionIds: data.permissions,
+          permissions: data.permissions,
         });
 
         if (result.success) {
@@ -192,7 +197,7 @@ export default function RolesPage() {
         result = await updateRole(selectedRole.id, {
           name: data.name,
           description: data.description,
-          permissionIds: data.permissions,
+          permissions: data.permissions,
         });
 
         if (result.success) {
@@ -203,8 +208,8 @@ export default function RolesPage() {
         }
       }
 
-      // Refresh data
-      await fetchData();
+      // Refresh data silently
+      await fetchData(false);
       setIsFormOpen(false);
     } catch (err) {
       console.error("[FORM_SUBMIT_ERROR]", err);
@@ -217,20 +222,21 @@ export default function RolesPage() {
 
     if (result.success) {
       toast.success(`Role "${role.name}" berhasil dihapus`);
-      await fetchData();
+      // Refresh data silently
+      await fetchData(false);
     } else {
       toast.error(result.error);
     }
   };
 
-  // Loading state
+  // Loading state (only for initial load or explicitly requested loading)
   if (isLoading) {
     return <LoadingState />;
   }
 
   // Error state
   if (error) {
-    return <ErrorState error={error} onRetry={fetchData} />;
+    return <ErrorState error={error} onRetry={() => fetchData(true)} />;
   }
 
   // Success state - render table
@@ -262,7 +268,7 @@ export default function RolesPage() {
             roles={roles}
             onEdit={handleEdit}
             onDelete={handleDelete}
-            onDataChange={fetchData}
+            onDataChange={() => fetchData(false)}
           />
         </div>
       </Card>

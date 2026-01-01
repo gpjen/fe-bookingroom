@@ -21,7 +21,7 @@ export const buildingTypeFormSchema = z.object({
     .int()
     .min(1, { message: "Minimal 1 lantai" })
     .max(20, { message: "Maksimal 20 lantai" }),
-  defaultFacilities: z.array(z.string()),
+  defaultFacilities: z.array(z.string()).optional(),
   icon: z.string().optional(),
   status: z.boolean(),
 });

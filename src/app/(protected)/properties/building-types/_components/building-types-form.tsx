@@ -124,7 +124,7 @@ export function BuildingTypesForm({
     const trimmed = facilityInput.trim();
     if (!trimmed) return;
 
-    const currentFacilities = form.getValues("defaultFacilities");
+    const currentFacilities = form.getValues("defaultFacilities") || [];
     if (currentFacilities.includes(trimmed)) {
       toast.error("Fasilitas sudah ditambahkan");
       return;
@@ -137,7 +137,7 @@ export function BuildingTypesForm({
   };
 
   const removeFacility = (index: number) => {
-    const currentFacilities = form.getValues("defaultFacilities");
+    const currentFacilities = form.getValues("defaultFacilities") || [];
     form.setValue(
       "defaultFacilities",
       currentFacilities.filter((_, i) => i !== index),
@@ -330,7 +330,7 @@ export function BuildingTypesForm({
                       </p>
                     </div>
                     <Badge variant="outline" className="text-xs">
-                      {form.watch("defaultFacilities").length} fasilitas
+                      {(form.watch("defaultFacilities") || []).length} fasilitas
                     </Badge>
                   </div>
                 </div>
@@ -372,9 +372,9 @@ export function BuildingTypesForm({
                         </Button>
                       </div>
 
-                      {field.value.length > 0 && (
+                      {(field.value || []).length > 0 && (
                         <div className="flex flex-wrap gap-2 p-3 border rounded-lg bg-muted/20 min-h-[60px]">
-                          {field.value.map((facility, index) => (
+                          {(field.value || []).map((facility, index) => (
                             <Badge
                               key={index}
                               variant="secondary"
@@ -396,7 +396,7 @@ export function BuildingTypesForm({
                         </div>
                       )}
 
-                      {field.value.length === 0 && (
+                      {(field.value || []).length === 0 && (
                         <div className="p-6 text-center border rounded-lg bg-muted/10">
                           <Layers className="h-8 w-8 mx-auto text-muted-foreground mb-2" />
                           <p className="text-sm text-muted-foreground">

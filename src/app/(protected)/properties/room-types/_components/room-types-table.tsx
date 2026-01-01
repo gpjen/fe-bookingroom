@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useMemo } from "react";
 import { ColumnDef } from "@tanstack/react-table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -57,6 +57,7 @@ export function RoomTypesTable({
   initialData,
   onDataChange,
 }: RoomTypesTableProps) {
+  const memoizedData = useMemo(() => initialData, [initialData]);
   const [isPending, startTransition] = useTransition();
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingType, setEditingType] = useState<RoomType | null>(null);
@@ -308,7 +309,7 @@ export function RoomTypesTable({
           {/* Data Table */}
           <DataTable
             columns={columns}
-            data={initialData}
+            data={memoizedData}
             searchKey="name"
             searchPlaceholder="Cari kode atau nama tipe..."
             pageSizeOptions={[10, 20, 50, 100]}

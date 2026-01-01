@@ -1,61 +1,12 @@
 "use server";
 
-import { z } from "zod";
+import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/db";
-
-// ========================================
-// VALIDATION SCHEMAS
-// ========================================
-
-const roomTypeSchema = z.object({
-  code: z
-    .string()
-    .min(2, { message: "Kode minimal 2 karakter" })
-    .max(20, { message: "Kode maksimal 20 karakter" })
-    .regex(/^[A-Z0-9-]+$/, {
-      message: "Kode hanya boleh huruf kapital, angka, dan dash",
-    }),
-  name: z
-    .string()
-    .min(3, { message: "Nama minimal 3 karakter" })
-    .max(100, { message: "Nama maksimal 100 karakter" }),
-  description: z
-    .string()
-    .max(500, { message: "Deskripsi maksimal 500 karakter" })
-    .optional()
-    .nullable(),
-  bedsPerRoom: z
-    .number()
-    .int()
-    .min(1, { message: "Minimal 1 bed" })
-    .max(10, { message: "Maksimal 10 bed per kamar" })
-    .default(1),
-  defaultBedType: z
-    .string()
-    .min(1, { message: "Tipe bed wajib diisi" }),
-  defaultAmenities: z
-    .array(z.string())
-    .optional()
-    .default([]),
-  priceMultiplier: z
-    .number()
-    .min(0.1, { message: "Minimal 0.1" })
-    .max(10, { message: "Maksimal 10" })
-    .default(1.0),
-  icon: z.string().optional().nullable(),
-  imageUrl: z.string().optional().nullable(),
-  status: z.boolean().default(true),
-});
-
-export type RoomTypeInput = z.infer<typeof roomTypeSchema>;
-
-// ========================================
-// RESPONSE TYPES
-// ========================================
-
-type ActionResponse<T = unknown> =
-  | { success: true; data: T }
-  | { success: false; error: string };
+import {
+  ActionResponse,
+  RoomTypeFormInput,
+  roomTypeFormSchema,
+} from "./room-types.schema";
 
 // ========================================
 // TYPE DEFINITIONS
@@ -159,11 +110,11 @@ export async function getRoomTypeById(
  * Create new room type
  */
 export async function createRoomType(
-  input: RoomTypeInput
+  input: RoomTypeFormInput
 ): Promise<ActionResponse<RoomType>> {
   try {
     // Validate input
-    const validation = roomTypeSchema.safeParse(input);
+    const validation = roomTypeFormSchema.safeParse(input);
     if (!validation.success) {
       const errors = validation.error.issues.map((issue) => issue.message);
       return {
@@ -217,6 +168,8 @@ export async function createRoomType(
       },
     });
 
+    revalidatePath("/properties/room-types");
+
     return { success: true, data: roomType };
   } catch (error) {
     console.error("[CREATE_ROOM_TYPE_ERROR]", error);
@@ -232,11 +185,11 @@ export async function createRoomType(
  */
 export async function updateRoomType(
   id: string,
-  input: RoomTypeInput
+  input: RoomTypeFormInput
 ): Promise<ActionResponse<RoomType>> {
   try {
     // Validate input
-    const validation = roomTypeSchema.safeParse(input);
+    const validation = roomTypeFormSchema.safeParse(input);
     if (!validation.success) {
       const errors = validation.error.issues.map((issue) => issue.message);
       return {
@@ -305,6 +258,8 @@ export async function updateRoomType(
       },
     });
 
+    revalidatePath("/properties/room-types");
+
     return { success: true, data: roomType };
   } catch (error) {
     console.error("[UPDATE_ROOM_TYPE_ERROR]", error);
@@ -341,6 +296,8 @@ export async function deleteRoomType(
     await prisma.roomType.delete({
       where: { id },
     });
+
+    revalidatePath("/properties/room-types");
 
     return { success: true, data: undefined };
   } catch (error) {

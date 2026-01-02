@@ -19,7 +19,9 @@ export const buildingFormSchema = z.object({
   areaId: z.string().min(1, { message: "Area wajib dipilih" }),
   buildingTypeId: z.string().optional().nullable(),
   status: z.boolean(),
-  description: z.string().optional().nullable(),
+  address: z.string().optional().nullable(),
+  latitude: z.number().optional().nullable(),
+  longitude: z.number().optional().nullable(),
 });
 
 export type BuildingFormInput = z.infer<typeof buildingFormSchema>;
@@ -43,6 +45,9 @@ export interface BuildingWithRelations {
   areaId: string;
   buildingTypeId: string | null;
   status: boolean;
+  address: string | null;
+  latitude: number | null;
+  longitude: number | null;
   createdAt: Date;
   updatedAt: Date;
   area: {

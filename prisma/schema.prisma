@@ -95,6 +95,11 @@ model Building {
   buildingTypeId String? // Optional FK to BuildingType
   status         Boolean @default(true)
 
+  // Location Details
+  address   String? // Full address text
+  latitude  Float? // GPS Latitude coordinate
+  longitude Float? // GPS Longitude coordinate
+
   area          Area            @relation(fields: [areaId], references: [id], onDelete: Cascade)
   buildingType  BuildingType?   @relation(fields: [buildingTypeId], references: [id], onDelete: SetNull)
   userBuildings UserBuilding[]

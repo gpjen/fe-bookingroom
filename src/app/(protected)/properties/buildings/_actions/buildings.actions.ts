@@ -28,6 +28,9 @@ export async function getBuildings(): Promise<
         areaId: true,
         buildingTypeId: true,
         status: true,
+        address: true,
+        latitude: true,
+        longitude: true,
         createdAt: true,
         updatedAt: true,
         area: {
@@ -77,6 +80,9 @@ export async function getBuildingById(
         areaId: true,
         buildingTypeId: true,
         status: true,
+        address: true,
+        latitude: true,
+        longitude: true,
         createdAt: true,
         updatedAt: true,
         area: {
@@ -165,6 +171,9 @@ export async function createBuilding(
         areaId: validated.data.areaId,
         buildingTypeId: validated.data.buildingTypeId || null,
         status: validated.data.status,
+        address: validated.data.address || null,
+        latitude: validated.data.latitude || null,
+        longitude: validated.data.longitude || null,
       },
       select: {
         id: true,
@@ -250,6 +259,9 @@ export async function updateBuilding(
         areaId: validated.data.areaId,
         buildingTypeId: validated.data.buildingTypeId || null,
         status: validated.data.status,
+        address: validated.data.address || null,
+        latitude: validated.data.latitude || null,
+        longitude: validated.data.longitude || null,
       },
       select: {
         id: true,

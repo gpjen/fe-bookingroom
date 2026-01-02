@@ -229,7 +229,24 @@ export function BuildingsTable({
         ),
         cell: ({ row }) => (
           <div className="flex flex-col gap-1">
-            <span className="font-medium">{row.getValue("name")}</span>
+            <div className="flex items-center gap-2">
+              <span className="font-medium">{row.getValue("name")}</span>
+              {row.original.latitude && row.original.longitude && (
+                <div
+                  className="h-4 w-4 rounded-full bg-emerald-100 flex items-center justify-center"
+                  title={`Koordinat: ${row.original.latitude.toFixed(
+                    4
+                  )}, ${row.original.longitude.toFixed(4)}`}
+                >
+                  <MapPin className="h-2.5 w-2.5 text-emerald-600" />
+                </div>
+              )}
+            </div>
+            {row.original.address && (
+              <span className="text-xs text-muted-foreground line-clamp-1">
+                {row.original.address}
+              </span>
+            )}
           </div>
         ),
       },

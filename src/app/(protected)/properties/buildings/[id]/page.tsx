@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { getAllBuildingPageData } from "./_actions/building-detail.actions";
+import { getRoomTypes } from "./_actions/room.actions";
 import { BuildingDetailClient } from "./_components/building-detail-client";
 
 // ========================================
@@ -37,15 +38,19 @@ export default async function BuildingDetailPage({
 }) {
   const { id } = await params;
 
-  // Fetch all page data on server (single call)
-  const result = await getAllBuildingPageData(id);
+  // Fetch all page data and room types in parallel
+  const [buildingResult, roomTypesResult] = await Promise.all([
+    getAllBuildingPageData(id),
+    getRoomTypes(),
+  ]);
 
   // If not found, show 404 page
-  if (!result.success) {
+  if (!buildingResult.success) {
     notFound();
   }
 
-  const { detail, stats, floors } = result.data;
+  const { detail, stats, floors } = buildingResult.data;
+  const roomTypes = roomTypesResult.success ? roomTypesResult.data : [];
 
   // Pass all data to client component (no client-side fetching needed!)
   return (
@@ -55,6 +60,7 @@ export default async function BuildingDetailPage({
       initialDetail={detail}
       initialStats={stats}
       initialFloors={floors}
+      roomTypes={roomTypes}
     />
   );
 }

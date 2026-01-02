@@ -9,13 +9,14 @@ import {
 } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   DoorOpen,
   Bed,
-  Users,
+  User,
   Edit,
-  Plus,
+  History,
   CheckCircle2,
   Clock,
   Ban,
@@ -32,72 +33,131 @@ const bedStatusConfig = {
   AVAILABLE: {
     label: "Tersedia",
     icon: CheckCircle2,
-    className: "bg-emerald-100 text-emerald-700 border-emerald-200",
+    color: "text-emerald-600",
+    bg: "bg-emerald-50 dark:bg-emerald-900/20",
+    border: "border-emerald-200 dark:border-emerald-800",
   },
   OCCUPIED: {
     label: "Terisi",
-    icon: Users,
-    className: "bg-blue-100 text-blue-700 border-blue-200",
+    icon: User,
+    color: "text-blue-600",
+    bg: "bg-blue-50 dark:bg-blue-900/20",
+    border: "border-blue-200 dark:border-blue-800",
   },
   RESERVED: {
-    label: "Reserved",
+    label: "Dipesan",
     icon: Clock,
-    className: "bg-amber-100 text-amber-700 border-amber-200",
+    color: "text-amber-600",
+    bg: "bg-amber-50 dark:bg-amber-900/20",
+    border: "border-amber-200 dark:border-amber-800",
   },
   MAINTENANCE: {
     label: "Maintenance",
     icon: Wrench,
-    className: "bg-slate-100 text-slate-700 border-slate-200",
+    color: "text-slate-600",
+    bg: "bg-slate-50 dark:bg-slate-900/20",
+    border: "border-slate-200 dark:border-slate-800",
   },
   BLOCKED: {
     label: "Diblokir",
     icon: Ban,
-    className: "bg-red-100 text-red-700 border-red-200",
+    color: "text-red-600",
+    bg: "bg-red-50 dark:bg-red-900/20",
+    border: "border-red-200 dark:border-red-800",
   },
 };
 
 // ========================================
-// BED CARD
+// BED LIST ITEM
 // ========================================
 
-interface BedCardProps {
+interface BedListItemProps {
   bed: BedData;
-  onClick?: () => void;
 }
 
-function BedCard({ bed, onClick }: BedCardProps) {
+function BedListItem({ bed }: BedListItemProps) {
   const config = bedStatusConfig[bed.status];
   const Icon = config.icon;
 
   return (
     <div
       className={cn(
-        "border rounded-lg p-3 cursor-pointer hover:shadow-sm transition-shadow",
-        bed.status === "AVAILABLE" && "hover:border-emerald-400"
+        "flex items-center justify-between p-3 rounded-lg border",
+        config.bg,
+        config.border
       )}
-      onClick={onClick}
     >
-      <div className="flex items-center justify-between mb-2">
-        <span className="font-mono text-xs text-muted-foreground">
-          {bed.code}
-        </span>
-        <Badge
-          variant="outline"
-          className={cn("text-[10px]", config.className)}
+      <div className="flex items-center gap-3">
+        <div
+          className={cn(
+            "w-8 h-8 rounded-full flex items-center justify-center",
+            "bg-white dark:bg-slate-800 border",
+            config.border
+          )}
         >
-          <Icon className="h-3 w-3 mr-1" />
+          <Icon className={cn("h-4 w-4", config.color)} />
+        </div>
+        <div>
+          <p className="font-medium text-sm">{bed.label}</p>
+          <p className="text-xs text-muted-foreground font-mono">{bed.code}</p>
+        </div>
+      </div>
+      <div className="text-right">
+        <Badge variant="outline" className={cn("text-[10px]", config.color)}>
           {config.label}
         </Badge>
+        {bed.status === "OCCUPIED" && (
+          <p className="text-[10px] text-muted-foreground mt-0.5">
+            {/* TODO: Show occupant name when available */}
+            Lihat penghuni
+          </p>
+        )}
       </div>
-      <p className="font-medium text-sm">{bed.label}</p>
-      {bed.bedType && (
-        <p className="text-xs text-muted-foreground">{bed.bedType}</p>
-      )}
-      {bed.notes && (
-        <p className="text-xs text-muted-foreground mt-1 line-clamp-1">
-          {bed.notes}
-        </p>
-      )}
+    </div>
+  );
+}
+
+// ========================================
+// BEDS TAB
+// ========================================
+
+function BedsTab({ room }: { room: RoomData }) {
+  const sortedBeds = [...room.beds].sort((a, b) => {
+    // Sort by status priority: OCCUPIED > RESERVED > AVAILABLE > MAINTENANCE > BLOCKED
+    const priority = {
+      OCCUPIED: 0,
+      RESERVED: 1,
+      AVAILABLE: 2,
+      MAINTENANCE: 3,
+      BLOCKED: 4,
+    };
+    return priority[a.status] - priority[b.status];
+  });
+
+  return (
+    <div className="space-y-2">
+      {sortedBeds.map((bed) => (
+        <BedListItem key={bed.id} bed={bed} />
+      ))}
+    </div>
+  );
+}
+
+// ========================================
+// HISTORY TAB (PLACEHOLDER)
+// ========================================
+
+function HistoryTab({ room }: { room: RoomData }) {
+  // TODO: Fetch occupancy history from API
+  return (
+    <div className="flex flex-col items-center justify-center py-12 text-center">
+      <div className="p-4 rounded-full bg-muted mb-3">
+        <History className="h-8 w-8 text-muted-foreground" />
+      </div>
+      <h4 className="font-medium mb-1">Riwayat Penghuni</h4>
+      <p className="text-sm text-muted-foreground max-w-xs">
+        Fitur riwayat penghuni untuk ruangan {room.code} akan segera tersedia.
+      </p>
     </div>
   );
 }
@@ -110,162 +170,145 @@ interface RoomDetailSheetProps {
   room: RoomData | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onEdit?: () => void;
 }
 
 export function RoomDetailSheet({
   room,
   open,
   onOpenChange,
+  onEdit,
 }: RoomDetailSheetProps) {
   if (!room) return null;
 
-  const bedsAvailable = room.beds.filter(
-    (b) => b.status === "AVAILABLE"
-  ).length;
   const bedsOccupied = room.beds.filter((b) => b.status === "OCCUPIED").length;
+  const totalBeds = room.beds.length;
+  const hasOccupants = bedsOccupied > 0;
+
+  // Gender label
+  const genderLabel =
+    room.genderPolicy === "MALE_ONLY"
+      ? "Pria"
+      : room.genderPolicy === "FEMALE_ONLY"
+      ? "Wanita"
+      : room.genderPolicy === "FLEXIBLE"
+      ? "Flexible"
+      : "Campuran";
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-lg overflow-y-auto">
-        <SheetHeader className="text-left mb-6">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-lg bg-primary/10">
-              <DoorOpen className="h-5 w-5 text-primary" />
+      <SheetContent className="w-full sm:max-w-md p-0 flex flex-col">
+        {/* Header */}
+        <SheetHeader className="px-5 pt-5 pb-4 text-left flex-shrink-0 border-b">
+          <div className="flex items-start justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 rounded-lg bg-primary/10">
+                <DoorOpen className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <SheetTitle className="text-lg">{room.name}</SheetTitle>
+                <SheetDescription className="font-mono text-xs">
+                  {room.code}
+                </SheetDescription>
+              </div>
             </div>
-            <div>
-              <SheetTitle className="text-xl">{room.name}</SheetTitle>
-              <SheetDescription className="font-mono">
-                {room.code}
-              </SheetDescription>
-            </div>
+            {onEdit && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                onClick={onEdit}
+                disabled={hasOccupants}
+                title={hasOccupants ? "Ada penghuni aktif" : "Edit ruangan"}
+              >
+                <Edit className="h-3.5 w-3.5" />
+                Edit
+              </Button>
+            )}
+          </div>
+
+          {/* Room Info Row */}
+          <div className="flex items-center gap-2 mt-3 flex-wrap">
+            {/* Occupancy */}
+            <Badge
+              variant="outline"
+              className={cn(
+                "text-xs",
+                bedsOccupied === 0
+                  ? "border-emerald-500 text-emerald-600"
+                  : bedsOccupied === totalBeds
+                  ? "border-red-500 text-red-600"
+                  : "border-blue-500 text-blue-600"
+              )}
+            >
+              <Bed className="h-3 w-3 mr-1" />
+              {bedsOccupied}/{totalBeds} terisi
+            </Badge>
+
+            {/* Room Type */}
+            <Badge variant="secondary" className="text-xs">
+              {room.roomType.name}
+            </Badge>
+
+            {/* Gender */}
+            <Badge variant="outline" className="text-xs">
+              {genderLabel}
+            </Badge>
+
+            {/* Floor */}
+            <Badge variant="outline" className="text-xs">
+              Lt. {room.floorNumber}
+            </Badge>
+
+            {/* Status */}
+            {room.status !== "ACTIVE" && (
+              <Badge
+                variant="outline"
+                className={cn(
+                  "text-xs",
+                  room.status === "MAINTENANCE"
+                    ? "border-amber-500 text-amber-600"
+                    : "border-slate-400 text-slate-600"
+                )}
+              >
+                {room.status === "MAINTENANCE" ? "Maintenance" : "Tidak Aktif"}
+              </Badge>
+            )}
           </div>
         </SheetHeader>
 
-        {/* Quick Stats */}
-        <div className="grid grid-cols-3 gap-3 mb-6">
-          <div className="border rounded-lg p-3 text-center">
-            <Bed className="h-4 w-4 mx-auto mb-1 text-muted-foreground" />
-            <p className="text-lg font-bold">{room.beds.length}</p>
-            <p className="text-xs text-muted-foreground">Total Bed</p>
-          </div>
-          <div className="border rounded-lg p-3 text-center">
-            <Users className="h-4 w-4 mx-auto mb-1 text-blue-500" />
-            <p className="text-lg font-bold text-blue-600">{bedsOccupied}</p>
-            <p className="text-xs text-muted-foreground">Terisi</p>
-          </div>
-          <div className="border rounded-lg p-3 text-center">
-            <CheckCircle2 className="h-4 w-4 mx-auto mb-1 text-emerald-500" />
-            <p className="text-lg font-bold text-emerald-600">
-              {bedsAvailable}
-            </p>
-            <p className="text-xs text-muted-foreground">Tersedia</p>
-          </div>
-        </div>
+        {/* Tabs */}
+        <Tabs
+          defaultValue="beds"
+          className="flex-1 flex flex-col overflow-hidden"
+        >
+          <TabsList className="mx-5 mt-4 grid w-auto grid-cols-2">
+            <TabsTrigger value="beds" className="text-xs gap-1.5">
+              <Bed className="h-3.5 w-3.5" />
+              Beds ({totalBeds})
+            </TabsTrigger>
+            <TabsTrigger value="history" className="text-xs gap-1.5">
+              <History className="h-3.5 w-3.5" />
+              Riwayat
+            </TabsTrigger>
+          </TabsList>
 
-        {/* Room Info */}
-        <div className="space-y-4 mb-6">
-          <h4 className="font-semibold text-sm">Informasi Ruangan</h4>
-          <div className="grid grid-cols-2 gap-3 text-sm">
-            <div>
-              <span className="text-muted-foreground">Tipe Ruangan</span>
-              <p className="font-medium">{room.roomType.name}</p>
-            </div>
-            <div>
-              <span className="text-muted-foreground">Lantai</span>
-              <p className="font-medium">
-                {room.floorName || `Lantai ${room.floorNumber}`}
-              </p>
-            </div>
-            <div>
-              <span className="text-muted-foreground">Gender Policy</span>
-              <p className="font-medium">
-                {room.genderPolicy === "MALE_ONLY"
-                  ? "Pria Saja"
-                  : room.genderPolicy === "FEMALE_ONLY"
-                  ? "Wanita Saja"
-                  : room.genderPolicy === "MIX"
-                  ? "Campuran"
-                  : "Flexible"}
-              </p>
-            </div>
-            <div>
-              <span className="text-muted-foreground">Status</span>
-              <p className="font-medium">
-                <Badge
-                  variant="outline"
-                  className={cn(
-                    room.status === "ACTIVE"
-                      ? "border-emerald-500 text-emerald-600"
-                      : room.status === "MAINTENANCE"
-                      ? "border-amber-500 text-amber-600"
-                      : "border-slate-400 text-slate-600"
-                  )}
-                >
-                  {room.status === "ACTIVE"
-                    ? "Aktif"
-                    : room.status === "MAINTENANCE"
-                    ? "Maintenance"
-                    : "Tidak Aktif"}
-                </Badge>
-              </p>
-            </div>
-          </div>
-          {room.description && (
-            <div>
-              <span className="text-muted-foreground text-sm">Deskripsi</span>
-              <p className="text-sm">{room.description}</p>
-            </div>
-          )}
-        </div>
+          <TabsContent value="beds" className="flex-1 overflow-hidden m-0">
+            <ScrollArea className="h-full">
+              <div className="px-5 py-4">
+                <BedsTab room={room} />
+              </div>
+            </ScrollArea>
+          </TabsContent>
 
-        <Separator className="my-4" />
-
-        {/* Beds Section */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h4 className="font-semibold text-sm">Daftar Bed</h4>
-            <Button variant="outline" size="sm" className="gap-1">
-              <Plus className="h-3 w-3" />
-              Tambah Bed
-            </Button>
-          </div>
-
-          {room.beds.length === 0 ? (
-            <div className="border rounded-lg p-6 text-center">
-              <Bed className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">
-                Belum ada bed di ruangan ini
-              </p>
-              <Button variant="link" size="sm" className="mt-2">
-                Tambah Bed Pertama
-              </Button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-2">
-              {room.beds.map((bed) => (
-                <BedCard
-                  key={bed.id}
-                  bed={bed}
-                  onClick={() => {
-                    // TODO: Handle bed click - show occupant or add occupant form
-                  }}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Actions */}
-        <div className="flex gap-2 mt-6 pt-4 border-t">
-          <Button variant="outline" className="flex-1 gap-2">
-            <Edit className="h-4 w-4" />
-            Edit Ruangan
-          </Button>
-          <Button className="flex-1 gap-2">
-            <Plus className="h-4 w-4" />
-            Tambah Penghuni
-          </Button>
-        </div>
+          <TabsContent value="history" className="flex-1 overflow-hidden m-0">
+            <ScrollArea className="h-full">
+              <div className="px-5 py-4">
+                <HistoryTab room={room} />
+              </div>
+            </ScrollArea>
+          </TabsContent>
+        </Tabs>
       </SheetContent>
     </Sheet>
   );

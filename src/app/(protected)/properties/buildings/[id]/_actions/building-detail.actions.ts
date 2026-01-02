@@ -217,11 +217,7 @@ export async function getRoomsGroupedByFloor(
             defaultBedType: true,
           },
         },
-        _count: {
-          select: {
-            beds: true,
-          },
-        },
+
         beds: {
           orderBy: { position: "asc" },
           select: {
@@ -427,11 +423,7 @@ export async function getAllBuildingPageData(
               defaultBedType: true,
             },
           },
-          _count: {
-            select: {
-              beds: true,
-            },
-          },
+
           beds: {
             orderBy: { position: "asc" },
             select: {

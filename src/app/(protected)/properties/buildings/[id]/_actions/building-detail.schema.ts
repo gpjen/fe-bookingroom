@@ -78,9 +78,6 @@ export interface RoomData {
     bedsPerRoom: number;
     defaultBedType: string;
   };
-  _count: {
-    beds: number;
-  };
   beds: BedData[];
   createdAt: Date;
   updatedAt: Date;

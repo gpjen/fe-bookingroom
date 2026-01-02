@@ -1,7 +1,13 @@
 "use client";
 
 import { useState } from "react";
-import { Layers, DoorOpen, Users, Construction, Plus, Bed } from "lucide-react";
+import {
+  Layers,
+  DoorOpen,
+  Plus,
+  MoreHorizontal,
+  Construction,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -11,130 +17,199 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { RoomDetailSheet } from "./room-detail-sheet";
+import { RoomForm } from "./room-form";
 import { toast } from "sonner";
-// getRoomsGroupedByFloor will be used for refresh after CRUD
 import { FloorWithRooms, RoomData } from "../_actions/building-detail.schema";
+import { RoomTypeOption, RoomWithBeds } from "../_actions/room.types";
+import { deleteRoom, getRoomById } from "../_actions/room.actions";
 
 // ========================================
-// ROOM CARD COMPONENT
+// COMPACT ROOM CARD - Fixed size grid item
 // ========================================
 
 interface RoomCardProps {
   room: RoomData;
-  onClick: () => void;
+  onView: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
 }
 
-function RoomCard({ room, onClick }: RoomCardProps) {
-  const statusColors = {
-    ACTIVE:
-      "bg-white dark:bg-gray-800 border-slate-200 dark:border-zinc-700 hover:border-blue-400 dark:hover:border-blue-600",
-    INACTIVE:
-      "bg-slate-50 dark:bg-gray-900 border-slate-300 dark:border-zinc-600 opacity-60",
-    MAINTENANCE:
-      "bg-amber-50 dark:bg-amber-950 border-amber-300 dark:border-amber-800",
-  };
-
-  // Calculate bed stats
-  const bedsAvailable = room.beds.filter(
-    (b) => b.status === "AVAILABLE"
-  ).length;
+function RoomCard({ room, onView, onEdit, onDelete }: RoomCardProps) {
   const bedsOccupied = room.beds.filter((b) => b.status === "OCCUPIED").length;
   const totalBeds = room.beds.length;
+  const hasOccupants = bedsOccupied > 0;
+  const isFull = bedsOccupied === totalBeds && totalBeds > 0;
 
-  const occupancyPercent = totalBeds > 0 ? (bedsOccupied / totalBeds) * 100 : 0;
+  // Status color for occupancy indicator
+  const getIndicatorColor = () => {
+    if (room.status === "MAINTENANCE") return "bg-amber-500";
+    if (room.status === "INACTIVE") return "bg-slate-400";
+    if (isFull) return "bg-red-500";
+    if (bedsOccupied > 0) return "bg-blue-500";
+    return "bg-emerald-500";
+  };
+
+  // Gender label (only show if not MIX)
+  const getGenderLabel = () => {
+    if (room.genderPolicy === "MALE_ONLY") return "L";
+    if (room.genderPolicy === "FEMALE_ONLY") return "P";
+    if (room.genderPolicy === "FLEXIBLE") return "F";
+    return null;
+  };
+
+  const genderLabel = getGenderLabel();
 
   return (
-    <Card
+    <div
       className={cn(
-        "cursor-pointer transition-all duration-200 hover:shadow-md",
-        statusColors[room.status]
+        "group relative flex flex-col h-full min-h-[6rem] p-3 rounded-lg border cursor-pointer transition-all",
+        "hover:shadow-sm hover:border-primary/40 hover:bg-slate-50/50 dark:hover:bg-slate-900/20",
+        room.status === "MAINTENANCE" &&
+          "bg-amber-50/50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800",
+        room.status === "INACTIVE" && "opacity-50"
       )}
-      onClick={onClick}
+      onClick={onView}
     >
-      <CardContent className="p-4">
-        <div className="flex items-start justify-between mb-3">
-          <div>
-            <p className="font-mono text-xs text-muted-foreground">
+      {/* Top section: Room info */}
+      <div className="flex items-start justify-between mb-2">
+        {/* Room code */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5">
+            <span className="font-mono text-sm font-semibold truncate">
               {room.code}
-            </p>
-            <h4 className="font-semibold text-sm">{room.name}</h4>
-          </div>
-          {room.status === "MAINTENANCE" && (
-            <Construction className="h-4 w-4 text-amber-500" />
-          )}
-        </div>
-
-        {/* Bed occupancy bar */}
-        <div className="mb-3">
-          <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-            <div
-              className={cn(
-                "h-full transition-all",
-                occupancyPercent >= 100
-                  ? "bg-red-500"
-                  : occupancyPercent >= 75
-                  ? "bg-amber-500"
-                  : "bg-emerald-500"
-              )}
-              style={{ width: `${occupancyPercent}%` }}
-            />
-          </div>
-        </div>
-
-        {/* Stats row */}
-        <div className="flex items-center justify-between text-xs text-muted-foreground">
-          <div className="flex items-center gap-3">
-            <span className="flex items-center gap-1">
-              <Bed className="h-3 w-3" />
-              {totalBeds}
             </span>
-            <span className="flex items-center gap-1">
-              <Users className="h-3 w-3" />
-              {bedsOccupied}/{totalBeds}
-            </span>
-          </div>
-          <Badge
-            variant="outline"
-            className={cn(
-              "text-[10px] px-1.5 py-0",
-              bedsAvailable > 0
-                ? "border-emerald-500 text-emerald-600"
-                : "border-red-500 text-red-600"
+            {genderLabel && (
+              <Badge
+                variant="outline"
+                className={cn(
+                  "text-[9px] px-1 py-0 h-4 flex-shrink-0",
+                  room.genderPolicy === "MALE_ONLY"
+                    ? "border-blue-400 text-blue-600"
+                    : room.genderPolicy === "FEMALE_ONLY"
+                    ? "border-pink-400 text-pink-600"
+                    : "border-purple-400 text-purple-600"
+                )}
+              >
+                {genderLabel}
+              </Badge>
             )}
-          >
-            {bedsAvailable > 0 ? `${bedsAvailable} tersedia` : "Penuh"}
-          </Badge>
+          </div>
+          <p className="text-xs text-muted-foreground truncate">
+            {room.roomType.name || "No Type"}
+          </p>
         </div>
 
-        {/* Room type & Gender */}
-        <div className="flex items-center gap-2 mt-2">
-          <Badge variant="secondary" className="text-[10px]">
-            {room.roomType.name}
-          </Badge>
-          {room.genderPolicy !== "MIX" && (
-            <Badge
-              variant="outline"
+        {/* 3-dot menu (visible on hover) */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-6 w-6 -mt-1 -mr-1 opacity-0 group-hover:opacity-100 transition-opacity"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <MoreHorizontal className="h-3.5 w-3.5" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-40">
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.stopPropagation();
+                onView();
+              }}
+            >
+              Lihat Detail
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.stopPropagation();
+                onEdit();
+              }}
+              disabled={hasOccupants}
+              className={hasOccupants ? "opacity-50" : ""}
+            >
+              Edit
+              {hasOccupants && (
+                <span className="text-[10px] ml-auto">Ada penghuni</span>
+              )}
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              onClick={(e) => {
+                e.stopPropagation();
+                onDelete();
+              }}
+              disabled={hasOccupants}
               className={cn(
-                "text-[10px]",
-                room.genderPolicy === "MALE_ONLY"
-                  ? "border-blue-400 text-blue-600"
-                  : room.genderPolicy === "FEMALE_ONLY"
-                  ? "border-pink-400 text-pink-600"
-                  : "border-purple-400 text-purple-600"
+                "text-destructive focus:text-destructive",
+                hasOccupants && "opacity-50"
               )}
             >
-              {room.genderPolicy === "MALE_ONLY"
-                ? "Pria"
-                : room.genderPolicy === "FEMALE_ONLY"
-                ? "Wanita"
-                : "Flexible"}
-            </Badge>
-          )}
+              Hapus
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
+      {/* Bottom section: Occupancy indicator */}
+      <div className="mt-auto">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            {/* Occupancy circle */}
+            <div
+              className={cn(
+                "flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white",
+                getIndicatorColor()
+              )}
+            >
+              {room.status === "MAINTENANCE" ? (
+                <Construction className="h-3.5 w-3.5" />
+              ) : (
+                `${bedsOccupied}/${totalBeds}`
+              )}
+            </div>
+
+            {/* Status label */}
+            <span className="text-xs font-medium">
+              {room.status === "MAINTENANCE"
+                ? "Perbaikan"
+                : room.status === "INACTIVE"
+                ? "Tidak Aktif"
+                : isFull
+                ? "Penuh"
+                : bedsOccupied > 0
+                ? "Terisi"
+                : "Kosong"}
+            </span>
+          </div>
+
+          {/* Capacity info */}
+          <div className="text-right">
+            <div className="text-xs text-muted-foreground">Kapasitas</div>
+            <div className="text-sm font-semibold">{totalBeds} bed</div>
+          </div>
         </div>
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
 
@@ -142,7 +217,7 @@ function RoomCard({ room, onClick }: RoomCardProps) {
 // EMPTY STATE
 // ========================================
 
-function EmptyState() {
+function EmptyState({ onAddRoom }: { onAddRoom: () => void }) {
   return (
     <Card>
       <CardContent className="flex flex-col items-center justify-center py-12">
@@ -151,10 +226,9 @@ function EmptyState() {
         </div>
         <h3 className="font-semibold text-lg mb-1">Belum Ada Ruangan</h3>
         <p className="text-sm text-muted-foreground text-center max-w-sm mb-4">
-          Gedung ini belum memiliki ruangan. Tambahkan ruangan pertama untuk
-          mulai mengelola hunian.
+          Tambahkan ruangan pertama untuk mulai mengelola hunian.
         </p>
-        <Button className="gap-2">
+        <Button className="gap-2" onClick={onAddRoom}>
           <Plus className="h-4 w-4" />
           Tambah Ruangan
         </Button>
@@ -168,136 +242,217 @@ function EmptyState() {
 // ========================================
 
 interface BuildingFloorsProps {
+  buildingId: string;
   initialData: FloorWithRooms[];
+  roomTypes: RoomTypeOption[];
+  onRefresh: () => void;
 }
 
 // ========================================
 // MAIN COMPONENT
 // ========================================
 
-export function BuildingFloors({ initialData }: BuildingFloorsProps) {
+export function BuildingFloors({
+  buildingId,
+  initialData,
+  roomTypes,
+  onRefresh,
+}: BuildingFloorsProps) {
   const floors = initialData;
+
+  // Room form state
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingRoom, setEditingRoom] = useState<RoomWithBeds | null>(null);
+  const [defaultFloorNumber, setDefaultFloorNumber] = useState<number>(1);
+
+  // Room detail state
   const [selectedRoom, setSelectedRoom] = useState<RoomData | null>(null);
+
+  // Delete state
+  const [deletingRoom, setDeletingRoom] = useState<RoomData | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Accordion state
   const [expandedFloors, setExpandedFloors] = useState<string[]>(
     initialData.length > 0 ? [`floor-${initialData[0].floorNumber}`] : []
   );
 
   // Handlers
-  const handleRoomClick = (room: RoomData) => {
+  const handleViewRoom = (room: RoomData) => {
     setSelectedRoom(room);
   };
 
   const handleAddRoom = (floorNumber?: number) => {
-    toast.info(
-      `Tambah ruangan${floorNumber ? ` di lantai ${floorNumber}` : ""}`
-    );
-    // TODO: Open room form + call refreshData after success
+    setEditingRoom(null);
+    setDefaultFloorNumber(floorNumber || 1);
+    setIsFormOpen(true);
+  };
+
+  const handleEditRoom = async (room: RoomData) => {
+    const hasOccupants = room.beds.some((b) => b.status === "OCCUPIED");
+    if (hasOccupants) {
+      toast.error("Tidak bisa edit ruangan yang memiliki penghuni");
+      return;
+    }
+
+    // Fetch full room data
+    const result = await getRoomById(room.id);
+    if (result.success) {
+      setEditingRoom(result.data);
+      setIsFormOpen(true);
+    } else {
+      toast.error("Gagal memuat data ruangan");
+    }
+  };
+
+  const handleDeleteRoom = (room: RoomData) => {
+    const hasOccupants = room.beds.some((b) => b.status === "OCCUPIED");
+    if (hasOccupants) {
+      toast.error("Tidak bisa hapus ruangan yang memiliki penghuni");
+      return;
+    }
+    setDeletingRoom(room);
+  };
+
+  const confirmDeleteRoom = async () => {
+    if (!deletingRoom) return;
+
+    setIsDeleting(true);
+    const result = await deleteRoom(deletingRoom.id);
+    setIsDeleting(false);
+
+    if (result.success) {
+      toast.success("Ruangan berhasil dihapus");
+      setDeletingRoom(null);
+      onRefresh();
+    } else {
+      toast.error(result.error);
+    }
+  };
+
+  const handleFormSuccess = () => {
+    onRefresh();
   };
 
   if (floors.length === 0) {
-    return <EmptyState />;
+    return (
+      <>
+        <EmptyState onAddRoom={() => handleAddRoom()} />
+        <RoomForm
+          open={isFormOpen}
+          onOpenChange={setIsFormOpen}
+          buildingId={buildingId}
+          roomTypes={roomTypes}
+          room={editingRoom}
+          defaultFloorNumber={defaultFloorNumber}
+          onSuccess={handleFormSuccess}
+        />
+      </>
+    );
   }
 
-  // Calculate total stats
+  // Total stats
   const totalStats = floors.reduce(
     (acc, floor) => ({
       rooms: acc.rooms + floor.stats.totalRooms,
-      beds: acc.beds + floor.stats.totalBeds,
       available: acc.available + floor.stats.bedsAvailable,
-      occupied: acc.occupied + floor.stats.bedsOccupied,
     }),
-    { rooms: 0, beds: 0, available: 0, occupied: 0 }
+    { rooms: 0, available: 0 }
   );
 
   return (
     <>
       <Card>
-        <CardHeader>
-          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="p-2 rounded-lg bg-primary/10">
                 <Layers className="h-5 w-5 text-primary" />
               </div>
               <div>
-                <CardTitle className="text-lg">Lantai & Ruangan</CardTitle>
-                <p className="text-sm text-muted-foreground">
-                  {floors.length} lantai • {totalStats.rooms} ruangan •{" "}
-                  {totalStats.beds} bed
+                <CardTitle className="text-base">Lantai & Ruangan</CardTitle>
+                <p className="text-xs text-muted-foreground">
+                  {totalStats.rooms} ruangan •{" "}
+                  <span className="text-emerald-600">
+                    {totalStats.available} bed tersedia
+                  </span>
                 </p>
               </div>
             </div>
-            <Button className="gap-2" onClick={() => handleAddRoom()}>
+            <Button
+              size="sm"
+              className="gap-1.5"
+              onClick={() => handleAddRoom()}
+            >
               <Plus className="h-4 w-4" />
-              Tambah Ruangan
+              Tambah
             </Button>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-0">
           <Accordion
             type="multiple"
             value={expandedFloors}
             onValueChange={setExpandedFloors}
-            className="space-y-3"
+            className="space-y-2"
           >
             {floors.map((floor) => (
               <AccordionItem
                 key={floor.floorNumber}
                 value={`floor-${floor.floorNumber}`}
-                className="border rounded-lg px-4"
+                className="border rounded-lg px-3"
               >
-                <AccordionTrigger className="hover:no-underline py-4">
-                  <div className="flex items-center justify-between w-full pr-4">
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 text-sm font-bold">
+                <AccordionTrigger className="hover:no-underline py-3">
+                  <div className="flex items-center justify-between w-full pr-2">
+                    <div className="flex items-center gap-2">
+                      <div className="flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 text-xs font-bold">
                         {floor.floorNumber}
                       </div>
-                      <div className="text-left">
-                        <span className="font-semibold">
-                          {floor.floorName || `Lantai ${floor.floorNumber}`}
-                        </span>
-                        <span className="text-sm text-muted-foreground ml-2">
-                          {floor.stats.totalRooms} ruangan
-                        </span>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                      <span className="flex items-center gap-1">
-                        <Bed className="h-4 w-4" />
-                        {floor.stats.totalBeds}
+                      <span className="font-medium text-sm">
+                        {floor.floorName || `Lantai ${floor.floorNumber}`}
                       </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="text-[10px] py-0">
+                        {floor.stats.totalRooms} kamar
+                      </Badge>
                       <Badge
                         variant="outline"
                         className={cn(
+                          "text-[10px] py-0",
                           floor.stats.bedsAvailable > 0
                             ? "border-emerald-500 text-emerald-600"
                             : "border-red-500 text-red-600"
                         )}
                       >
-                        {floor.stats.bedsAvailable} tersedia
+                        {floor.stats.bedsAvailable} kosong
                       </Badge>
                     </div>
                   </div>
                 </AccordionTrigger>
-                <AccordionContent className="pb-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 pt-2">
+                <AccordionContent className="pb-3">
+                  {/* Grid untuk ruangan dengan ukuran tetap */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 pt-1">
                     {floor.rooms.map((room) => (
-                      <RoomCard
-                        key={room.id}
-                        room={room}
-                        onClick={() => handleRoomClick(room)}
-                      />
+                      <div key={room.id} className="min-w-0">
+                        <RoomCard
+                          room={room}
+                          onView={() => handleViewRoom(room)}
+                          onEdit={() => handleEditRoom(room)}
+                          onDelete={() => handleDeleteRoom(room)}
+                        />
+                      </div>
                     ))}
-                    {/* Add room button */}
-                    <Card
-                      className="cursor-pointer border-dashed border-2 hover:border-primary hover:bg-primary/5 transition-colors"
-                      onClick={() => handleAddRoom(floor.floorNumber)}
-                    >
-                      <CardContent className="flex flex-col items-center justify-center h-full min-h-[130px] text-muted-foreground">
-                        <Plus className="h-6 w-6 mb-2" />
-                        <span className="text-sm">Tambah Ruangan</span>
-                      </CardContent>
-                    </Card>
                   </div>
+
+                  {/* Add room button */}
+                  <button
+                    className="w-full flex items-center justify-center gap-2 mt-4 p-3 rounded-lg border-2 border-dashed border-slate-200 dark:border-zinc-700 text-muted-foreground hover:border-primary hover:text-primary hover:bg-primary/5 transition-colors text-sm"
+                    onClick={() => handleAddRoom(floor.floorNumber)}
+                  >
+                    <Plus className="h-4 w-4" />
+                    Tambah Ruangan di Lantai {floor.floorNumber}
+                  </button>
                 </AccordionContent>
               </AccordionItem>
             ))}
@@ -310,7 +465,50 @@ export function BuildingFloors({ initialData }: BuildingFloorsProps) {
         room={selectedRoom}
         open={!!selectedRoom}
         onOpenChange={(open) => !open && setSelectedRoom(null)}
+        onEdit={() => {
+          if (selectedRoom) {
+            setSelectedRoom(null);
+            handleEditRoom(selectedRoom);
+          }
+        }}
       />
+
+      {/* Room Form */}
+      <RoomForm
+        open={isFormOpen}
+        onOpenChange={setIsFormOpen}
+        buildingId={buildingId}
+        roomTypes={roomTypes}
+        room={editingRoom}
+        defaultFloorNumber={defaultFloorNumber}
+        onSuccess={handleFormSuccess}
+      />
+
+      {/* Delete Confirmation */}
+      <AlertDialog
+        open={!!deletingRoom}
+        onOpenChange={(open) => !open && setDeletingRoom(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Hapus Ruangan</AlertDialogTitle>
+            <AlertDialogDescription>
+              Hapus ruangan <strong>{deletingRoom?.code}</strong>? Semua data
+              bed akan ikut terhapus.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Batal</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDeleteRoom}
+              disabled={isDeleting}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              {isDeleting ? "Menghapus..." : "Hapus"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

@@ -1,19 +1,10 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
-import {
-  Layers,
-  DoorOpen,
-  Users,
-  Construction,
-  Plus,
-  Bed,
-  AlertCircle,
-} from "lucide-react";
+import { useState } from "react";
+import { Layers, DoorOpen, Users, Construction, Plus, Bed } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   Accordion,
   AccordionContent,
@@ -23,7 +14,7 @@ import {
 import { cn } from "@/lib/utils";
 import { RoomDetailSheet } from "./room-detail-sheet";
 import { toast } from "sonner";
-import { getRoomsGroupedByFloor } from "../_actions/building-detail.actions";
+// getRoomsGroupedByFloor will be used for refresh after CRUD
 import { FloorWithRooms, RoomData } from "../_actions/building-detail.schema";
 
 // ========================================
@@ -148,35 +139,6 @@ function RoomCard({ room, onClick }: RoomCardProps) {
 }
 
 // ========================================
-// FLOOR LOADING SKELETON
-// ========================================
-
-function FloorsLoading() {
-  return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <Skeleton className="h-6 w-40" />
-          <Skeleton className="h-9 w-32" />
-        </div>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {Array.from({ length: 2 }).map((_, i) => (
-          <div key={i} className="border rounded-lg p-4">
-            <Skeleton className="h-6 w-32 mb-4" />
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {Array.from({ length: 4 }).map((_, j) => (
-                <Skeleton key={j} className="h-28 w-full" />
-              ))}
-            </div>
-          </div>
-        ))}
-      </CardContent>
-    </Card>
-  );
-}
-
-// ========================================
 // EMPTY STATE
 // ========================================
 
@@ -202,45 +164,23 @@ function EmptyState() {
 }
 
 // ========================================
+// PROPS
+// ========================================
+
+interface BuildingFloorsProps {
+  initialData: FloorWithRooms[];
+}
+
+// ========================================
 // MAIN COMPONENT
 // ========================================
 
-export function BuildingFloors({ id }: { id: string }) {
-  const [floors, setFloors] = useState<FloorWithRooms[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+export function BuildingFloors({ initialData }: BuildingFloorsProps) {
+  const floors = initialData;
   const [selectedRoom, setSelectedRoom] = useState<RoomData | null>(null);
-  const [expandedFloors, setExpandedFloors] = useState<string[]>([]);
-  const isFetching = useRef(false);
-
-  // Fetch floors data
-  const fetchData = useCallback(async () => {
-    if (isFetching.current) return;
-    isFetching.current = true;
-
-    try {
-      const result = await getRoomsGroupedByFloor(id);
-      if (result.success) {
-        setFloors(result.data);
-        // Auto-expand first floor
-        if (result.data.length > 0) {
-          setExpandedFloors([`floor-${result.data[0].floorNumber}`]);
-        }
-      } else {
-        setError(result.error);
-      }
-    } catch (err) {
-      console.error(err);
-      setError("Gagal memuat data ruangan");
-    } finally {
-      setLoading(false);
-      isFetching.current = false;
-    }
-  }, [id]);
-
-  useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+  const [expandedFloors, setExpandedFloors] = useState<string[]>(
+    initialData.length > 0 ? [`floor-${initialData[0].floorNumber}`] : []
+  );
 
   // Handlers
   const handleRoomClick = (room: RoomData) => {
@@ -251,23 +191,8 @@ export function BuildingFloors({ id }: { id: string }) {
     toast.info(
       `Tambah ruangan${floorNumber ? ` di lantai ${floorNumber}` : ""}`
     );
-    // TODO: Open room form
+    // TODO: Open room form + call refreshData after success
   };
-
-  if (loading) {
-    return <FloorsLoading />;
-  }
-
-  if (error) {
-    return (
-      <Card className="p-6">
-        <div className="flex items-center gap-2 text-destructive">
-          <AlertCircle className="h-5 w-5" />
-          <span>{error}</span>
-        </div>
-      </Card>
-    );
-  }
 
   if (floors.length === 0) {
     return <EmptyState />;

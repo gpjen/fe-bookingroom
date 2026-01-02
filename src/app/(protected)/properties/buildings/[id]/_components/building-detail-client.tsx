@@ -10,6 +10,11 @@ import { BuildingFacilities } from "./building-facilities";
 import { BuildingPIC } from "./building-pic";
 import { Grip, Info, Layers, Users } from "lucide-react";
 import { useBreadcrumbOverride } from "@/hooks/use-breadcrumb-override";
+import {
+  BuildingDetailData,
+  BuildingStatsData,
+  FloorWithRooms,
+} from "../_actions/building-detail.schema";
 
 // ========================================
 // PROPS
@@ -18,13 +23,22 @@ import { useBreadcrumbOverride } from "@/hooks/use-breadcrumb-override";
 interface BuildingDetailClientProps {
   id: string;
   code: string;
+  initialDetail: BuildingDetailData;
+  initialStats: BuildingStatsData;
+  initialFloors: FloorWithRooms[];
 }
 
 // ========================================
 // CLIENT COMPONENT
 // ========================================
 
-export function BuildingDetailClient({ id, code }: BuildingDetailClientProps) {
+export function BuildingDetailClient({
+  id,
+  code,
+  initialDetail,
+  initialStats,
+  initialFloors,
+}: BuildingDetailClientProps) {
   const [activeTab, setActiveTab] = useState("floors");
 
   // Override breadcrumb to show building code instead of ID
@@ -32,11 +46,11 @@ export function BuildingDetailClient({ id, code }: BuildingDetailClientProps) {
 
   return (
     <div className="space-y-6 pb-10">
-      {/* Header */}
-      <BuildingHeader id={id} />
+      {/* Header - receives initial data */}
+      <BuildingHeader initialData={initialDetail} />
 
-      {/* Stats Cards */}
-      <BuildingStats id={id} />
+      {/* Stats Cards - receives initial data */}
+      <BuildingStats initialData={initialStats} />
 
       {/* Main Content Tabs */}
       <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -60,11 +74,13 @@ export function BuildingDetailClient({ id, code }: BuildingDetailClientProps) {
         </TabsList>
 
         <TabsContent value="floors" className="space-y-4">
-          <BuildingFloors id={id} />
+          {/* Floors - receives initial data */}
+          <BuildingFloors initialData={initialFloors} />
         </TabsContent>
 
         <TabsContent value="overview" className="space-y-4">
-          <BuildingOverview id={id} />
+          {/* Overview - receives initial data */}
+          <BuildingOverview initialData={initialDetail} />
         </TabsContent>
 
         <TabsContent value="facilities" className="space-y-4">

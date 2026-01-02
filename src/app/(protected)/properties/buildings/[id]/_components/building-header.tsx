@@ -1,6 +1,5 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -23,9 +22,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
-import { getBuildingDetail } from "../_actions/building-detail.actions";
 import { BuildingDetailData } from "../_actions/building-detail.schema";
 
 // ========================================
@@ -58,79 +55,18 @@ const StatusBadge = ({ status }: { status: boolean }) => {
 };
 
 // ========================================
-// LOADING STATE
+// PROPS
 // ========================================
 
-function HeaderLoading() {
-  return (
-    <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-      <div className="space-y-2">
-        <Skeleton className="h-8 w-24" />
-        <div className="flex items-center gap-3">
-          <Skeleton className="h-10 w-64" />
-          <Skeleton className="h-6 w-20" />
-        </div>
-        <div className="flex gap-4">
-          <Skeleton className="h-5 w-24" />
-          <Skeleton className="h-5 w-24" />
-          <Skeleton className="h-5 w-24" />
-        </div>
-      </div>
-      <div className="flex gap-2">
-        <Skeleton className="h-10 w-24" />
-        <Skeleton className="h-10 w-10" />
-      </div>
-    </div>
-  );
+interface BuildingHeaderProps {
+  initialData: BuildingDetailData;
 }
 
 // ========================================
 // MAIN COMPONENT
 // ========================================
 
-export function BuildingHeader({ id }: { id: string }) {
-  const [data, setData] = useState<BuildingDetailData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const isFetching = useRef(false);
-
-  useEffect(() => {
-    async function fetchData() {
-      if (isFetching.current) return;
-      isFetching.current = true;
-
-      try {
-        const result = await getBuildingDetail(id);
-        if (result.success) {
-          setData(result.data);
-        } else {
-          setError(result.error);
-        }
-      } catch (err) {
-        console.error(err);
-        setError("Gagal memuat data");
-      } finally {
-        setLoading(false);
-        isFetching.current = false;
-      }
-    }
-
-    fetchData();
-  }, [id]);
-
-  if (loading) {
-    return <HeaderLoading />;
-  }
-
-  if (error || !data) {
-    return (
-      <div className="flex items-center gap-2 text-destructive">
-        <AlertCircle className="h-5 w-5" />
-        <span>{error || "Data tidak ditemukan"}</span>
-      </div>
-    );
-  }
-
+export function BuildingHeader({ initialData: data }: BuildingHeaderProps) {
   return (
     <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
       <div className="space-y-1">

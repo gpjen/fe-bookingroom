@@ -1,100 +1,25 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
-import { MapPin, Calendar, AlertCircle, Globe, Navigation } from "lucide-react";
-import { getBuildingDetail } from "../_actions/building-detail.actions";
+import { MapPin, Calendar, Globe, Navigation } from "lucide-react";
 import { BuildingDetailData } from "../_actions/building-detail.schema";
 import { formatDate } from "@/lib/utils";
 import { MapPointInput } from "@/components/maps/map-point-input";
 
 // ========================================
-// LOADING STATE
+// PROPS
 // ========================================
 
-function OverviewLoading() {
-  return (
-    <div className="grid gap-4 md:grid-cols-2">
-      <Card>
-        <CardHeader>
-          <Skeleton className="h-6 w-32" />
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i}>
-                <Skeleton className="h-4 w-24 mb-1" />
-                <Skeleton className="h-5 w-32" />
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <Skeleton className="h-6 w-32" />
-        </CardHeader>
-        <CardContent>
-          <Skeleton className="h-[300px] w-full" />
-        </CardContent>
-      </Card>
-    </div>
-  );
+interface BuildingOverviewProps {
+  initialData: BuildingDetailData;
 }
 
 // ========================================
 // MAIN COMPONENT
 // ========================================
 
-export function BuildingOverview({ id }: { id: string }) {
-  const [data, setData] = useState<BuildingDetailData | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const isFetching = useRef(false);
-
-  useEffect(() => {
-    async function fetchData() {
-      if (isFetching.current) return;
-      isFetching.current = true;
-
-      try {
-        const result = await getBuildingDetail(id);
-        if (result.success) {
-          setData(result.data);
-        } else {
-          setError(result.error);
-        }
-      } catch (err) {
-        console.error(err);
-        setError("Gagal memuat data");
-      } finally {
-        setLoading(false);
-        isFetching.current = false;
-      }
-    }
-
-    fetchData();
-  }, [id]);
-
-  if (loading) {
-    return <OverviewLoading />;
-  }
-
-  if (error) {
-    return (
-      <Card className="p-6">
-        <div className="flex items-center gap-2 text-destructive">
-          <AlertCircle className="h-5 w-5" />
-          <span>{error}</span>
-        </div>
-      </Card>
-    );
-  }
-
-  if (!data) return null;
-
+export function BuildingOverview({ initialData: data }: BuildingOverviewProps) {
   const hasCoordinates = data.latitude && data.longitude;
 
   return (

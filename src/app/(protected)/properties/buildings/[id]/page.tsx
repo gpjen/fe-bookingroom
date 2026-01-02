@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { prisma } from "@/lib/db";
+import { getAllBuildingPageData } from "./_actions/building-detail.actions";
 import { BuildingDetailClient } from "./_components/building-detail-client";
 
 // ========================================
@@ -13,19 +13,16 @@ export async function generateMetadata({
 }) {
   const { id } = await params;
 
-  const building = await prisma.building.findUnique({
-    where: { id },
-    select: { name: true, code: true },
-  });
+  const result = await getAllBuildingPageData(id);
 
-  if (!building) {
+  if (!result.success) {
     return {
       title: "Gedung Tidak Ditemukan",
     };
   }
 
   return {
-    title: `${building.name} (${building.code}) - Building Detail`,
+    title: `${result.data.detail.name} (${result.data.detail.code}) - Building Detail`,
   };
 }
 
@@ -40,21 +37,24 @@ export default async function BuildingDetailPage({
 }) {
   const { id } = await params;
 
-  // Check if building exists
-  const building = await prisma.building.findUnique({
-    where: { id },
-    select: {
-      id: true,
-      code: true,
-      name: true,
-    },
-  });
+  // Fetch all page data on server (single call)
+  const result = await getAllBuildingPageData(id);
 
   // If not found, show 404 page
-  if (!building) {
+  if (!result.success) {
     notFound();
   }
 
-  // Pass building info to client component for breadcrumb context
-  return <BuildingDetailClient id={building.id} code={building.code} />;
+  const { detail, stats, floors } = result.data;
+
+  // Pass all data to client component (no client-side fetching needed!)
+  return (
+    <BuildingDetailClient
+      id={detail.id}
+      code={detail.code}
+      initialDetail={detail}
+      initialStats={stats}
+      initialFloors={floors}
+    />
+  );
 }

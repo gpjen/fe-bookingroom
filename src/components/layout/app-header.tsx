@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
 import { NotificationDropdown } from "@/components/layout/notification-dropdown";
+import { useBreadcrumbContext } from "@/contexts/breadcrumb-context";
 
 export function AppHeader({
   userId,
@@ -28,11 +29,22 @@ export function AppHeader({
   userId?: string;
 }) {
   const pathname = usePathname();
+  const { getLabel } = useBreadcrumbContext();
+
   const parts = pathname.split("/").filter(Boolean);
-  const crumbs = parts.map((p, i) => ({
-    label: p.charAt(0).toUpperCase() + p.slice(1).replace(/-/g, " "),
-    href: "/" + parts.slice(0, i + 1).join("/"),
-  }));
+  const crumbs = parts.map((p, i) => {
+    // Check if there's a custom label override for this segment
+    const customLabel = getLabel(p);
+    const defaultLabel =
+      p.charAt(0).toUpperCase() + p.slice(1).replace(/-/g, " ");
+
+    return {
+      label: customLabel || defaultLabel,
+      href: "/" + parts.slice(0, i + 1).join("/"),
+      isCustom: !!customLabel,
+    };
+  });
+
   const disabledCrumbs = new Set<string>(["/properties", "/admin", "/booking"]);
 
   return (
@@ -62,7 +74,13 @@ export function AppHeader({
                 <BreadcrumbSeparator />
                 <BreadcrumbItem>
                   {idx === crumbs.length - 1 || disabledCrumbs.has(c.href) ? (
-                    <BreadcrumbPage className="font-medium text-foreground">
+                    <BreadcrumbPage
+                      className={`font-medium ${
+                        c.isCustom
+                          ? "font-mono text-primary"
+                          : "text-foreground"
+                      }`}
+                    >
                       {c.label}
                     </BreadcrumbPage>
                   ) : (

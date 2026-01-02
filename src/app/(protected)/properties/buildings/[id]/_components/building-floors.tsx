@@ -1,7 +1,15 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Layers, DoorOpen, Users, Construction } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import {
+  Layers,
+  DoorOpen,
+  Users,
+  Construction,
+  Plus,
+  Bed,
+  AlertCircle,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -14,305 +22,339 @@ import {
 } from "@/components/ui/accordion";
 import { cn } from "@/lib/utils";
 import { RoomDetailSheet } from "./room-detail-sheet";
-import { FormRoom, RoomFormData } from "./form-room";
 import { toast } from "sonner";
+import { getRoomsGroupedByFloor } from "../_actions/building-detail.actions";
+import { FloorWithRooms, RoomData } from "../_actions/building-detail.schema";
 
-// Types
-type RoomStatus = "available" | "occupied" | "maintenance";
+// ========================================
+// ROOM CARD COMPONENT
+// ========================================
 
-interface Room {
-  id: string;
-  code: string;
-  name: string;
-  type: string;
-  capacity: number;
-  occupied: number;
-  status: RoomStatus;
-  facilities: string[];
-  price: number;
-  isMixGender: boolean;
-  isBookable: boolean;
-  isOnlyForEmployee: boolean;
-  description: string;
+interface RoomCardProps {
+  room: RoomData;
+  onClick: () => void;
 }
 
-interface Floor {
-  id: string;
-  name: string;
-  level: number;
-  rooms: Room[];
-}
-
-// Mock Data Fetcher
-const fetchFloorsData = async (_id: string): Promise<Floor[]> => {
-  void _id; // Will be used when fetching real data
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve([
-        {
-          id: "f1",
-          name: "Lantai 1",
-          level: 1,
-          rooms: Array.from({ length: 8 }).map((_, i) => ({
-            id: `r1-${i}`,
-            code: `R-10${i + 1}`,
-            name: `Kamar 10${i + 1}`,
-            type: "Standard",
-            capacity: 2,
-            occupied: i % 3 === 0 ? 2 : i % 2 === 0 ? 1 : 0,
-            status: i === 5 ? "maintenance" : "available",
-            facilities: ["AC", "WiFi"],
-            price: 0,
-            isMixGender: false,
-            isBookable: true,
-            isOnlyForEmployee: false,
-            description: "Kamar standar dengan fasilitas dasar.",
-          })),
-        },
-        {
-          id: "f2",
-          name: "Lantai 2",
-          level: 2,
-          rooms: Array.from({ length: 8 }).map((_, i) => ({
-            id: `r2-${i}`,
-            code: `R-20${i + 1}`,
-            name: `Kamar 20${i + 1}`,
-            type: "VIP",
-            capacity: 1,
-            occupied: i < 5 ? 1 : 0,
-            status: "available",
-            facilities: ["AC", "WiFi", "TV", "Kulkas"],
-            price: 500000,
-            isMixGender: false,
-            isBookable: true,
-            isOnlyForEmployee: false,
-            description: "Kamar VIP dengan fasilitas lengkap dan pemandangan.",
-          })),
-        },
-        {
-          id: "f3",
-          name: "Lantai 3",
-          level: 3,
-          rooms: Array.from({ length: 6 }).map((_, i) => ({
-            id: `r3-${i}`,
-            code: `R-30${i + 1}`,
-            name: `Kamar 30${i + 1}`,
-            type: "Standard",
-            capacity: 2,
-            occupied: 0,
-            status: "available",
-            facilities: ["AC", "WiFi"],
-            price: 0,
-            isMixGender: true,
-            isBookable: true,
-            isOnlyForEmployee: true,
-            description: "Kamar standar mix gender.",
-          })),
-        },
-      ]);
-    }, 300); // Simulate delay
-  });
-};
-
-const RoomCard = ({ room, onClick }: { room: Room; onClick: () => void }) => {
+function RoomCard({ room, onClick }: RoomCardProps) {
   const statusColors = {
-    available:
+    ACTIVE:
       "bg-white dark:bg-gray-800 border-slate-200 dark:border-zinc-700 hover:border-blue-400 dark:hover:border-blue-600",
-    occupied:
-      "bg-blue-50 dark:bg-blue-900/20 border-blue-300 dark:border-blue-800",
-    maintenance:
-      "bg-orange-50 dark:bg-orange-900/20 border-orange-300 dark:border-orange-800",
+    INACTIVE:
+      "bg-slate-50 dark:bg-gray-900 border-slate-300 dark:border-zinc-600 opacity-60",
+    MAINTENANCE:
+      "bg-amber-50 dark:bg-amber-950 border-amber-300 dark:border-amber-800",
   };
+
+  // Calculate bed stats
+  const bedsAvailable = room.beds.filter(
+    (b) => b.status === "AVAILABLE"
+  ).length;
+  const bedsOccupied = room.beds.filter((b) => b.status === "OCCUPIED").length;
+  const totalBeds = room.beds.length;
+
+  const occupancyPercent = totalBeds > 0 ? (bedsOccupied / totalBeds) * 100 : 0;
 
   return (
-    <div
-      onClick={onClick}
+    <Card
       className={cn(
-        "p-4 rounded-lg border shadow-sm transition-all cursor-pointer group relative",
-        "hover:shadow-md hover:-translate-y-0.5",
+        "cursor-pointer transition-all duration-200 hover:shadow-md",
         statusColors[room.status]
       )}
+      onClick={onClick}
     >
-      {/* Header */}
-      <div className="flex justify-between mb-3">
-        <div>
-          <div className="font-semibold text-sm">{room.code}</div>
-          <div className="text-xs text-muted-foreground truncate">
-            {room.type}
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between mb-3">
+          <div>
+            <p className="font-mono text-xs text-muted-foreground">
+              {room.code}
+            </p>
+            <h4 className="font-semibold text-sm">{room.name}</h4>
+          </div>
+          {room.status === "MAINTENANCE" && (
+            <Construction className="h-4 w-4 text-amber-500" />
+          )}
+        </div>
+
+        {/* Bed occupancy bar */}
+        <div className="mb-3">
+          <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+            <div
+              className={cn(
+                "h-full transition-all",
+                occupancyPercent >= 100
+                  ? "bg-red-500"
+                  : occupancyPercent >= 75
+                  ? "bg-amber-500"
+                  : "bg-emerald-500"
+              )}
+              style={{ width: `${occupancyPercent}%` }}
+            />
           </div>
         </div>
-        {room.status === "maintenance" && (
-          <Construction className="h-4 w-4 text-orange-500" />
-        )}
-      </div>
 
-      {/* Occupancy + Status */}
-      <div className="flex items-center justify-between text-xs">
-        <div className="flex items-center gap-1 text-muted-foreground">
-          <Users className="h-3 w-3" />
-          <span>
-            {room.occupied}/{room.capacity}
-          </span>
+        {/* Stats row */}
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <div className="flex items-center gap-3">
+            <span className="flex items-center gap-1">
+              <Bed className="h-3 w-3" />
+              {totalBeds}
+            </span>
+            <span className="flex items-center gap-1">
+              <Users className="h-3 w-3" />
+              {bedsOccupied}/{totalBeds}
+            </span>
+          </div>
+          <Badge
+            variant="outline"
+            className={cn(
+              "text-[10px] px-1.5 py-0",
+              bedsAvailable > 0
+                ? "border-emerald-500 text-emerald-600"
+                : "border-red-500 text-red-600"
+            )}
+          >
+            {bedsAvailable > 0 ? `${bedsAvailable} tersedia` : "Penuh"}
+          </Badge>
         </div>
 
-        <Badge
-          variant="outline"
-          className={cn(
-            "h-5 text-[10px] px-1.5",
-            room.status === "available" &&
-              "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
-            room.status === "occupied" &&
-              "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-            room.status === "maintenance" &&
-              "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400"
+        {/* Room type & Gender */}
+        <div className="flex items-center gap-2 mt-2">
+          <Badge variant="secondary" className="text-[10px]">
+            {room.roomType.name}
+          </Badge>
+          {room.genderPolicy !== "MIX" && (
+            <Badge
+              variant="outline"
+              className={cn(
+                "text-[10px]",
+                room.genderPolicy === "MALE_ONLY"
+                  ? "border-blue-400 text-blue-600"
+                  : room.genderPolicy === "FEMALE_ONLY"
+                  ? "border-pink-400 text-pink-600"
+                  : "border-purple-400 text-purple-600"
+              )}
+            >
+              {room.genderPolicy === "MALE_ONLY"
+                ? "Pria"
+                : room.genderPolicy === "FEMALE_ONLY"
+                ? "Wanita"
+                : "Flexible"}
+            </Badge>
           )}
-        >
-          {room.status === "available"
-            ? "Tersedia"
-            : room.status === "occupied"
-            ? "Terisi"
-            : "Perbaikan"}
-        </Badge>
-      </div>
-    </div>
+        </div>
+      </CardContent>
+    </Card>
   );
-};
+}
+
+// ========================================
+// FLOOR LOADING SKELETON
+// ========================================
+
+function FloorsLoading() {
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-6 w-40" />
+          <Skeleton className="h-9 w-32" />
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {Array.from({ length: 2 }).map((_, i) => (
+          <div key={i} className="border rounded-lg p-4">
+            <Skeleton className="h-6 w-32 mb-4" />
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {Array.from({ length: 4 }).map((_, j) => (
+                <Skeleton key={j} className="h-28 w-full" />
+              ))}
+            </div>
+          </div>
+        ))}
+      </CardContent>
+    </Card>
+  );
+}
+
+// ========================================
+// EMPTY STATE
+// ========================================
+
+function EmptyState() {
+  return (
+    <Card>
+      <CardContent className="flex flex-col items-center justify-center py-12">
+        <div className="p-4 rounded-full bg-muted mb-4">
+          <DoorOpen className="h-8 w-8 text-muted-foreground" />
+        </div>
+        <h3 className="font-semibold text-lg mb-1">Belum Ada Ruangan</h3>
+        <p className="text-sm text-muted-foreground text-center max-w-sm mb-4">
+          Gedung ini belum memiliki ruangan. Tambahkan ruangan pertama untuk
+          mulai mengelola hunian.
+        </p>
+        <Button className="gap-2">
+          <Plus className="h-4 w-4" />
+          Tambah Ruangan
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+// ========================================
+// MAIN COMPONENT
+// ========================================
 
 export function BuildingFloors({ id }: { id: string }) {
-  const [floors, setFloors] = useState<Floor[]>([]);
+  const [floors, setFloors] = useState<FloorWithRooms[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
-  const [isSheetOpen, setIsSheetOpen] = useState(false);
-  const [isFormOpen, setIsFormOpen] = useState(false);
-  const [selectedFloorId, setSelectedFloorId] = useState<string | undefined>(
-    undefined
-  );
+  const [error, setError] = useState<string | null>(null);
+  const [selectedRoom, setSelectedRoom] = useState<RoomData | null>(null);
+  const [expandedFloors, setExpandedFloors] = useState<string[]>([]);
+  const isFetching = useRef(false);
 
-  useEffect(() => {
-    fetchFloorsData(id).then((res) => {
-      setFloors(res);
+  // Fetch floors data
+  const fetchData = useCallback(async () => {
+    if (isFetching.current) return;
+    isFetching.current = true;
+
+    try {
+      const result = await getRoomsGroupedByFloor(id);
+      if (result.success) {
+        setFloors(result.data);
+        // Auto-expand first floor
+        if (result.data.length > 0) {
+          setExpandedFloors([`floor-${result.data[0].floorNumber}`]);
+        }
+      } else {
+        setError(result.error);
+      }
+    } catch (err) {
+      console.error(err);
+      setError("Gagal memuat data ruangan");
+    } finally {
       setLoading(false);
-    });
+      isFetching.current = false;
+    }
   }, [id]);
 
-  const handleRoomClick = (room: Room) => {
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  // Handlers
+  const handleRoomClick = (room: RoomData) => {
     setSelectedRoom(room);
-    setIsSheetOpen(true);
   };
 
-  const handleAddFloor = () => {
-    console.log("Add Floor");
-    setFloors((prevFloors) => [
-      ...prevFloors,
-      {
-        id: `f${prevFloors.length + 1}`,
-        name: `Lantai ${prevFloors.length + 1}`,
-        level: prevFloors.length + 1,
-        rooms: [],
-      },
-    ]);
-  };
-
-  const handleAddRoom = (floorId?: string) => {
-    setSelectedFloorId(floorId);
-    setIsFormOpen(true);
-  };
-
-  const handleFormSubmit = (data: RoomFormData) => {
-    console.log("Form Data:", data);
-    toast.success("Kamar berhasil ditambahkan", {
-      description: `${data.code} telah ditambahkan ke lantai terpilih.`,
-    });
-    // Here you would typically call an API to save the data
-    // and then refresh the floors data
+  const handleAddRoom = (floorNumber?: number) => {
+    toast.info(
+      `Tambah ruangan${floorNumber ? ` di lantai ${floorNumber}` : ""}`
+    );
+    // TODO: Open room form
   };
 
   if (loading) {
+    return <FloorsLoading />;
+  }
+
+  if (error) {
     return (
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div className="space-y-2">
-              <Skeleton className="h-6 w-32" />
-              <Skeleton className="h-4 w-64" />
-            </div>
-            <Skeleton className="h-9 w-32" />
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="border rounded-lg p-4 space-y-4">
-              <div className="flex justify-between items-center">
-                <div className="flex gap-4">
-                  <Skeleton className="h-6 w-32" />
-                  <Skeleton className="h-4 w-24" />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3">
-                {Array.from({ length: 6 }).map((_, j) => (
-                  <Skeleton key={j} className="h-24 w-full rounded-lg" />
-                ))}
-              </div>
-            </div>
-          ))}
-        </CardContent>
+      <Card className="p-6">
+        <div className="flex items-center gap-2 text-destructive">
+          <AlertCircle className="h-5 w-5" />
+          <span>{error}</span>
+        </div>
       </Card>
     );
   }
+
+  if (floors.length === 0) {
+    return <EmptyState />;
+  }
+
+  // Calculate total stats
+  const totalStats = floors.reduce(
+    (acc, floor) => ({
+      rooms: acc.rooms + floor.stats.totalRooms,
+      beds: acc.beds + floor.stats.totalBeds,
+      available: acc.available + floor.stats.bedsAvailable,
+      occupied: acc.occupied + floor.stats.bedsOccupied,
+    }),
+    { rooms: 0, beds: 0, available: 0, occupied: 0 }
+  );
 
   return (
     <>
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Denah Lantai</CardTitle>
-              <p className="text-sm text-muted-foreground mt-1">
-                Kelola struktur lantai dan ruangan dalam gedung ini
-              </p>
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-primary/10">
+                <Layers className="h-5 w-5 text-primary" />
+              </div>
+              <div>
+                <CardTitle className="text-lg">Lantai & Ruangan</CardTitle>
+                <p className="text-sm text-muted-foreground">
+                  {floors.length} lantai • {totalStats.rooms} ruangan •{" "}
+                  {totalStats.beds} bed
+                </p>
+              </div>
             </div>
-            <Button
-              size="sm"
-              className="gap-2"
-              onClick={() => handleAddFloor()}
-            >
-              <Layers className="h-4 w-4" />
-              Tambah Lantai
+            <Button className="gap-2" onClick={() => handleAddRoom()}>
+              <Plus className="h-4 w-4" />
+              Tambah Ruangan
             </Button>
           </div>
         </CardHeader>
         <CardContent>
           <Accordion
             type="multiple"
-            defaultValue={floors.map((f) => f.id)}
-            className="w-full space-y-4"
+            value={expandedFloors}
+            onValueChange={setExpandedFloors}
+            className="space-y-3"
           >
             {floors.map((floor) => (
               <AccordionItem
-                key={floor.id}
-                value={floor.id}
+                key={floor.floorNumber}
+                value={`floor-${floor.floorNumber}`}
                 className="border rounded-lg px-4"
               >
                 <AccordionTrigger className="hover:no-underline py-4">
-                  <div className="flex items-center gap-4 w-full">
-                    <div className="flex items-center gap-2">
-                      <Layers className="h-4 w-4 text-blue-500" />
-                      <span className="font-semibold">{floor.name}</span>
+                  <div className="flex items-center justify-between w-full pr-4">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-100 dark:bg-slate-800 text-sm font-bold">
+                        {floor.floorNumber}
+                      </div>
+                      <div className="text-left">
+                        <span className="font-semibold">
+                          {floor.floorName || `Lantai ${floor.floorNumber}`}
+                        </span>
+                        <span className="text-sm text-muted-foreground ml-2">
+                          {floor.stats.totalRooms} ruangan
+                        </span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-4 text-xs text-muted-foreground font-normal ml-auto mr-4">
-                      <span>{floor.rooms.length} Kamar</span>
-                      <span>
-                        {
-                          floor.rooms.filter((r) => r.status === "available")
-                            .length
-                        }{" "}
-                        Tersedia
+                    <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <Bed className="h-4 w-4" />
+                        {floor.stats.totalBeds}
                       </span>
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          floor.stats.bedsAvailable > 0
+                            ? "border-emerald-500 text-emerald-600"
+                            : "border-red-500 text-red-600"
+                        )}
+                      >
+                        {floor.stats.bedsAvailable} tersedia
+                      </Badge>
                     </div>
                   </div>
                 </AccordionTrigger>
-                <AccordionContent className="pt-2 pb-4">
-                  <div className="grid gap-3 grid-cols-[repeat(auto-fit,minmax(130px,1fr))]">
+                <AccordionContent className="pb-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 pt-2">
                     {floor.rooms.map((room) => (
                       <RoomCard
                         key={room.id}
@@ -320,14 +362,16 @@ export function BuildingFloors({ id }: { id: string }) {
                         onClick={() => handleRoomClick(room)}
                       />
                     ))}
-                    <Button
-                      variant="outline"
-                      className="h-full min-h-[90px] border-dashed flex flex-col items-center justify-center gap-2 hover:border-blue-400 hover:text-blue-600 dark:hover:border-blue-700 dark:hover:text-blue-400"
-                      onClick={() => handleAddRoom(floor.id)}
+                    {/* Add room button */}
+                    <Card
+                      className="cursor-pointer border-dashed border-2 hover:border-primary hover:bg-primary/5 transition-colors"
+                      onClick={() => handleAddRoom(floor.floorNumber)}
                     >
-                      <DoorOpen className="h-5 w-5" />
-                      <span className="text-xs">Tambah Kamar</span>
-                    </Button>
+                      <CardContent className="flex flex-col items-center justify-center h-full min-h-[130px] text-muted-foreground">
+                        <Plus className="h-6 w-6 mb-2" />
+                        <span className="text-sm">Tambah Ruangan</span>
+                      </CardContent>
+                    </Card>
                   </div>
                 </AccordionContent>
               </AccordionItem>
@@ -336,19 +380,11 @@ export function BuildingFloors({ id }: { id: string }) {
         </CardContent>
       </Card>
 
+      {/* Room Detail Sheet */}
       <RoomDetailSheet
-        isOpen={isSheetOpen}
-        onClose={() => setIsSheetOpen(false)}
         room={selectedRoom}
-        floors={floors.map((f) => ({ id: f.id, name: f.name }))}
-      />
-
-      <FormRoom
-        isOpen={isFormOpen}
-        onClose={() => setIsFormOpen(false)}
-        onSubmit={handleFormSubmit}
-        floors={floors.map((f) => ({ id: f.id, name: f.name }))}
-        initialFloorId={selectedFloorId}
+        open={!!selectedRoom}
+        onOpenChange={(open) => !open && setSelectedRoom(null)}
       />
     </>
   );

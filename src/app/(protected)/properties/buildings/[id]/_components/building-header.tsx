@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
@@ -12,7 +12,6 @@ import {
   Trash2,
   CheckCircle2,
   AlertCircle,
-  Construction,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -26,62 +25,28 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { getBuildingDetail } from "../_actions/building-detail.actions";
+import { BuildingDetailData } from "../_actions/building-detail.schema";
 
-// Types
-interface BuildingHeaderData {
-  id: string;
-  code: string;
-  name: string;
-  areal: string;
-  status: "active" | "inactive" | "maintenance" | "development";
-  totalFloors: number;
-}
+// ========================================
+// STATUS BADGE
+// ========================================
 
-// Mock Data Fetcher
-const fetchHeaderData = async (id: string): Promise<BuildingHeaderData> => {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        id,
-        code: "BLD-LQ-01",
-        name: "Gedung A (Mess)",
-        areal: "MESS LQ",
-        status: "active",
-        totalFloors: 3,
-      });
-    }, 300);
-  });
-};
+const StatusBadge = ({ status }: { status: boolean }) => {
+  const config = status
+    ? {
+        className:
+          "bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800",
+        label: "Aktif",
+        icon: CheckCircle2,
+      }
+    : {
+        className:
+          "bg-slate-100 text-slate-700 hover:bg-slate-100 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700",
+        label: "Tidak Aktif",
+        icon: AlertCircle,
+      };
 
-const StatusBadge = ({ status }: { status: BuildingHeaderData["status"] }) => {
-  const variants = {
-    active: {
-      className:
-        "bg-emerald-100 text-emerald-700 hover:bg-emerald-100 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400 dark:border-emerald-800",
-      label: "Aktif",
-      icon: CheckCircle2,
-    },
-    inactive: {
-      className:
-        "bg-slate-100 text-slate-700 hover:bg-slate-100 border-slate-200 dark:bg-slate-800 dark:text-slate-400 dark:border-slate-700",
-      label: "Tidak Aktif",
-      icon: AlertCircle,
-    },
-    maintenance: {
-      className:
-        "bg-orange-100 text-orange-700 hover:bg-orange-100 border-orange-200 dark:bg-orange-900/30 dark:text-orange-400 dark:border-orange-800",
-      label: "Perbaikan",
-      icon: Construction,
-    },
-    development: {
-      className:
-        "bg-amber-100 text-amber-700 hover:bg-amber-100 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:border-amber-800",
-      label: "Pengembangan",
-      icon: Construction,
-    },
-  };
-
-  const config = variants[status];
   const Icon = config.icon;
 
   return (
@@ -92,41 +57,79 @@ const StatusBadge = ({ status }: { status: BuildingHeaderData["status"] }) => {
   );
 };
 
+// ========================================
+// LOADING STATE
+// ========================================
+
+function HeaderLoading() {
+  return (
+    <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+      <div className="space-y-2">
+        <Skeleton className="h-8 w-24" />
+        <div className="flex items-center gap-3">
+          <Skeleton className="h-10 w-64" />
+          <Skeleton className="h-6 w-20" />
+        </div>
+        <div className="flex gap-4">
+          <Skeleton className="h-5 w-24" />
+          <Skeleton className="h-5 w-24" />
+          <Skeleton className="h-5 w-24" />
+        </div>
+      </div>
+      <div className="flex gap-2">
+        <Skeleton className="h-10 w-24" />
+        <Skeleton className="h-10 w-10" />
+      </div>
+    </div>
+  );
+}
+
+// ========================================
+// MAIN COMPONENT
+// ========================================
+
 export function BuildingHeader({ id }: { id: string }) {
-  const [data, setData] = useState<BuildingHeaderData | null>(null);
+  const [data, setData] = useState<BuildingDetailData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const isFetching = useRef(false);
 
   useEffect(() => {
-    fetchHeaderData(id).then((res) => {
-      setData(res);
-      setLoading(false);
-    });
+    async function fetchData() {
+      if (isFetching.current) return;
+      isFetching.current = true;
+
+      try {
+        const result = await getBuildingDetail(id);
+        if (result.success) {
+          setData(result.data);
+        } else {
+          setError(result.error);
+        }
+      } catch (err) {
+        console.error(err);
+        setError("Gagal memuat data");
+      } finally {
+        setLoading(false);
+        isFetching.current = false;
+      }
+    }
+
+    fetchData();
   }, [id]);
 
   if (loading) {
+    return <HeaderLoading />;
+  }
+
+  if (error || !data) {
     return (
-      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-        <div className="space-y-2">
-          <Skeleton className="h-8 w-24" />
-          <div className="flex items-center gap-3">
-            <Skeleton className="h-10 w-64" />
-            <Skeleton className="h-6 w-20" />
-          </div>
-          <div className="flex gap-4">
-            <Skeleton className="h-5 w-24" />
-            <Skeleton className="h-5 w-24" />
-            <Skeleton className="h-5 w-24" />
-          </div>
-        </div>
-        <div className="flex gap-2">
-          <Skeleton className="h-10 w-24" />
-          <Skeleton className="h-10 w-10" />
-        </div>
+      <div className="flex items-center gap-2 text-destructive">
+        <AlertCircle className="h-5 w-5" />
+        <span>{error || "Data tidak ditemukan"}</span>
       </div>
     );
   }
-
-  if (!data) return null;
 
   return (
     <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
@@ -146,17 +149,22 @@ export function BuildingHeader({ id }: { id: string }) {
         <div className="flex items-center gap-4 text-sm text-muted-foreground">
           <div className="flex items-center gap-1.5">
             <Building2 className="h-4 w-4" />
-            <span>{data.code}</span>
+            <span className="font-mono">{data.code}</span>
           </div>
           <div className="flex items-center gap-1.5">
             <MapPin className="h-4 w-4" />
-            <span>{data.areal}</span>
+            <span>{data.area.name}</span>
           </div>
-          <div className="flex items-center gap-1.5">
-            <Layers className="h-4 w-4" />
-            <span>{data.totalFloors} Lantai</span>
-          </div>
+          {data.buildingType && (
+            <div className="flex items-center gap-1.5">
+              <Layers className="h-4 w-4" />
+              <span>{data.buildingType.name}</span>
+            </div>
+          )}
         </div>
+        {data.address && (
+          <p className="text-sm text-muted-foreground mt-1">{data.address}</p>
+        )}
       </div>
 
       <div className="flex items-center gap-2">

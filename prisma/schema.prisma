@@ -95,9 +95,11 @@ model Building {
   buildingTypeId String? // Optional FK to BuildingType
   status         Boolean @default(true)
 
-  area          Area           @relation(fields: [areaId], references: [id], onDelete: Cascade)
-  buildingType  BuildingType?  @relation(fields: [buildingTypeId], references: [id], onDelete: SetNull)
+  area          Area            @relation(fields: [areaId], references: [id], onDelete: Cascade)
+  buildingType  BuildingType?   @relation(fields: [buildingTypeId], references: [id], onDelete: SetNull)
   userBuildings UserBuilding[]
+  images        BuildingImage[] // Building photos
+  rooms         Room[] // Rooms in this building
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -153,6 +155,8 @@ model RoomType {
   imageUrl String?
 
   status Boolean @default(true)
+
+  rooms Room[] // Rooms using this type
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -342,4 +346,389 @@ model NotificationRecipient {
   @@index([userId, isRead])
   @@index([notificationId])
   @@map("notification_recipients")
+}
+
+// ==========================================
+// BOOKING SYSTEM ENUMS
+// ==========================================
+
+enum OccupantType {
+  EMPLOYEE
+  GUEST
+}
+
+enum AllowedOccupantType {
+  EMPLOYEE_ONLY
+  ALL
+}
+
+enum RoomStatus {
+  ACTIVE
+  INACTIVE
+  MAINTENANCE
+}
+
+enum GenderPolicy {
+  MALE_ONLY
+  FEMALE_ONLY
+  MIX
+  FLEXIBLE
+}
+
+enum BedStatus {
+  AVAILABLE
+  OCCUPIED
+  RESERVED
+  MAINTENANCE
+  BLOCKED
+}
+
+enum BookingStatus {
+  PENDING
+  APPROVED
+  CHECKED_IN
+  CHECKED_OUT
+  CANCELLED
+  REJECTED
+  EXPIRED
+}
+
+enum OccupancyStatus {
+  PENDING
+  RESERVED
+  CHECKED_IN
+  CHECKED_OUT
+  CANCELLED
+  NO_SHOW
+}
+
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum OccupancyLogAction {
+  CREATED
+  CHECKED_IN
+  DATE_CHANGED
+  TRANSFERRED
+  EARLY_CHECKOUT
+  CHECKED_OUT
+  CANCELLED
+  STATUS_CHANGED
+}
+
+// ==========================================
+// BUILDING IMAGE
+// ==========================================
+
+model BuildingImage {
+  id         String  @id @default(cuid())
+  buildingId String
+  url        String
+  caption    String?
+  isPrimary  Boolean @default(false)
+  order      Int     @default(0)
+
+  building Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([buildingId])
+  @@index([isPrimary])
+  @@map("building_images")
+}
+
+// ==========================================
+// ROOM
+// ==========================================
+
+model Room {
+  id         String @id @default(cuid())
+  buildingId String
+  roomTypeId String
+
+  code        String  @unique
+  name        String
+  floorNumber Int     @default(1)
+  floorName   String?
+  description String?
+
+  // Access Control
+  allowedOccupantType AllowedOccupantType @default(ALL)
+  isBookable          Boolean             @default(true)
+
+  // Gender Policy
+  genderPolicy  GenderPolicy @default(MIX)
+  currentGender String? // "MALE" | "FEMALE" | null (for FLEXIBLE rooms)
+
+  // Pricing
+  pricePerBed Decimal? @db.Decimal(12, 2)
+
+  status RoomStatus @default(ACTIVE)
+
+  // Relations
+  building Building    @relation(fields: [buildingId], references: [id], onDelete: Cascade)
+  roomType RoomType    @relation(fields: [roomTypeId], references: [id])
+  beds     Bed[]
+  images   RoomImage[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([buildingId])
+  @@index([buildingId, floorNumber])
+  @@index([roomTypeId])
+  @@index([status])
+  @@index([allowedOccupantType])
+  @@index([isBookable])
+  @@map("rooms")
+}
+
+// ==========================================
+// ROOM IMAGE
+// ==========================================
+
+model RoomImage {
+  id        String  @id @default(cuid())
+  roomId    String
+  url       String
+  caption   String?
+  isPrimary Boolean @default(false)
+  order     Int     @default(0)
+
+  room Room @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([roomId])
+  @@index([isPrimary])
+  @@map("room_images")
+}
+
+// ==========================================
+// BED
+// ==========================================
+
+model Bed {
+  id     String @id @default(cuid())
+  roomId String
+
+  code     String    @unique
+  label    String
+  position Int
+  bedType  String?
+  status   BedStatus @default(AVAILABLE)
+  notes    String?
+
+  room        Room        @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  occupancies Occupancy[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([roomId])
+  @@index([status])
+  @@map("beds")
+}
+
+// ==========================================
+// BOOKING
+// ==========================================
+
+model Booking {
+  id   String @id @default(cuid())
+  code String @unique
+
+  // Requester Info (SNAPSHOT - no FK to Company)
+  requesterUserId     String
+  requesterName       String
+  requesterNik        String?
+  requesterEmail      String?
+  requesterPhone      String?
+  requesterCompany    String? // Snapshot, not FK
+  requesterDepartment String?
+  requesterPosition   String?
+
+  // Companion Info (Required if has GUEST occupant)
+  companionUserId     String?
+  companionName       String?
+  companionNik        String?
+  companionEmail      String?
+  companionPhone      String?
+  companionCompany    String?
+  companionDepartment String?
+
+  // Booking Period (RANGE - occupants dates must be within this range)
+  checkInDate  DateTime @db.Date
+  checkOutDate DateTime @db.Date
+  purpose      String?
+  projectCode  String?
+
+  // Status
+  status BookingStatus @default(PENDING)
+
+  // Approval
+  approvedBy String?
+  approvedAt DateTime?
+
+  // Rejection
+  rejectedBy      String?
+  rejectedAt      DateTime?
+  rejectionReason String?
+
+  // Cancellation
+  cancelledBy        String?
+  cancelledAt        DateTime?
+  cancellationReason String?
+
+  notes String?
+
+  // Relations
+  occupancies Occupancy[]
+  attachments BookingAttachment[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([code])
+  @@index([requesterUserId])
+  @@index([status])
+  @@index([checkInDate])
+  @@index([checkOutDate])
+  @@map("bookings")
+}
+
+// ==========================================
+// BOOKING ATTACHMENT
+// ==========================================
+
+model BookingAttachment {
+  id        String @id @default(cuid())
+  bookingId String
+
+  fileName    String
+  fileUrl     String
+  fileType    String
+  fileSize    Int
+  description String?
+
+  uploadedBy     String
+  uploadedByName String
+
+  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([bookingId])
+  @@map("booking_attachments")
+}
+
+// ==========================================
+// OCCUPANCY
+// ==========================================
+
+model Occupancy {
+  id        String  @id @default(cuid())
+  bookingId String? // Nullable - NULL means direct placement by admin
+  bedId     String
+
+  // Occupant Type & Identity
+  occupantType       OccupantType
+  occupantUserId     String? // FK to User (for EMPLOYEE)
+  occupantName       String
+  occupantNik        String? // NIK (employee) or KTP (guest)
+  occupantGender     Gender
+  occupantPhone      String?
+  occupantEmail      String?
+  occupantCompany    String?
+  occupantDepartment String?
+  occupantPosition   String?
+
+  // Stay Period (can be different from Booking dates, but within range)
+  checkInDate          DateTime  @db.Date
+  checkOutDate         DateTime  @db.Date
+  originalCheckOutDate DateTime? @db.Date // Stored if date was changed
+  actualCheckIn        DateTime?
+  actualCheckOut       DateTime?
+
+  // Status
+  status OccupancyStatus @default(PENDING)
+  qrCode String?         @unique
+
+  // Audit - Created (for direct placement)
+  createdBy     String?
+  createdByName String?
+
+  // Transfer Info
+  transferredFromBedId String?
+  transferReason       String?
+  transferredAt        DateTime?
+  transferredBy        String?
+  transferredByName    String?
+
+  // Checkout Info
+  checkoutReason String?
+  checkoutBy     String?
+  checkoutByName String?
+
+  notes String?
+
+  // Relations
+  booking Booking?       @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  bed     Bed            @relation(fields: [bedId], references: [id])
+  logs    OccupancyLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([bookingId])
+  @@index([bedId])
+  @@index([occupantType])
+  @@index([occupantUserId])
+  @@index([occupantNik])
+  @@index([status])
+  @@index([checkInDate])
+  @@index([checkOutDate])
+  @@map("occupancies")
+}
+
+// ==========================================
+// OCCUPANCY LOG (AUDIT TRAIL)
+// ==========================================
+
+model OccupancyLog {
+  id          String @id @default(cuid())
+  occupancyId String
+
+  action OccupancyLogAction
+
+  // Transfer details
+  fromBedId String?
+  toBedId   String?
+
+  // Date change details
+  previousCheckInDate  DateTime? @db.Date
+  newCheckInDate       DateTime? @db.Date
+  previousCheckOutDate DateTime? @db.Date
+  newCheckOutDate      DateTime? @db.Date
+
+  // Performer
+  performedBy     String
+  performedByName String
+  performedAt     DateTime @default(now())
+
+  // Details
+  reason   String?
+  notes    String?
+  metadata Json?
+
+  occupancy Occupancy @relation(fields: [occupancyId], references: [id], onDelete: Cascade)
+
+  @@index([occupancyId])
+  @@index([action])
+  @@index([performedAt])
+  @@map("occupancy_logs")
 }

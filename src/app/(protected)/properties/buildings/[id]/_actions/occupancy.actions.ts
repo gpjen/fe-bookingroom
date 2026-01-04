@@ -490,10 +490,6 @@ export async function checkOutOccupant(
 // TRANSFER OCCUPANT TO DIFFERENT BED
 // ========================================
 
-// ========================================
-// TRANSFER OCCUPANT TO DIFFERENT BED
-// ========================================
-
 export async function transferOccupant(
   input: TransferOccupantInput
 ): Promise<ActionResponse<{ id: string }>> {

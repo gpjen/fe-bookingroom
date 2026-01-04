@@ -730,9 +730,14 @@ model OccupancyLog {
   id          String @id @default(cuid())
   occupancyId String
 
+  // Context: Where did this action occur?
+  // For non-transfer actions, this is the bed where action happened
+  // For transfers, use fromBedId/toBedId instead
+  bedId String?
+
   action OccupancyLogAction
 
-  // Transfer details
+  // Transfer details (only for TRANSFERRED action)
   fromBedId String?
   toBedId   String?
 
@@ -755,6 +760,9 @@ model OccupancyLog {
   occupancy Occupancy @relation(fields: [occupancyId], references: [id], onDelete: Cascade)
 
   @@index([occupancyId])
+  @@index([bedId])
+  @@index([fromBedId])
+  @@index([toBedId])
   @@index([action])
   @@index([performedAt])
   @@map("occupancy_logs")

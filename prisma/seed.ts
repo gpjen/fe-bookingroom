@@ -352,7 +352,6 @@ async function main() {
   // ========================================
   console.log("🏗️  Creating areas...");
 
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const area1 = await prisma.area.upsert({
     where: { code: "KWS-PABRIK" },
     update: {},
@@ -496,6 +495,202 @@ async function main() {
   console.log("   ✅ System settings seeded");
 
   // ========================================
+  // 8. BUILDINGS, ROOMS & BEDS
+  // ========================================
+  console.log("🏢 Creating buildings, rooms & beds...");
+
+  // Get references
+  const messType = await prisma.buildingType.findUnique({ where: { code: "MESS" } });
+  const singleRoom = await prisma.roomType.findUnique({ where: { code: "SINGLE" } });
+  const doubleRoom = await prisma.roomType.findUnique({ where: { code: "DOUBLE" } });
+  const dormRoom = await prisma.roomType.findUnique({ where: { code: "DORM-6" } });
+
+  if (messType && singleRoom && doubleRoom && dormRoom && area1) {
+    // ======================
+    // BUILDING 1: Mess Alpha
+    // ======================
+    const building1 = await prisma.building.upsert({
+      where: { code: "MESS-A" },
+      update: {},
+      create: {
+        code: "MESS-A",
+        name: "Mess Alpha",
+        areaId: area1.id,
+        buildingTypeId: messType.id,
+        address: "Blok A, Kawasan Pabrik",
+        latitude: -1.3725,
+        longitude: 127.5925,
+        status: true,
+      },
+    });
+
+    // Building 1 - Floor 1 Rooms
+    const b1f1Rooms = [
+      { code: "A101", name: "Kamar 101", floorNumber: 1, floorName: "Lantai 1", roomTypeId: doubleRoom.id, genderPolicy: "MALE_ONLY" as const },
+      { code: "A102", name: "Kamar 102", floorNumber: 1, floorName: "Lantai 1", roomTypeId: doubleRoom.id, genderPolicy: "MALE_ONLY" as const },
+      { code: "A103", name: "Kamar 103", floorNumber: 1, floorName: "Lantai 1", roomTypeId: singleRoom.id, genderPolicy: "FLEXIBLE" as const },
+    ];
+
+    for (const roomData of b1f1Rooms) {
+      const room = await prisma.room.upsert({
+        where: { code: roomData.code },
+        update: {},
+        create: {
+          ...roomData,
+          buildingId: building1.id,
+          status: "ACTIVE",
+        },
+      });
+
+      // Create beds
+      const roomType = await prisma.roomType.findUnique({ where: { id: roomData.roomTypeId } });
+      const bedCount = roomType?.bedsPerRoom || 1;
+      for (let i = 1; i <= bedCount; i++) {
+        await prisma.bed.upsert({
+          where: { code: `${roomData.code}-B${i}` },
+          update: {},
+          create: {
+            code: `${roomData.code}-B${i}`,
+            label: `Bed ${i}`,
+            position: i,
+            bedType: roomType?.defaultBedType || "Single Bed",
+            status: "AVAILABLE",
+            roomId: room.id,
+          },
+        });
+      }
+    }
+
+    // Building 1 - Floor 2 Rooms
+    const b1f2Rooms = [
+      { code: "A201", name: "Kamar 201", floorNumber: 2, floorName: "Lantai 2", roomTypeId: dormRoom.id, genderPolicy: "MALE_ONLY" as const },
+      { code: "A202", name: "Kamar 202", floorNumber: 2, floorName: "Lantai 2", roomTypeId: doubleRoom.id, genderPolicy: "FEMALE_ONLY" as const },
+    ];
+
+    for (const roomData of b1f2Rooms) {
+      const room = await prisma.room.upsert({
+        where: { code: roomData.code },
+        update: {},
+        create: {
+          ...roomData,
+          buildingId: building1.id,
+          status: "ACTIVE",
+        },
+      });
+
+      const roomType = await prisma.roomType.findUnique({ where: { id: roomData.roomTypeId } });
+      const bedCount = roomType?.bedsPerRoom || 1;
+      for (let i = 1; i <= bedCount; i++) {
+        await prisma.bed.upsert({
+          where: { code: `${roomData.code}-B${i}` },
+          update: {},
+          create: {
+            code: `${roomData.code}-B${i}`,
+            label: `Bed ${i}`,
+            position: i,
+            bedType: roomType?.defaultBedType || "Single Bed",
+            status: "AVAILABLE",
+            roomId: room.id,
+          },
+        });
+      }
+    }
+
+    console.log("   ✅ Mess Alpha: 2 floors, 5 rooms");
+
+    // ======================
+    // BUILDING 2: Mess Beta
+    // ======================
+    const building2 = await prisma.building.upsert({
+      where: { code: "MESS-B" },
+      update: {},
+      create: {
+        code: "MESS-B",
+        name: "Mess Beta",
+        areaId: area1.id,
+        buildingTypeId: messType.id,
+        address: "Blok B, Kawasan Pabrik",
+        latitude: -1.3730,
+        longitude: 127.5930,
+        status: true,
+      },
+    });
+
+    // Building 2 - Floor 1 Rooms
+    const b2f1Rooms = [
+      { code: "B101", name: "Kamar 101", floorNumber: 1, floorName: "Lantai 1", roomTypeId: singleRoom.id, genderPolicy: "MIX" as const },
+      { code: "B102", name: "Kamar 102", floorNumber: 1, floorName: "Lantai 1", roomTypeId: doubleRoom.id, genderPolicy: "FLEXIBLE" as const },
+      { code: "B103", name: "Kamar 103", floorNumber: 1, floorName: "Lantai 1", roomTypeId: doubleRoom.id, genderPolicy: "MALE_ONLY" as const },
+    ];
+
+    for (const roomData of b2f1Rooms) {
+      const room = await prisma.room.upsert({
+        where: { code: roomData.code },
+        update: {},
+        create: {
+          ...roomData,
+          buildingId: building2.id,
+          status: "ACTIVE",
+        },
+      });
+
+      const roomType = await prisma.roomType.findUnique({ where: { id: roomData.roomTypeId } });
+      const bedCount = roomType?.bedsPerRoom || 1;
+      for (let i = 1; i <= bedCount; i++) {
+        await prisma.bed.upsert({
+          where: { code: `${roomData.code}-B${i}` },
+          update: {},
+          create: {
+            code: `${roomData.code}-B${i}`,
+            label: `Bed ${i}`,
+            position: i,
+            bedType: roomType?.defaultBedType || "Single Bed",
+            status: "AVAILABLE",
+            roomId: room.id,
+          },
+        });
+      }
+    }
+
+    // Building 2 - Floor 2 Rooms
+    const b2f2Rooms = [
+      { code: "B201", name: "Kamar 201", floorNumber: 2, floorName: "Lantai 2", roomTypeId: dormRoom.id, genderPolicy: "FEMALE_ONLY" as const },
+      { code: "B202", name: "Kamar 202", floorNumber: 2, floorName: "Lantai 2", roomTypeId: singleRoom.id, genderPolicy: "MALE_ONLY" as const },
+    ];
+
+    for (const roomData of b2f2Rooms) {
+      const room = await prisma.room.upsert({
+        where: { code: roomData.code },
+        update: {},
+        create: {
+          ...roomData,
+          buildingId: building2.id,
+          status: "ACTIVE",
+        },
+      });
+
+      const roomType = await prisma.roomType.findUnique({ where: { id: roomData.roomTypeId } });
+      const bedCount = roomType?.bedsPerRoom || 1;
+      for (let i = 1; i <= bedCount; i++) {
+        await prisma.bed.upsert({
+          where: { code: `${roomData.code}-B${i}` },
+          update: {},
+          create: {
+            code: `${roomData.code}-B${i}`,
+            label: `Bed ${i}`,
+            position: i,
+            bedType: roomType?.defaultBedType || "Single Bed",
+            status: "AVAILABLE",
+            roomId: room.id,
+          },
+        });
+      }
+    }
+
+    console.log("   ✅ Mess Beta: 2 floors, 5 rooms");
+  }
+
+  // ========================================
   // SUMMARY
   // ========================================
   console.log("\n🎉 DATABASE SEEDING COMPLETE!\n");
@@ -508,6 +703,9 @@ async function main() {
   console.log("   - Areas: 1");
   console.log("   - Building Types: 2");
   console.log("   - Room Types: 3");
+  console.log("   - Buildings: 2 (Mess Alpha, Mess Beta)");
+  console.log("   - Rooms: 10 (5 per building)");
+  console.log("   - Beds: ~30 (varies by room type)");
   console.log("\n✅ Seeding completed successfully!");
 }
 

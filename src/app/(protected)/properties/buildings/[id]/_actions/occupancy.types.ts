@@ -144,3 +144,85 @@ export const checkoutOccupantSchema = z.object({
 });
 
 export type CheckoutOccupantInput = z.infer<typeof checkoutOccupantSchema>;
+
+// ========================================
+// OCCUPANCY LOG TYPES (HISTORY)
+// ========================================
+
+export type OccupancyLogAction =
+  | "CREATED"
+  | "CHECKED_IN"
+  | "DATE_CHANGED"
+  | "TRANSFERRED"
+  | "EARLY_CHECKOUT"
+  | "CHECKED_OUT"
+  | "CANCELLED"
+  | "STATUS_CHANGED";
+
+export interface OccupancyLogData {
+  id: string;
+  occupancyId: string;
+  action: OccupancyLogAction;
+
+  // Context: Where did this action occur? (for non-transfer actions)
+  bedId: string | null;
+
+  // Transfer info with full location
+  fromBedId: string | null;
+  toBedId: string | null;
+  fromBedInfo: {
+    label: string;
+    roomName: string;
+    buildingName: string;
+  } | null;
+  toBedInfo: {
+    label: string;
+    roomName: string;
+    buildingName: string;
+  } | null;
+
+  // Date change info
+  previousCheckInDate: Date | null;
+  newCheckInDate: Date | null;
+  previousCheckOutDate: Date | null;
+  newCheckOutDate: Date | null;
+
+  // Performer
+  performedBy: string;
+  performedByName: string;
+  performedAt: Date;
+
+  reason: string | null;
+  notes: string | null;
+
+  // Occupancy info (joined)
+  occupancy: {
+    id: string;
+    occupantName: string;
+    occupantType: OccupantType;
+    occupantGender: Gender;
+    bookingId: string | null;
+    booking: {
+      code: string;
+    } | null;
+    bed: {
+      id: string;
+      code: string;
+      label: string;
+      room: {
+        name: string;
+        building: {
+          name: string;
+        };
+      };
+    };
+  };
+}
+
+export interface RoomHistoryFilter {
+  limit?: number;
+  offset?: number;
+  actionFilter?: OccupancyLogAction[];
+  dateFrom?: Date;
+  dateTo?: Date;
+}

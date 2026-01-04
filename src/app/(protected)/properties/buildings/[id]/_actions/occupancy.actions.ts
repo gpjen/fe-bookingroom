@@ -14,6 +14,9 @@ import {
   transferOccupantSchema,
   CheckoutOccupantInput,
   checkoutOccupantSchema,
+  OccupancyLogData,
+  RoomHistoryFilter,
+  OccupancyLogAction,
 } from "./occupancy.types";
 
 // ========================================
@@ -281,6 +284,7 @@ export async function assignOccupant(
       await tx.occupancyLog.create({
         data: {
           occupancyId: occupancy.id,
+          bedId: data.bedId, // Where this action occurred
           action: data.autoCheckIn ? "CHECKED_IN" : "CREATED",
           performedBy: currentUser.id,
           performedByName: currentUser.name,
@@ -358,6 +362,7 @@ export async function checkInOccupant(
       await tx.occupancyLog.create({
         data: {
           occupancyId,
+          bedId: occupancy.bed.id, // Where this action occurred
           action: "CHECKED_IN",
           performedBy: currentUser.id,
           performedByName: currentUser.name,
@@ -463,6 +468,7 @@ export async function checkOutOccupant(
       await tx.occupancyLog.create({
         data: {
           occupancyId: input.occupancyId,
+          bedId: occupancy.bed.id, // Where this action occurred
           action: "CHECKED_OUT",
           performedBy: currentUser.id,
           performedByName: currentUser.name,
@@ -646,16 +652,17 @@ export async function transferOccupant(
           data: { status: occupancy.status === "CHECKED_IN" ? "OCCUPIED" : "RESERVED" },
         });
 
-        // Log move
+        // Log move (same-day transfer)
          await tx.occupancyLog.create({
           data: {
             occupancyId: occupancyId,
+            bedId: null, // Transfer uses fromBedId/toBedId
             action: "TRANSFERRED",
             fromBedId: oldBedId,
             toBedId: targetBedId,
             performedBy: currentUser.id,
             performedByName: currentUser.name,
-            reason: `Moved (Same Day): ${reason}`,
+            reason: reason,
           },
         });
 
@@ -736,28 +743,32 @@ export async function transferOccupant(
             // Old bed status doesn't change yet.
         }
 
-        // Log split
-         await tx.occupancyLog.create({
+        // Log transfer - single log attached to NEW occupancy
+        // This log will appear in history of BOTH source and destination rooms
+        // because query includes logs where fromBedId OR toBedId matches
+        // Note: bedId is null for transfers, use fromBedId/toBedId instead
+        await tx.occupancyLog.create({
           data: {
-            occupancyId: occupancyId, // Log on old
+            occupancyId: newOccupancy.id,
+            bedId: null, // Transfer uses fromBedId/toBedId
             action: "TRANSFERRED",
             fromBedId: oldBedId,
             toBedId: targetBedId,
             performedBy: currentUser.id,
             performedByName: currentUser.name,
-            reason: `Transferred OUT to ${targetBed.room.name}: ${reason}`,
+            reason: reason,
           },
         });
-        
-         await tx.occupancyLog.create({
+
+        // Also mark old occupancy as checked out (in the source room)
+        await tx.occupancyLog.create({
           data: {
-            occupancyId: newOccupancy.id, // Log on new
-            action: "TRANSFERRED",
-            fromBedId: oldBedId,
-            toBedId: targetBedId,
+            occupancyId: occupancyId,
+            bedId: oldBedId, // Checkout happened at old bed
+            action: "CHECKED_OUT",
             performedBy: currentUser.id,
             performedByName: currentUser.name,
-            reason: `Transferred IN from previous bed: ${reason}`,
+            notes: `Check-out karena transfer ke ${targetBed.room.name}`,
           },
         });
       }
@@ -871,6 +882,7 @@ export async function cancelOccupancy(
       await tx.occupancyLog.create({
         data: {
           occupancyId,
+          bedId: occupancy.bed.id, // Where this action occurred
           action: "CANCELLED",
           performedBy: currentUser.id,
           performedByName: currentUser.name,
@@ -971,3 +983,211 @@ export async function getAvailableBedsForTransfer(
     return { success: false, error: "Gagal mengambil data bed" };
   }
 }
+
+// ========================================
+// GET ROOM HISTORY (ACTIVITY LOG)
+// ========================================
+
+export async function getRoomHistory(
+  roomId: string,
+  filter?: RoomHistoryFilter
+): Promise<ActionResponse<{ logs: OccupancyLogData[]; total: number }>> {
+  try {
+    const limit = filter?.limit || 20;
+    const offset = filter?.offset || 0;
+
+    // First, get all beds in this room
+    const room = await prisma.room.findUnique({
+      where: { id: roomId },
+      select: {
+        beds: {
+          select: { id: true },
+        },
+      },
+    });
+
+    if (!room) {
+      return { success: false, error: "Ruangan tidak ditemukan" };
+    }
+
+    const bedIds = room.beds.map((b) => b.id);
+
+    if (bedIds.length === 0) {
+      return { success: true, data: { logs: [], total: 0 } };
+    }
+
+    // Build where clause - Include logs where:
+    // 1. bedId is in this room (action occurred here)
+    // 2. OR fromBedId is in this room (transferred OUT from here)
+    // 3. OR toBedId is in this room (transferred IN to here)
+    const baseConditions = [
+      { bedId: { in: bedIds } },
+      { fromBedId: { in: bedIds } },
+      { toBedId: { in: bedIds } },
+    ];
+
+    // Build the final where clause with filters
+    const whereClause: {
+      OR: typeof baseConditions;
+      action?: { in: OccupancyLogAction[] };
+      performedAt?: { gte?: Date; lte?: Date };
+    } = {
+      OR: baseConditions,
+    };
+
+    if (filter?.actionFilter && filter.actionFilter.length > 0) {
+      whereClause.action = { in: filter.actionFilter };
+    }
+
+    if (filter?.dateFrom || filter?.dateTo) {
+      whereClause.performedAt = {};
+      if (filter.dateFrom) {
+        whereClause.performedAt.gte = filter.dateFrom;
+      }
+      if (filter.dateTo) {
+        whereClause.performedAt.lte = filter.dateTo;
+      }
+    }
+
+    // Get total count
+    const total = await prisma.occupancyLog.count({
+      where: whereClause,
+    });
+
+    // Get logs with related data
+    const logs = await prisma.occupancyLog.findMany({
+      where: whereClause,
+      orderBy: { performedAt: "desc" },
+      skip: offset,
+      take: limit,
+      select: {
+        id: true,
+        occupancyId: true,
+        bedId: true,
+        action: true,
+        fromBedId: true,
+        toBedId: true,
+        previousCheckInDate: true,
+        newCheckInDate: true,
+        previousCheckOutDate: true,
+        newCheckOutDate: true,
+        performedBy: true,
+        performedByName: true,
+        performedAt: true,
+        reason: true,
+        notes: true,
+        occupancy: {
+          select: {
+            id: true,
+            occupantName: true,
+            occupantType: true,
+            occupantGender: true,
+            bookingId: true,
+            booking: {
+              select: {
+                code: true,
+              },
+            },
+            bed: {
+              select: {
+                id: true,
+                code: true,
+                label: true,
+                room: {
+                  select: {
+                    name: true,
+                    building: {
+                      select: {
+                        name: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    // Get bed info for fromBedId and toBedId (with room and building)
+    const allBedIds = new Set<string>();
+    logs.forEach((log) => {
+      if (log.fromBedId) allBedIds.add(log.fromBedId);
+      if (log.toBedId) allBedIds.add(log.toBedId);
+    });
+
+    const bedsMap = new Map<
+      string,
+      { label: string; roomName: string; buildingName: string }
+    >();
+    if (allBedIds.size > 0) {
+      const beds = await prisma.bed.findMany({
+        where: { id: { in: Array.from(allBedIds) } },
+        select: {
+          id: true,
+          label: true,
+          room: {
+            select: {
+              name: true,
+              building: {
+                select: {
+                  name: true,
+                },
+              },
+            },
+          },
+        },
+      });
+      beds.forEach((bed) => {
+        bedsMap.set(bed.id, {
+          label: bed.label,
+          roomName: bed.room.name,
+          buildingName: bed.room.building.name,
+        });
+      });
+    }
+
+    // Transform to OccupancyLogData
+    const transformedLogs: OccupancyLogData[] = logs.map((log) => ({
+      id: log.id,
+      occupancyId: log.occupancyId,
+      bedId: log.bedId,
+      action: log.action as OccupancyLogAction,
+      fromBedId: log.fromBedId,
+      toBedId: log.toBedId,
+      fromBedInfo: log.fromBedId ? bedsMap.get(log.fromBedId) || null : null,
+      toBedInfo: log.toBedId ? bedsMap.get(log.toBedId) || null : null,
+      previousCheckInDate: log.previousCheckInDate,
+      newCheckInDate: log.newCheckInDate,
+      previousCheckOutDate: log.previousCheckOutDate,
+      newCheckOutDate: log.newCheckOutDate,
+      performedBy: log.performedBy,
+      performedByName: log.performedByName,
+      performedAt: log.performedAt,
+      reason: log.reason,
+      notes: log.notes,
+      occupancy: {
+        id: log.occupancy.id,
+        occupantName: log.occupancy.occupantName,
+        occupantType: log.occupancy.occupantType as "EMPLOYEE" | "GUEST",
+        occupantGender: log.occupancy.occupantGender as "MALE" | "FEMALE",
+        bookingId: log.occupancy.bookingId,
+        booking: log.occupancy.booking,
+        bed: log.occupancy.bed,
+      },
+    }));
+
+    return {
+      success: true,
+      data: {
+        logs: transformedLogs,
+        total,
+      },
+    };
+  } catch (error) {
+    console.error("[GET_ROOM_HISTORY_ERROR]", error);
+    return { success: false, error: "Gagal mengambil riwayat" };
+  }
+}
+

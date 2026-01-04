@@ -37,6 +37,7 @@ export interface RoomWithBeds {
     position: number;
     bedType: string | null;
     status: "AVAILABLE" | "OCCUPIED" | "RESERVED" | "MAINTENANCE" | "BLOCKED";
+    notes: string | null;
   }[];
   createdAt: Date;
   updatedAt: Date;

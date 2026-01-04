@@ -62,6 +62,8 @@ import {
   MoreHorizontal,
   Trash2,
   Plus,
+  ChevronUp,
+  ChevronDown,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -72,6 +74,8 @@ import {
   updateBed,
   deleteBed,
   addBedToRoom,
+  getRoomById,
+  swapBedPositions,
 } from "../_actions/room.actions";
 
 // ========================================
@@ -157,43 +161,120 @@ const BED_STATUS_LABELS = {
 // BEDS TAB COMPONENT (WITH EDITING)
 // ========================================
 
-const BED_STATUS_OPTIONS = [
-  { value: "AVAILABLE", label: "Tersedia" },
-  { value: "MAINTENANCE", label: "Maintenance" },
-  { value: "BLOCKED", label: "Diblokir" },
-] as const;
-
 interface BedsTabContentProps {
   room: RoomWithBeds;
   onBedUpdated?: () => void;
 }
 
-function BedsTabContent({ room, onBedUpdated }: BedsTabContentProps) {
-  const [deletingBedId, setDeletingBedId] = useState<string | null>(null);
-  const [isUpdating, setIsUpdating] = useState(false);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [showAddForm, setShowAddForm] = useState(false);
+interface BedEditState {
+  label: string;
+  bedType: string;
+  notes: string;
+}
 
-  // Add bed form state
-  const [newBedCode, setNewBedCode] = useState("");
+function BedsTabContent({ room, onBedUpdated }: BedsTabContentProps) {
+  // State for editing
+  const [editingBedId, setEditingBedId] = useState<string | null>(null);
+  const [editValues, setEditValues] = useState<BedEditState>({
+    label: "",
+    bedType: "",
+    notes: "",
+  });
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  // State for deleting
+  const [deletingBedId, setDeletingBedId] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // State for adding new bed
+  const [showAddForm, setShowAddForm] = useState(false);
   const [newBedLabel, setNewBedLabel] = useState("");
+  const [newBedType, setNewBedType] = useState("");
   const [isAdding, setIsAdding] = useState(false);
 
-  const handleStatusChange = async (bedId: string, newStatus: string) => {
-    setIsUpdating(true);
-    const result = await updateBed(bedId, {
-      status: newStatus as "AVAILABLE" | "MAINTENANCE" | "BLOCKED",
-    });
-    setIsUpdating(false);
+  // State for reordering
+  const [isReordering, setIsReordering] = useState(false);
+
+  // Sorted beds by position
+  const sortedBeds = [...room.beds].sort((a, b) => a.position - b.position);
+
+  // Move bed up (swap with previous)
+  const handleMoveUp = async (index: number) => {
+    if (index === 0) return;
+    const currentBed = sortedBeds[index];
+    const previousBed = sortedBeds[index - 1];
+
+    setIsReordering(true);
+    const result = await swapBedPositions(currentBed.id, previousBed.id);
+    setIsReordering(false);
 
     if (result.success) {
-      toast.success("Status bed berhasil diubah");
       onBedUpdated?.();
     } else {
       toast.error(result.error);
     }
   };
 
+  // Move bed down (swap with next)
+  const handleMoveDown = async (index: number) => {
+    if (index === sortedBeds.length - 1) return;
+    const currentBed = sortedBeds[index];
+    const nextBed = sortedBeds[index + 1];
+
+    setIsReordering(true);
+    const result = await swapBedPositions(currentBed.id, nextBed.id);
+    setIsReordering(false);
+
+    if (result.success) {
+      onBedUpdated?.();
+    } else {
+      toast.error(result.error);
+    }
+  };
+
+  // Start editing a bed
+  const startEditing = (bed: RoomWithBeds["beds"][0]) => {
+    setEditingBedId(bed.id);
+    setEditValues({
+      label: bed.label,
+      bedType: bed.bedType || "",
+      notes: bed.notes || "",
+    });
+  };
+
+  // Cancel editing
+  const cancelEditing = () => {
+    setEditingBedId(null);
+    setEditValues({ label: "", bedType: "", notes: "" });
+  };
+
+  // Save bed changes
+  const handleSaveBed = async () => {
+    if (!editingBedId) return;
+
+    if (!editValues.label.trim()) {
+      toast.error("Label wajib diisi");
+      return;
+    }
+
+    setIsUpdating(true);
+    const result = await updateBed(editingBedId, {
+      label: editValues.label.trim(),
+      bedType: editValues.bedType.trim() || null,
+      notes: editValues.notes.trim() || null,
+    });
+    setIsUpdating(false);
+
+    if (result.success) {
+      toast.success("Bed berhasil diperbarui");
+      cancelEditing();
+      onBedUpdated?.();
+    } else {
+      toast.error(result.error);
+    }
+  };
+
+  // Delete bed
   const handleDeleteBed = async () => {
     if (!deletingBedId) return;
 
@@ -210,25 +291,58 @@ function BedsTabContent({ room, onBedUpdated }: BedsTabContentProps) {
     }
   };
 
+  // Add new bed
   const handleAddBed = async () => {
-    if (!newBedCode || !newBedLabel) {
-      toast.error("Kode dan label wajib diisi");
+    if (!newBedLabel.trim()) {
+      toast.error("Label wajib diisi");
+      return;
+    }
+
+    // Generate code automatically: {ROOM_CODE}-{NEXT_AVAILABLE_LETTER}
+    const letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+    const existingCodes = new Set(room.beds.map((b) => b.code));
+
+    // Find first available letter
+    let generatedCode = "";
+    for (let i = 0; i < 26; i++) {
+      const letter = letters[i];
+      const candidateCode = `${room.code}-${letter}`;
+      if (!existingCodes.has(candidateCode)) {
+        generatedCode = candidateCode;
+        break;
+      }
+    }
+
+    // If all letters used, try with numbers
+    if (!generatedCode) {
+      for (let i = 1; i <= 99; i++) {
+        const candidateCode = `${room.code}-${i.toString().padStart(2, "0")}`;
+        if (!existingCodes.has(candidateCode)) {
+          generatedCode = candidateCode;
+          break;
+        }
+      }
+    }
+
+    if (!generatedCode) {
+      toast.error("Tidak dapat membuat kode bed baru");
       return;
     }
 
     setIsAdding(true);
     const result = await addBedToRoom({
       roomId: room.id,
-      code: newBedCode,
-      label: newBedLabel,
+      code: generatedCode,
+      label: newBedLabel.trim(),
+      bedType: newBedType.trim() || null,
     });
     setIsAdding(false);
 
     if (result.success) {
       toast.success("Bed berhasil ditambahkan");
       setShowAddForm(false);
-      setNewBedCode("");
       setNewBedLabel("");
+      setNewBedType("");
       onBedUpdated?.();
     } else {
       toast.error(result.error);
@@ -239,6 +353,7 @@ function BedsTabContent({ room, onBedUpdated }: BedsTabContentProps) {
 
   return (
     <div className="space-y-3">
+      {/* Header */}
       <div className="flex items-center justify-between">
         <p className="text-sm text-muted-foreground">
           {room.beds.length} bed • {room.roomType.name}
@@ -257,17 +372,20 @@ function BedsTabContent({ room, onBedUpdated }: BedsTabContentProps) {
       {/* Add Bed Form */}
       {showAddForm && (
         <div className="p-3 border rounded-lg bg-muted/30 space-y-3">
+          <p className="text-xs font-medium text-muted-foreground">
+            Tambah Bed Baru (Kode akan otomatis)
+          </p>
           <div className="grid grid-cols-2 gap-2">
             <Input
-              placeholder="Kode (R101-D)"
-              value={newBedCode}
-              onChange={(e) => setNewBedCode(e.target.value.toUpperCase())}
+              placeholder="Label (contoh: Bed A)"
+              value={newBedLabel}
+              onChange={(e) => setNewBedLabel(e.target.value)}
               disabled={isAdding}
             />
             <Input
-              placeholder="Label (Bed D)"
-              value={newBedLabel}
-              onChange={(e) => setNewBedLabel(e.target.value)}
+              placeholder="Tipe (opsional)"
+              value={newBedType}
+              onChange={(e) => setNewBedType(e.target.value)}
               disabled={isAdding}
             />
           </div>
@@ -277,8 +395,8 @@ function BedsTabContent({ room, onBedUpdated }: BedsTabContentProps) {
               size="sm"
               onClick={() => {
                 setShowAddForm(false);
-                setNewBedCode("");
                 setNewBedLabel("");
+                setNewBedType("");
               }}
               disabled={isAdding}
             >
@@ -296,94 +414,224 @@ function BedsTabContent({ room, onBedUpdated }: BedsTabContentProps) {
 
       {/* Bed List */}
       <div className="space-y-2">
-        {room.beds.map((bed) => {
+        {sortedBeds.map((bed, index) => {
           const isOccupied =
             bed.status === "OCCUPIED" || bed.status === "RESERVED";
           const canEdit = !isOccupied;
+          const isEditing = editingBedId === bed.id;
+          const isFirst = index === 0;
+          const isLast = index === sortedBeds.length - 1;
 
           return (
             <div
               key={bed.id}
               className={cn(
-                "flex items-center justify-between p-3 rounded-lg border",
+                "p-3 rounded-lg border transition-all",
                 isOccupied &&
-                  "bg-blue-50/50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800"
+                  "bg-blue-50/50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800",
+                isEditing && "ring-2 ring-primary"
               )}
             >
-              <div className="flex items-center gap-3">
-                <div
-                  className={cn(
-                    "w-8 h-8 rounded-full flex items-center justify-center",
-                    isOccupied ? "bg-blue-100 dark:bg-blue-900" : "bg-muted"
-                  )}
-                >
-                  {isOccupied ? (
-                    <User className="h-4 w-4 text-blue-600" />
-                  ) : (
-                    <Bed className="h-4 w-4" />
-                  )}
-                </div>
-                <div>
-                  <p className="font-medium text-sm">{bed.label}</p>
-                  <p className="text-xs text-muted-foreground font-mono">
-                    {bed.code}
-                  </p>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                {/* Status selector for non-occupied beds */}
-                {canEdit ? (
-                  <Select
-                    value={bed.status}
-                    onValueChange={(value) => handleStatusChange(bed.id, value)}
-                    disabled={isUpdating}
-                  >
-                    <SelectTrigger className="h-7 w-28 text-[10px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {BED_STATUS_OPTIONS.map((opt) => (
-                        <SelectItem key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                ) : (
-                  <Badge
-                    variant="outline"
-                    className={cn("text-[10px]", BED_STATUS_COLORS[bed.status])}
-                  >
-                    {BED_STATUS_LABELS[bed.status]}
-                  </Badge>
-                )}
-
-                {/* Actions dropdown */}
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-7 w-7">
-                      <MoreHorizontal className="h-3.5 w-3.5" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end" className="w-36">
-                    <DropdownMenuItem
-                      onClick={() => setDeletingBedId(bed.id)}
-                      disabled={isOccupied}
+              {isEditing ? (
+                // Edit Mode
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <span className="font-mono">{bed.code}</span>
+                    <span>•</span>
+                    <span>Posisi: {bed.position}</span>
+                    <Badge
+                      variant="outline"
                       className={cn(
-                        "text-destructive focus:text-destructive",
-                        isOccupied && "opacity-50"
+                        "text-[10px] ml-auto",
+                        BED_STATUS_COLORS[bed.status]
                       )}
                     >
-                      <Trash2 className="h-3.5 w-3.5 mr-2" />
-                      Hapus
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
+                      {BED_STATUS_LABELS[bed.status]}
+                    </Badge>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-xs text-muted-foreground">
+                        Label *
+                      </label>
+                      <Input
+                        value={editValues.label}
+                        onChange={(e) =>
+                          setEditValues({
+                            ...editValues,
+                            label: e.target.value,
+                          })
+                        }
+                        placeholder="Label bed"
+                        className="mt-1"
+                        disabled={isUpdating}
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs text-muted-foreground">
+                        Tipe Bed
+                      </label>
+                      <Input
+                        value={editValues.bedType}
+                        onChange={(e) =>
+                          setEditValues({
+                            ...editValues,
+                            bedType: e.target.value,
+                          })
+                        }
+                        placeholder="Single, Double, dll"
+                        className="mt-1"
+                        disabled={isUpdating}
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground">
+                      Catatan
+                    </label>
+                    <Textarea
+                      value={editValues.notes}
+                      onChange={(e) =>
+                        setEditValues({ ...editValues, notes: e.target.value })
+                      }
+                      placeholder="Catatan tambahan..."
+                      className="mt-1 resize-none"
+                      rows={2}
+                      disabled={isUpdating}
+                    />
+                  </div>
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={cancelEditing}
+                      disabled={isUpdating}
+                    >
+                      Batal
+                    </Button>
+                    <Button
+                      size="sm"
+                      onClick={handleSaveBed}
+                      disabled={isUpdating}
+                    >
+                      {isUpdating && (
+                        <Loader2 className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+                      )}
+                      Simpan
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                // View Mode
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div
+                      className={cn(
+                        "w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold",
+                        isOccupied
+                          ? "bg-blue-100 dark:bg-blue-900 text-blue-600"
+                          : "bg-muted text-muted-foreground"
+                      )}
+                    >
+                      {isOccupied ? <User className="h-4 w-4" /> : bed.position}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <p className="font-medium text-sm">{bed.label}</p>
+                        {bed.bedType && (
+                          <Badge variant="secondary" className="text-[10px]">
+                            {bed.bedType}
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground font-mono">
+                        {bed.code}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-1">
+                    {/* Reorder Buttons */}
+                    {sortedBeds.length > 1 && (
+                      <div className="flex flex-col gap-0.5 mr-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-5 w-5 p-0"
+                          onClick={() => handleMoveUp(index)}
+                          disabled={isFirst || isReordering}
+                          title="Geser ke atas"
+                        >
+                          <ChevronUp className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-5 w-5 p-0"
+                          onClick={() => handleMoveDown(index)}
+                          disabled={isLast || isReordering}
+                          title="Geser ke bawah"
+                        >
+                          <ChevronDown className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    )}
+
+                    {/* Status Badge (Read-only) */}
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "text-[10px]",
+                        BED_STATUS_COLORS[bed.status]
+                      )}
+                    >
+                      {BED_STATUS_LABELS[bed.status]}
+                    </Badge>
+
+                    {/* Actions dropdown */}
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-7 w-7">
+                          <MoreHorizontal className="h-3.5 w-3.5" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-36">
+                        <DropdownMenuItem
+                          onClick={() => startEditing(bed)}
+                          disabled={!canEdit}
+                          className={!canEdit ? "opacity-50" : ""}
+                        >
+                          Edit
+                          {!canEdit && (
+                            <span className="text-[9px] ml-auto">Terisi</span>
+                          )}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => setDeletingBedId(bed.id)}
+                          disabled={!canEdit}
+                          className={cn(
+                            "text-destructive focus:text-destructive",
+                            !canEdit && "opacity-50"
+                          )}
+                        >
+                          <Trash2 className="h-3.5 w-3.5 mr-2" />
+                          Hapus
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                </div>
+              )}
             </div>
           );
         })}
+
+        {room.beds.length === 0 && (
+          <div className="text-center py-6 text-muted-foreground">
+            <Bed className="h-8 w-8 mx-auto mb-2 opacity-50" />
+            <p className="text-sm">Belum ada bed</p>
+          </div>
+        )}
       </div>
 
       {/* Delete Confirmation */}
@@ -452,6 +700,23 @@ export function RoomForm({
   const [isPending, startTransition] = useTransition();
   const [activeTab, setActiveTab] = useState("detail");
   const isEditing = !!room;
+
+  // Local room data state for refreshing beds without closing sheet
+  const [roomData, setRoomData] = useState<RoomWithBeds | null>(room || null);
+
+  // Sync roomData with prop when it changes
+  useEffect(() => {
+    setRoomData(room || null);
+  }, [room]);
+
+  // Refresh room data (for bed updates without closing sheet)
+  const refreshRoomData = async () => {
+    if (!room?.id) return;
+    const result = await getRoomById(room.id);
+    if (result.success) {
+      setRoomData(result.data);
+    }
+  };
 
   const form = useForm<FormValues>({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -854,7 +1119,12 @@ export function RoomForm({
             <TabsContent value="beds" className="flex-1 overflow-hidden m-0">
               <ScrollArea className="h-full">
                 <div className="px-5 py-4">
-                  <BedsTabContent room={room} onBedUpdated={onSuccess} />
+                  {roomData && (
+                    <BedsTabContent
+                      room={roomData}
+                      onBedUpdated={refreshRoomData}
+                    />
+                  )}
                 </div>
               </ScrollArea>
             </TabsContent>
@@ -862,7 +1132,7 @@ export function RoomForm({
             <TabsContent value="gallery" className="flex-1 overflow-hidden m-0">
               <ScrollArea className="h-full">
                 <div className="px-5 py-4">
-                  <GalleryTabContent room={room} />
+                  {roomData && <GalleryTabContent room={roomData} />}
                 </div>
               </ScrollArea>
             </TabsContent>

@@ -81,6 +81,7 @@ export async function getRoomById(
             position: true,
             bedType: true,
             status: true,
+            notes: true,
           },
         },
       },
@@ -551,3 +552,53 @@ export async function deleteBed(
   }
 }
 
+// ========================================
+// SWAP BED POSITIONS
+// ========================================
+
+export async function swapBedPositions(
+  bedId1: string,
+  bedId2: string
+): Promise<ActionResponse<{ success: true }>> {
+  try {
+    // Get both beds
+    const [bed1, bed2] = await Promise.all([
+      prisma.bed.findUnique({
+        where: { id: bedId1 },
+        select: {
+          id: true,
+          position: true,
+          room: { select: { buildingId: true } },
+        },
+      }),
+      prisma.bed.findUnique({
+        where: { id: bedId2 },
+        select: { id: true, position: true },
+      }),
+    ]);
+
+    if (!bed1 || !bed2) {
+      return { success: false, error: "Bed tidak ditemukan" };
+    }
+
+    // Swap positions using transaction
+    await prisma.$transaction([
+      prisma.bed.update({
+        where: { id: bedId1 },
+        data: { position: bed2.position },
+      }),
+      prisma.bed.update({
+        where: { id: bedId2 },
+        data: { position: bed1.position },
+      }),
+    ]);
+
+    // Revalidate cache
+    revalidatePath(`/properties/buildings/${bed1.room.buildingId}`);
+
+    return { success: true, data: { success: true } };
+  } catch (error) {
+    console.error("[SWAP_BED_POSITIONS_ERROR]", error);
+    return { success: false, error: "Gagal mengubah posisi bed" };
+  }
+}

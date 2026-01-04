@@ -394,7 +394,7 @@ export function BuildingFloors({
             type="multiple"
             value={expandedFloors}
             onValueChange={setExpandedFloors}
-            className="space-y-2"
+            className="space-y-2 mb-2"
           >
             {floors.map((floor) => (
               <AccordionItem

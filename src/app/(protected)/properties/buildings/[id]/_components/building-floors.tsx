@@ -471,6 +471,7 @@ export function BuildingFloors({
             handleEditRoom(selectedRoom);
           }
         }}
+        onRefresh={onRefresh}
       />
 
       {/* Room Form */}

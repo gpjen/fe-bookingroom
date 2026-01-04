@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useCallback, useMemo, useEffect } from "react";
 import {
   Sheet,
   SheetContent,
@@ -12,6 +13,24 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   DoorOpen,
   Bed,
   User,
@@ -21,9 +40,27 @@ import {
   Clock,
   Ban,
   Wrench,
+  UserPlus,
+  LogIn,
+  LogOut,
+  Loader2,
+  X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { RoomData, BedData } from "../_actions/building-detail.schema";
+import { toast } from "sonner";
+import { RoomData } from "../_actions/building-detail.schema";
+import {
+  BedWithOccupancy,
+  AssignOccupantInput,
+} from "../_actions/occupancy.types";
+import {
+  getBedsWithOccupancy,
+  assignOccupant,
+  checkInOccupant,
+  checkOutOccupant,
+  cancelOccupancy,
+} from "../_actions/occupancy.actions";
+import { TransferDialog } from "./transfer-dialog";
 
 // ========================================
 // BED STATUS CONFIG
@@ -68,48 +105,670 @@ const bedStatusConfig = {
 };
 
 // ========================================
-// BED LIST ITEM
+// ASSIGN OCCUPANT DIALOG
+// ========================================
+
+interface AssignOccupantDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  bed: BedWithOccupancy | null;
+  roomGenderPolicy: string;
+  onSuccess: () => void;
+}
+
+function AssignOccupantDialog({
+  open,
+  onOpenChange,
+  bed,
+  roomGenderPolicy,
+  onSuccess,
+}: AssignOccupantDialogProps) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Compute initial state based on props (no useEffect needed)
+  const initialFormData = useMemo(() => {
+    const defaultGender =
+      roomGenderPolicy === "MALE_ONLY"
+        ? "MALE"
+        : roomGenderPolicy === "FEMALE_ONLY"
+        ? "FEMALE"
+        : "MALE";
+
+    return {
+      occupantType: "EMPLOYEE" as "EMPLOYEE" | "GUEST",
+      occupantName: "",
+      occupantNik: "",
+      occupantGender: defaultGender as "MALE" | "FEMALE",
+      occupantPhone: "",
+      occupantEmail: "",
+      occupantCompany: "",
+      occupantDepartment: "",
+      checkInDate: new Date().toISOString().split("T")[0],
+      checkOutDate: "",
+      autoCheckIn: true,
+      notes: "",
+    };
+  }, [roomGenderPolicy]);
+
+  const [formData, setFormData] = useState(initialFormData);
+
+  // Reset form when dialog closes and opens again
+  const handleOpenChange = (isOpen: boolean) => {
+    if (!isOpen) {
+      // Reset form when closing
+      setFormData(initialFormData);
+    }
+    onOpenChange(isOpen);
+  };
+
+  const handleSubmit = async () => {
+    if (!bed) return;
+
+    if (!formData.occupantName.trim()) {
+      toast.error("Nama penghuni wajib diisi");
+      return;
+    }
+
+    setIsSubmitting(true);
+
+    const input: AssignOccupantInput = {
+      bedId: bed.id,
+      occupantType: formData.occupantType,
+      occupantName: formData.occupantName.trim(),
+      occupantNik: formData.occupantNik.trim() || null,
+      occupantGender: formData.occupantGender,
+      occupantPhone: formData.occupantPhone.trim() || null,
+      occupantEmail: formData.occupantEmail.trim() || null,
+      occupantCompany: formData.occupantCompany.trim() || null,
+      occupantDepartment: formData.occupantDepartment.trim() || null,
+      checkInDate: new Date(formData.checkInDate),
+      checkOutDate: formData.checkOutDate
+        ? new Date(formData.checkOutDate)
+        : null,
+      autoCheckIn: formData.autoCheckIn,
+      notes: formData.notes.trim() || null,
+    };
+
+    const result = await assignOccupant(input);
+    setIsSubmitting(false);
+
+    if (result.success) {
+      toast.success(
+        formData.autoCheckIn
+          ? "Penghuni berhasil check-in"
+          : "Reservasi berhasil dibuat"
+      );
+      onOpenChange(false);
+      onSuccess();
+    } else {
+      toast.error(result.error);
+    }
+  };
+
+  const canChangeGender =
+    roomGenderPolicy === "MIX" || roomGenderPolicy === "FLEXIBLE";
+
+  return (
+    <Dialog open={open} onOpenChange={handleOpenChange}>
+      <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <UserPlus className="h-5 w-5" />
+            Tambah Penghuni
+          </DialogTitle>
+          <DialogDescription>
+            Bed: <span className="font-mono font-medium">{bed?.code}</span> -{" "}
+            {bed?.label}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4 py-2">
+          {/* Occupant Type */}
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label>Tipe Penghuni *</Label>
+              <Select
+                value={formData.occupantType}
+                onValueChange={(v) =>
+                  setFormData({
+                    ...formData,
+                    occupantType: v as "EMPLOYEE" | "GUEST",
+                  })
+                }
+              >
+                <SelectTrigger className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="EMPLOYEE">Karyawan</SelectItem>
+                  <SelectItem value="GUEST">Tamu</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Jenis Kelamin *</Label>
+              <Select
+                value={formData.occupantGender}
+                onValueChange={(v) =>
+                  setFormData({
+                    ...formData,
+                    occupantGender: v as "MALE" | "FEMALE",
+                  })
+                }
+                disabled={!canChangeGender}
+              >
+                <SelectTrigger className="mt-1">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="MALE">Laki-laki</SelectItem>
+                  <SelectItem value="FEMALE">Perempuan</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Name & NIK */}
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label>Nama Lengkap *</Label>
+              <Input
+                className="mt-1"
+                value={formData.occupantName}
+                onChange={(e) =>
+                  setFormData({ ...formData, occupantName: e.target.value })
+                }
+                placeholder="Nama penghuni"
+              />
+            </div>
+            <div>
+              <Label>NIK / No.KTP</Label>
+              <Input
+                className="mt-1"
+                value={formData.occupantNik}
+                onChange={(e) =>
+                  setFormData({ ...formData, occupantNik: e.target.value })
+                }
+                placeholder="NIK"
+              />
+            </div>
+          </div>
+
+          {/* Company & Department */}
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label>Perusahaan</Label>
+              <Input
+                className="mt-1"
+                value={formData.occupantCompany}
+                onChange={(e) =>
+                  setFormData({ ...formData, occupantCompany: e.target.value })
+                }
+                placeholder="Nama perusahaan"
+              />
+            </div>
+            <div>
+              <Label>Departemen</Label>
+              <Input
+                className="mt-1"
+                value={formData.occupantDepartment}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    occupantDepartment: e.target.value,
+                  })
+                }
+                placeholder="Unit kerja"
+              />
+            </div>
+          </div>
+
+          {/* Phone & Email */}
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label>No. Telepon</Label>
+              <Input
+                className="mt-1"
+                value={formData.occupantPhone}
+                onChange={(e) =>
+                  setFormData({ ...formData, occupantPhone: e.target.value })
+                }
+                placeholder="08xxx"
+              />
+            </div>
+            <div>
+              <Label>Email</Label>
+              <Input
+                className="mt-1"
+                type="email"
+                value={formData.occupantEmail}
+                onChange={(e) =>
+                  setFormData({ ...formData, occupantEmail: e.target.value })
+                }
+                placeholder="email@example.com"
+              />
+            </div>
+          </div>
+
+          {/* Dates */}
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <Label>Tanggal Masuk *</Label>
+              <Input
+                className="mt-1"
+                type="date"
+                value={formData.checkInDate}
+                onChange={(e) =>
+                  setFormData({ ...formData, checkInDate: e.target.value })
+                }
+                min={new Date().toISOString().split("T")[0]}
+              />
+            </div>
+            <div>
+              <Label>Tanggal Keluar</Label>
+              <Input
+                className="mt-1"
+                type="date"
+                value={formData.checkOutDate}
+                onChange={(e) =>
+                  setFormData({ ...formData, checkOutDate: e.target.value })
+                }
+                min={formData.checkInDate}
+              />
+              <p className="text-[10px] text-muted-foreground mt-0.5">
+                Kosongkan jika belum ditentukan
+              </p>
+            </div>
+          </div>
+
+          {/* Auto Check-in */}
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="autoCheckIn"
+              checked={formData.autoCheckIn}
+              onChange={(e) =>
+                setFormData({ ...formData, autoCheckIn: e.target.checked })
+              }
+              className="rounded border-gray-300"
+            />
+            <Label htmlFor="autoCheckIn" className="text-sm cursor-pointer">
+              Langsung check-in sekarang
+            </Label>
+          </div>
+
+          {/* Notes */}
+          <div>
+            <Label>Catatan</Label>
+            <Textarea
+              className="mt-1 resize-none"
+              rows={2}
+              value={formData.notes}
+              onChange={(e) =>
+                setFormData({ ...formData, notes: e.target.value })
+              }
+              placeholder="Catatan tambahan..."
+            />
+          </div>
+        </div>
+
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => handleOpenChange(false)}
+            disabled={isSubmitting}
+          >
+            Batal
+          </Button>
+          <Button onClick={handleSubmit} disabled={isSubmitting}>
+            {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            {formData.autoCheckIn ? "Check-in" : "Reservasi"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ========================================
+// CHECKOUT CONFIRM DIALOG
+// ========================================
+
+interface CheckoutDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  bed: BedWithOccupancy | null;
+  onSuccess: () => void;
+}
+
+function CheckoutDialog({
+  open,
+  onOpenChange,
+  bed,
+  onSuccess,
+}: CheckoutDialogProps) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [reason, setReason] = useState("");
+
+  const handleCheckout = async () => {
+    if (!bed?.activeOccupancy) return;
+
+    setIsSubmitting(true);
+    const result = await checkOutOccupant({
+      occupancyId: bed.activeOccupancy.id,
+      reason: reason.trim() || null,
+    });
+    setIsSubmitting(false);
+
+    if (result.success) {
+      toast.success("Checkout berhasil");
+      onOpenChange(false);
+      setReason("");
+      onSuccess();
+    } else {
+      toast.error(result.error);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <LogOut className="h-5 w-5" />
+            Checkout Penghuni
+          </DialogTitle>
+          <DialogDescription>
+            Checkout <strong>{bed?.activeOccupancy?.occupantName}</strong> dari{" "}
+            <span className="font-mono">{bed?.code}</span>?
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="py-2">
+          <Label>Alasan (opsional)</Label>
+          <Textarea
+            className="mt-1 resize-none"
+            rows={2}
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="Alasan checkout..."
+          />
+        </div>
+
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={isSubmitting}
+          >
+            Batal
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={handleCheckout}
+            disabled={isSubmitting}
+          >
+            {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            Checkout
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ========================================
+// CANCEL RESERVATION DIALOG
+// ========================================
+
+interface CancelDialogProps {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  bed: BedWithOccupancy | null;
+  onSuccess: () => void;
+}
+
+function CancelDialog({
+  open,
+  onOpenChange,
+  bed,
+  onSuccess,
+}: CancelDialogProps) {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [reason, setReason] = useState("");
+
+  const handleCancel = async () => {
+    if (!bed?.activeOccupancy) return;
+
+    setIsSubmitting(true);
+    const result = await cancelOccupancy(
+      bed.activeOccupancy.id,
+      reason.trim() || undefined
+    );
+    setIsSubmitting(false);
+
+    if (result.success) {
+      toast.success("Reservasi dibatalkan");
+      onOpenChange(false);
+      setReason("");
+      onSuccess();
+    } else {
+      toast.error(result.error);
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-destructive">
+            <X className="h-5 w-5" />
+            Batalkan Reservasi
+          </DialogTitle>
+          <DialogDescription>
+            Batalkan reservasi{" "}
+            <strong>{bed?.activeOccupancy?.occupantName}</strong>?
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="py-2">
+          <Label>Alasan (opsional)</Label>
+          <Textarea
+            className="mt-1 resize-none"
+            rows={2}
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="Alasan pembatalan..."
+          />
+        </div>
+
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={isSubmitting}
+          >
+            Kembali
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={handleCancel}
+            disabled={isSubmitting}
+          >
+            {isSubmitting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+            Batalkan
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+// ========================================
+// TRANSFER DIALOG
+// ========================================
+
+// Reset form state
+
+// ========================================
+// BED LIST ITEM WITH ACTIONS
 // ========================================
 
 interface BedListItemProps {
-  bed: BedData;
+  bed: BedWithOccupancy;
+  onAssign: () => void;
+  onCheckIn: () => void;
+  onCheckout: () => void;
+  onCancel: () => void;
+  onTransfer: () => void;
+  isLoading: boolean;
 }
 
-function BedListItem({ bed }: BedListItemProps) {
+function BedListItem({
+  bed,
+  onAssign,
+  onCheckIn,
+  onCheckout,
+  onCancel,
+  onTransfer,
+  isLoading,
+}: BedListItemProps) {
   const config = bedStatusConfig[bed.status];
   const Icon = config.icon;
+  const occupancy = bed.activeOccupancy;
+
+  // Format date
+  const formatDate = (date: Date) => {
+    return new Date(date).toLocaleDateString("id-ID", {
+      day: "numeric",
+      month: "short",
+    });
+  };
 
   return (
     <div
       className={cn(
-        "flex items-center justify-between p-3 rounded-lg border",
+        "p-3 rounded-lg border transition-all",
         config.bg,
         config.border
       )}
     >
-      <div className="flex items-center gap-3">
-        <div
-          className={cn(
-            "w-8 h-8 rounded-full flex items-center justify-center",
-            "bg-white dark:bg-slate-800 border",
-            config.border
-          )}
-        >
-          <Icon className={cn("h-4 w-4", config.color)} />
+      {/* Header */}
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <div
+            className={cn(
+              "w-7 h-7 rounded-full flex items-center justify-center",
+              "bg-white dark:bg-slate-800 border",
+              config.border
+            )}
+          >
+            <Icon className={cn("h-3.5 w-3.5", config.color)} />
+          </div>
+          <div>
+            <p className="font-medium text-sm">{bed.label}</p>
+            <p className="text-[10px] text-muted-foreground font-mono">
+              {bed.code}
+            </p>
+          </div>
         </div>
-        <div>
-          <p className="font-medium text-sm">{bed.label}</p>
-          <p className="text-xs text-muted-foreground font-mono">{bed.code}</p>
-        </div>
-      </div>
-      <div className="text-right">
         <Badge variant="outline" className={cn("text-[10px]", config.color)}>
           {config.label}
         </Badge>
-        {bed.status === "OCCUPIED" && (
-          <p className="text-[10px] text-muted-foreground mt-0.5">
-            {/* TODO: Show occupant name when available */}
-            Lihat penghuni
+      </div>
+
+      {/* Occupant Info */}
+      {occupancy && (
+        <div className="mb-2 p-2 rounded bg-white/50 dark:bg-slate-800/50 border border-dashed">
+          <div className="flex items-center gap-2">
+            <User className="h-3.5 w-3.5 text-muted-foreground" />
+            <span className="text-sm font-medium">
+              {occupancy.occupantName}
+            </span>
+            <Badge variant="secondary" className="text-[9px] ml-auto">
+              {occupancy.occupantType === "EMPLOYEE" ? "Karyawan" : "Tamu"}
+            </Badge>
+          </div>
+          {occupancy.occupantCompany && (
+            <p className="text-[10px] text-muted-foreground mt-0.5 ml-5">
+              {occupancy.occupantCompany}
+            </p>
+          )}
+          <p className="text-[10px] text-muted-foreground mt-1 ml-5">
+            {formatDate(occupancy.checkInDate)} -{" "}
+            {formatDate(occupancy.checkOutDate)}
+          </p>
+        </div>
+      )}
+
+      {/* Actions */}
+      <div className="flex gap-1.5 flex-wrap">
+        {bed.status === "AVAILABLE" && (
+          <Button
+            size="sm"
+            variant="outline"
+            className="h-7 text-xs gap-1"
+            onClick={onAssign}
+            disabled={isLoading}
+          >
+            <UserPlus className="h-3 w-3" />
+            Assign
+          </Button>
+        )}
+
+        {bed.status === "RESERVED" && occupancy && (
+          <>
+            <Button
+              size="sm"
+              variant="default"
+              className="h-7 text-xs gap-1"
+              onClick={onCheckIn}
+              disabled={isLoading}
+            >
+              <LogIn className="h-3 w-3" />
+              Check-in
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs gap-1 text-destructive"
+              onClick={onCancel}
+              disabled={isLoading}
+            >
+              <X className="h-3 w-3" />
+              Batal
+            </Button>
+          </>
+        )}
+
+        {bed.status === "OCCUPIED" && occupancy && (
+          <>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs gap-1"
+              onClick={onCheckout}
+              disabled={isLoading}
+            >
+              <LogOut className="h-3 w-3" />
+              Checkout
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs gap-1"
+              onClick={onTransfer}
+              disabled={isLoading}
+            >
+              <LogIn className="h-3 w-3" />
+              Transfer
+            </Button>
+          </>
+        )}
+
+        {(bed.status === "MAINTENANCE" || bed.status === "BLOCKED") && (
+          <p className="text-xs text-muted-foreground italic">
+            Tidak dapat digunakan
           </p>
         )}
       </div>
@@ -118,28 +777,165 @@ function BedListItem({ bed }: BedListItemProps) {
 }
 
 // ========================================
-// BEDS TAB
+// BEDS TAB WITH OCCUPANCY DATA
 // ========================================
 
-function BedsTab({ room }: { room: RoomData }) {
-  const sortedBeds = [...room.beds].sort((a, b) => {
-    // Sort by status priority: OCCUPIED > RESERVED > AVAILABLE > MAINTENANCE > BLOCKED
-    const priority = {
-      OCCUPIED: 0,
-      RESERVED: 1,
-      AVAILABLE: 2,
-      MAINTENANCE: 3,
-      BLOCKED: 4,
+interface BedsTabProps {
+  room: RoomData;
+  onRefresh?: () => void;
+}
+
+function BedsTab({ room, onRefresh }: BedsTabProps) {
+  const [beds, setBeds] = useState<BedWithOccupancy[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [selectedBed, setSelectedBed] = useState<BedWithOccupancy | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
+
+  // Dialogs
+  const [assignDialogOpen, setAssignDialogOpen] = useState(false);
+  const [checkoutDialogOpen, setCheckoutDialogOpen] = useState(false);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [transferDialogOpen, setTransferDialogOpen] = useState(false);
+
+  // Fetch beds with occupancy
+  const fetchBeds = useCallback(async () => {
+    setIsLoading(true);
+    const result = await getBedsWithOccupancy(room.id);
+    if (result.success) {
+      setBeds(result.data);
+    }
+    setIsLoading(false);
+  }, [room.id]);
+
+  // Initial fetch - using IIFE pattern with cleanup
+  useEffect(() => {
+    let ignore = false;
+
+    const loadBeds = async () => {
+      setIsLoading(true);
+      const result = await getBedsWithOccupancy(room.id);
+      if (!ignore && result.success) {
+        setBeds(result.data);
+      }
+      if (!ignore) {
+        setIsLoading(false);
+      }
     };
-    return priority[a.status] - priority[b.status];
-  });
+
+    loadBeds();
+
+    return () => {
+      ignore = true;
+    };
+  }, [room.id]);
+
+  // Handlers
+  const handleAssign = (bed: BedWithOccupancy) => {
+    setSelectedBed(bed);
+    setAssignDialogOpen(true);
+  };
+
+  const handleCheckIn = async (bed: BedWithOccupancy) => {
+    if (!bed.activeOccupancy) return;
+    setActionLoading(true);
+    const result = await checkInOccupant(bed.activeOccupancy.id);
+    setActionLoading(false);
+    if (result.success) {
+      toast.success("Check-in berhasil");
+      fetchBeds();
+      onRefresh?.();
+    } else {
+      toast.error(result.error);
+    }
+  };
+
+  const handleCheckout = (bed: BedWithOccupancy) => {
+    setSelectedBed(bed);
+    setCheckoutDialogOpen(true);
+  };
+
+  const handleCancel = (bed: BedWithOccupancy) => {
+    setSelectedBed(bed);
+    setCancelDialogOpen(true);
+  };
+
+  const handleTransfer = (bed: BedWithOccupancy) => {
+    setSelectedBed(bed);
+    setTransferDialogOpen(true);
+  };
+
+  const handleSuccess = () => {
+    fetchBeds();
+    onRefresh?.();
+  };
+
+  // Sort beds
+  const sortedBeds = [...beds].sort((a, b) => a.position - b.position);
+
+  if (isLoading) {
+    return (
+      <div className="space-y-2">
+        {[1, 2, 3].map((i) => (
+          <div key={i} className="h-20 rounded-lg bg-muted animate-pulse" />
+        ))}
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-2">
-      {sortedBeds.map((bed) => (
-        <BedListItem key={bed.id} bed={bed} />
-      ))}
-    </div>
+    <>
+      <div className="space-y-2">
+        {sortedBeds.map((bed) => (
+          <BedListItem
+            key={bed.id}
+            bed={bed}
+            onAssign={() => handleAssign(bed)}
+            onCheckIn={() => handleCheckIn(bed)}
+            onCheckout={() => handleCheckout(bed)}
+            onCancel={() => handleCancel(bed)}
+            onTransfer={() => handleTransfer(bed)}
+            isLoading={actionLoading}
+          />
+        ))}
+
+        {beds.length === 0 && (
+          <div className="text-center py-8 text-muted-foreground">
+            <Bed className="h-8 w-8 mx-auto mb-2 opacity-50" />
+            <p className="text-sm">Belum ada bed</p>
+          </div>
+        )}
+      </div>
+
+      {/* Dialogs */}
+      <AssignOccupantDialog
+        open={assignDialogOpen}
+        onOpenChange={setAssignDialogOpen}
+        bed={selectedBed}
+        roomGenderPolicy={room.genderPolicy}
+        onSuccess={handleSuccess}
+      />
+
+      <CheckoutDialog
+        open={checkoutDialogOpen}
+        onOpenChange={setCheckoutDialogOpen}
+        bed={selectedBed}
+        onSuccess={handleSuccess}
+      />
+
+      <CancelDialog
+        open={cancelDialogOpen}
+        onOpenChange={setCancelDialogOpen}
+        bed={selectedBed}
+        onSuccess={handleSuccess}
+      />
+
+      <TransferDialog
+        open={transferDialogOpen}
+        onOpenChange={setTransferDialogOpen}
+        bed={selectedBed}
+        onSuccess={handleSuccess}
+      />
+    </>
   );
 }
 
@@ -148,7 +944,6 @@ function BedsTab({ room }: { room: RoomData }) {
 // ========================================
 
 function HistoryTab({ room }: { room: RoomData }) {
-  // TODO: Fetch occupancy history from API
   return (
     <div className="flex flex-col items-center justify-center py-12 text-center">
       <div className="p-4 rounded-full bg-muted mb-3">
@@ -171,6 +966,7 @@ interface RoomDetailSheetProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onEdit?: () => void;
+  onRefresh?: () => void;
 }
 
 export function RoomDetailSheet({
@@ -178,6 +974,7 @@ export function RoomDetailSheet({
   open,
   onOpenChange,
   onEdit,
+  onRefresh,
 }: RoomDetailSheetProps) {
   if (!room) return null;
 
@@ -296,7 +1093,7 @@ export function RoomDetailSheet({
           <TabsContent value="beds" className="flex-1 overflow-hidden m-0">
             <ScrollArea className="h-full">
               <div className="px-5 py-4">
-                <BedsTab room={room} />
+                <BedsTab room={room} onRefresh={onRefresh} />
               </div>
             </ScrollArea>
           </TabsContent>

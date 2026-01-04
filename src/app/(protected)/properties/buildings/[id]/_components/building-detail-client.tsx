@@ -18,6 +18,7 @@ import {
 } from "../_actions/building-detail.schema";
 import { RoomTypeOption } from "../_actions/room.types";
 import { getRoomsGroupedByFloor } from "../_actions/building-detail.actions";
+import { BuildingImage } from "../_actions/gallery.types";
 
 // Lazy load heavy components
 const BuildingFloors = lazy(() =>
@@ -84,6 +85,7 @@ interface BuildingDetailClientProps {
   initialDetail: BuildingDetailData;
   initialStats: BuildingStatsData;
   initialFloors: FloorWithRooms[];
+  initialImages: BuildingImage[];
   roomTypes: RoomTypeOption[];
 }
 
@@ -97,6 +99,7 @@ export function BuildingDetailClient({
   initialDetail,
   initialStats,
   initialFloors,
+  initialImages,
   roomTypes,
 }: BuildingDetailClientProps) {
   const [activeTab, setActiveTab] = useState("floors");
@@ -186,7 +189,9 @@ export function BuildingDetailClient({
 
         <TabsContent value="gallery" className="space-y-4">
           <Suspense fallback={<GalleryLoadingSkeleton />}>
-            {visitedTabs.has("gallery") && <BuildingGallery buildingId={id} />}
+            {visitedTabs.has("gallery") && (
+              <BuildingGallery buildingId={id} initialImages={initialImages} />
+            )}
           </Suspense>
         </TabsContent>
 

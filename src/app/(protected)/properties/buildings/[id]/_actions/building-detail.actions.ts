@@ -8,6 +8,7 @@ import {
   FloorWithRooms,
   RoomData,
 } from "./building-detail.schema";
+import { BuildingImage } from "./gallery.types";
 
 // ========================================
 // GET BUILDING DETAIL
@@ -324,6 +325,7 @@ export interface BuildingPageData {
   detail: BuildingDetailData;
   stats: BuildingStatsData;
   floors: FloorWithRooms[];
+  images: BuildingImage[];
 }
 
 /**
@@ -382,7 +384,7 @@ export async function getAllBuildingPageData(
     }
 
     // Fetch stats and floors in parallel
-    const [bedStats, rooms] = await Promise.all([
+    const [bedStats, rooms, images] = await Promise.all([
       // Bed statistics
       prisma.bed.groupBy({
         by: ["status"],
@@ -437,6 +439,15 @@ export async function getAllBuildingPageData(
             },
           },
         },
+      }),
+      // Images
+      prisma.buildingImage.findMany({
+        where: { buildingId: id },
+        orderBy: [
+          { isPrimary: "desc" },
+          { order: "asc" },
+          { createdAt: "desc" },
+        ],
       }),
     ]);
 
@@ -530,6 +541,7 @@ export async function getAllBuildingPageData(
         detail: building,
         stats,
         floors,
+        images,
       },
     };
   } catch (error) {

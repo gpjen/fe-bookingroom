@@ -49,7 +49,7 @@ export default async function BuildingDetailPage({
     notFound();
   }
 
-  const { detail, stats, floors } = buildingResult.data;
+  const { detail, stats, floors, images } = buildingResult.data;
   const roomTypes = roomTypesResult.success ? roomTypesResult.data : [];
 
   // Pass all data to client component (no client-side fetching needed!)
@@ -60,6 +60,7 @@ export default async function BuildingDetailPage({
       initialDetail={detail}
       initialStats={stats}
       initialFloors={floors}
+      initialImages={images}
       roomTypes={roomTypes}
     />
   );

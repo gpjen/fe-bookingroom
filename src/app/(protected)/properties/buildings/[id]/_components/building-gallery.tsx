@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useOptimistic, useTransition } from "react";
+import { useState, useOptimistic, useTransition, useRef } from "react";
 import Image from "next/image";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import {
   Images,
   Plus,
@@ -31,16 +32,19 @@ import {
   Star,
   Pencil,
   Loader2,
-  ExternalLink,
+  Upload,
+  X,
+  FileImage,
 } from "lucide-react";
 import { toast } from "sonner";
-import { BuildingImage } from "../_actions/gallery.types";
+import { BuildingImage, IMAGE_UPLOAD_CONFIG } from "../_actions/gallery.types";
 import {
   uploadBuildingImage,
   deleteBuildingImage,
   setPrimaryImage,
   updateBuildingImage,
 } from "../_actions/gallery.actions";
+import { cn } from "@/lib/utils";
 
 interface BuildingGalleryProps {
   buildingId: string;
@@ -59,9 +63,12 @@ export function BuildingGallery({
 }: BuildingGalleryProps) {
   const [isUploadOpen, setIsUploadOpen] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Form State
-  const [imageUrl, setImageUrl] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [caption, setCaption] = useState("");
 
   const [, startTransition] = useTransition();
@@ -72,7 +79,6 @@ export function BuildingGallery({
     (state, action: OptimisticAction) => {
       switch (action.type) {
         case "add":
-          // Add new image to top
           return [action.data, ...state];
         case "delete":
           return state.filter((img) => img.id !== action.id);
@@ -81,7 +87,6 @@ export function BuildingGallery({
             img.id === action.data.id ? action.data : img
           );
         case "setPrimary":
-          // Set selected to true, others to false, and sort (primary first)
           return state
             .map((img) => ({
               ...img,
@@ -96,51 +101,101 @@ export function BuildingGallery({
     }
   );
 
-  // Handlers
-  const handleUpload = async () => {
-    if (!imageUrl) return;
-    setIsUploading(true);
+  // Handle file selection
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
+    // Validate file type
+    if (!IMAGE_UPLOAD_CONFIG.acceptedTypes.includes(file.type)) {
+      toast.error("Tipe file tidak didukung. Gunakan JPG, PNG, GIF, atau WebP");
+      return;
+    }
+
+    // Validate file size
+    if (file.size > IMAGE_UPLOAD_CONFIG.maxFileSize) {
+      toast.error("Ukuran file terlalu besar. Maksimal 10MB");
+      return;
+    }
+
+    setSelectedFile(file);
+
+    // Create preview URL
+    const url = URL.createObjectURL(file);
+    setPreviewUrl(url);
+  };
+
+  // Clear file selection
+  const clearFileSelection = () => {
+    setSelectedFile(null);
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(null);
+    }
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
+  // Handle upload
+  const handleUpload = async () => {
+    if (!selectedFile) return;
+    setIsUploading(true);
+    setUploadProgress(10);
+
+    // Create temp optimistic image
     const tempId = `temp-${Date.now()}`;
-    const newImage: BuildingImage = {
+    const tempImage: BuildingImage = {
       id: tempId,
       buildingId,
-      url: imageUrl,
+      fileName: selectedFile.name,
+      filePath: previewUrl || "",
+      fileSize: selectedFile.size,
+      mimeType: "image/webp",
+      width: null,
+      height: null,
       caption: caption || null,
-      isPrimary: optimisticImages.length === 0, // First image is primary
+      isPrimary: optimisticImages.length === 0,
       order: 0,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
 
     startTransition(async () => {
-      // 1. Optimistic Update
-      dispatchOptimistic({ type: "add", data: newImage });
-      setIsUploadOpen(false);
-      setImageUrl("");
-      setCaption("");
+      // Optimistic update
+      dispatchOptimistic({ type: "add", data: tempImage });
+      setUploadProgress(30);
 
-      // 2. Server Action
-      const result = await uploadBuildingImage({
-        buildingId,
-        url: newImage.url,
-        caption: newImage.caption,
-        isPrimary: newImage.isPrimary,
-        order: newImage.order,
-      });
+      // Create FormData
+      const formData = new FormData();
+      formData.append("file", selectedFile);
+      formData.append("buildingId", buildingId);
+      formData.append("caption", caption || "");
+      formData.append("isPrimary", String(optimisticImages.length === 0));
 
-      setIsUploading(false);
+      setUploadProgress(50);
+
+      // Call server action
+      const result = await uploadBuildingImage(formData);
+
+      setUploadProgress(100);
 
       if (!result.success) {
         toast.error(result.error);
-        // Rollback is tricky with optimistic, usually we'd reload or revert
-        // For now, simpler error handling
       } else {
         toast.success("Gambar berhasil diupload");
       }
+
+      // Cleanup
+      setIsUploading(false);
+      setUploadProgress(0);
+      setIsUploadOpen(false);
+      clearFileSelection();
+      setCaption("");
     });
   };
 
+  // Handle delete
   const handleDelete = (image: BuildingImage) => {
     toast.promise(
       async () => {
@@ -158,6 +213,7 @@ export function BuildingGallery({
     );
   };
 
+  // Handle set primary
   const handleSetPrimary = (image: BuildingImage) => {
     if (image.isPrimary) return;
 
@@ -172,9 +228,8 @@ export function BuildingGallery({
     });
   };
 
+  // Handle edit caption
   const handleEditCaption = (image: BuildingImage) => {
-    // TODO: Implement dedicated edit dialog if needed
-    // For now, prompt prompt is simple (not ideal for prod but quick for prototype)
     const newCaption = window.prompt("Edit Caption", image.caption || "");
     if (newCaption === null) return;
 
@@ -187,6 +242,13 @@ export function BuildingGallery({
       });
       if (!result.success) toast.error(result.error);
     });
+  };
+
+  // Format file size
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
   return (
@@ -205,64 +267,113 @@ export function BuildingGallery({
               Upload Foto
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="sm:max-w-md">
             <DialogHeader>
               <DialogTitle>Upload Foto Gedung</DialogTitle>
               <DialogDescription>
-                Masukkan URL gambar (misal dari Google Drive public link atau
-                hosting gambar).
+                Pilih file gambar (JPG, PNG, GIF, WebP). Maksimal 10MB. Gambar
+                akan dikompresi ke format WebP.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label>URL Gambar</Label>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="https://example.com/image.jpg"
-                    value={imageUrl}
-                    onChange={(e) => setImageUrl(e.target.value)}
-                  />
-                  {imageUrl && (
-                    <Button variant="ghost" size="icon" asChild>
-                      <a href={imageUrl} target="_blank" rel="noreferrer">
-                        <ExternalLink className="h-4 w-4" />
-                      </a>
-                    </Button>
+              {/* File Input Area */}
+              {!selectedFile ? (
+                <div
+                  className={cn(
+                    "border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors",
+                    "hover:border-primary hover:bg-primary/5"
                   )}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/gif,image/webp"
+                    onChange={handleFileSelect}
+                    className="hidden"
+                  />
+                  <Upload className="h-10 w-10 mx-auto text-muted-foreground mb-4" />
+                  <p className="text-sm font-medium">
+                    Klik untuk pilih foto atau drag & drop
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    JPG, PNG, GIF, atau WebP (Maks. 10MB)
+                  </p>
                 </div>
-              </div>
+              ) : (
+                <div className="space-y-3">
+                  {/* Preview */}
+                  <div className="relative aspect-video w-full overflow-hidden rounded-lg border bg-muted">
+                    {previewUrl && (
+                      <Image
+                        src={previewUrl}
+                        alt="Preview"
+                        fill
+                        className="object-cover"
+                        unoptimized
+                      />
+                    )}
+                    <Button
+                      variant="destructive"
+                      size="icon"
+                      className="absolute top-2 right-2 h-8 w-8"
+                      onClick={clearFileSelection}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+
+                  {/* File Info */}
+                  <div className="flex items-center gap-3 p-3 bg-muted rounded-lg">
+                    <FileImage className="h-8 w-8 text-muted-foreground" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium truncate">
+                        {selectedFile.name}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {formatFileSize(selectedFile.size)}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Caption */}
               <div className="space-y-2">
                 <Label>Caption (Opsional)</Label>
                 <Input
-                  placeholder="Tampak depan..."
+                  placeholder="Tampak depan gedung..."
                   value={caption}
                   onChange={(e) => setCaption(e.target.value)}
+                  disabled={isUploading}
                 />
               </div>
-              {/* Preview */}
-              {imageUrl && (
-                <div className="relative aspect-video w-full overflow-hidden rounded-md border bg-muted">
-                  <Image
-                    src={imageUrl}
-                    alt="Preview"
-                    fill
-                    className="object-cover"
-                    unoptimized
-                  />
+
+              {/* Upload Progress */}
+              {isUploading && (
+                <div className="space-y-2">
+                  <Progress value={uploadProgress} className="h-2" />
+                  <p className="text-xs text-center text-muted-foreground">
+                    Mengupload dan mengkompresi gambar...
+                  </p>
                 </div>
               )}
             </div>
             <DialogFooter>
               <Button
                 variant="outline"
-                onClick={() => setIsUploadOpen(false)}
+                onClick={() => {
+                  setIsUploadOpen(false);
+                  clearFileSelection();
+                  setCaption("");
+                }}
                 disabled={isUploading}
               >
                 Batal
               </Button>
               <Button
                 onClick={handleUpload}
-                disabled={!imageUrl || isUploading}
+                disabled={!selectedFile || isUploading}
               >
                 {isUploading && (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -274,6 +385,7 @@ export function BuildingGallery({
         </Dialog>
       </div>
 
+      {/* Empty State */}
       {optimisticImages.length === 0 ? (
         <Card className="border-dashed">
           <CardContent className="flex flex-col items-center justify-center py-16">
@@ -285,25 +397,27 @@ export function BuildingGallery({
               Upload gambar untuk memberikan visualisasi gedung ini.
             </p>
             <Button variant="outline" onClick={() => setIsUploadOpen(true)}>
+              <Upload className="mr-2 h-4 w-4" />
               Upload Gambar Pertama
             </Button>
           </CardContent>
         </Card>
       ) : (
+        /* Image Grid */
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {optimisticImages.map((image) => (
             <Card key={image.id} className="overflow-hidden group relative">
               <div className="relative aspect-video bg-muted">
                 <Image
-                  src={image.url}
-                  alt={image.caption || "Building Image"}
+                  src={image.filePath}
+                  alt={image.caption || image.fileName}
                   fill
                   className="object-cover transition-transform duration-300 group-hover:scale-105"
                   sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                  unoptimized
+                  unoptimized={image.id.startsWith("temp-")}
                 />
 
-                {/* Badges / Overlay */}
+                {/* Primary Badge */}
                 <div className="absolute top-2 left-2 flex gap-2">
                   {image.isPrimary && (
                     <Badge className="bg-yellow-500 hover:bg-yellow-600 text-white gap-1">
@@ -313,7 +427,7 @@ export function BuildingGallery({
                   )}
                 </div>
 
-                {/* Actions Overlay */}
+                {/* Actions */}
                 <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
@@ -354,7 +468,16 @@ export function BuildingGallery({
                 {/* Caption Overlay */}
                 <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent p-4 translate-y-full group-hover:translate-y-0 transition-transform">
                   <p className="text-white text-sm font-medium truncate">
-                    {image.caption || "Tanpa caption"}
+                    {image.caption || image.fileName}
+                  </p>
+                  <p className="text-white/70 text-xs mt-0.5">
+                    {formatFileSize(image.fileSize)}
+                    {image.width && image.height && (
+                      <span>
+                        {" "}
+                        · {image.width}×{image.height}
+                      </span>
+                    )}
                   </p>
                 </div>
               </div>

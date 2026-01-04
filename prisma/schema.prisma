@@ -428,12 +428,23 @@ enum OccupancyLogAction {
 // ==========================================
 
 model BuildingImage {
-  id         String  @id @default(cuid())
+  id         String @id @default(cuid())
   buildingId String
-  url        String
-  caption    String?
-  isPrimary  Boolean @default(false)
-  order      Int     @default(0)
+
+  // File Storage
+  fileName String // Original filename (e.g. "foto-gedung.jpg")
+  filePath String // Storage path or URL (e.g. "/uploads/buildings/abc123.webp")
+  fileSize Int // File size in bytes (after compression)
+  mimeType String @default("image/webp") // Final mime type
+
+  // Image Metadata
+  width  Int? // Image width in pixels
+  height Int? // Image height in pixels
+
+  // Display
+  caption   String?
+  isPrimary Boolean @default(false)
+  order     Int     @default(0)
 
   building Building @relation(fields: [buildingId], references: [id], onDelete: Cascade)
 
@@ -496,9 +507,20 @@ model Room {
 // ==========================================
 
 model RoomImage {
-  id        String  @id @default(cuid())
-  roomId    String
-  url       String
+  id     String @id @default(cuid())
+  roomId String
+
+  // File Storage
+  fileName String // Original filename
+  filePath String // Storage path or URL
+  fileSize Int // File size in bytes (after compression)
+  mimeType String @default("image/webp") // Final mime type
+
+  // Image Metadata
+  width  Int? // Image width in pixels
+  height Int? // Image height in pixels
+
+  // Display
   caption   String?
   isPrimary Boolean @default(false)
   order     Int     @default(0)

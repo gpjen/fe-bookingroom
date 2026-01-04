@@ -3,12 +3,16 @@
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import {
+  processAndSaveImage,
+  deleteImageFile,
+  validateImageFile,
+} from "@/lib/upload";
+import {
   ActionResponse,
   BuildingImage,
-  UploadImageInput,
   UpdateImageInput,
-  uploadImageSchema,
   updateImageSchema,
+  BUILDING_IMAGES_PATH,
 } from "./gallery.types";
 
 // ========================================
@@ -22,9 +26,9 @@ export async function getBuildingImages(
     const images = await prisma.buildingImage.findMany({
       where: { buildingId },
       orderBy: [
-        { isPrimary: "desc" }, // Primary first
-        { order: "asc" }, // Then by order
-        { createdAt: "desc" }, // Then newest
+        { isPrimary: "desc" },
+        { order: "asc" },
+        { createdAt: "desc" },
       ],
     });
 
@@ -40,16 +44,30 @@ export async function getBuildingImages(
 // ========================================
 
 export async function uploadBuildingImage(
-  data: UploadImageInput
+  formData: FormData
 ): Promise<ActionResponse<BuildingImage>> {
   try {
-    const validatedFields = uploadImageSchema.safeParse(data);
+    const file = formData.get("file") as File | null;
+    const buildingId = formData.get("buildingId") as string | null;
+    const caption = formData.get("caption") as string | null;
+    const isPrimaryStr = formData.get("isPrimary") as string | null;
 
-    if (!validatedFields.success) {
-      return { success: false, error: "Data tidak valid" };
+    // Validate required fields
+    if (!file || !buildingId) {
+      return { success: false, error: "File dan Building ID wajib diisi" };
     }
 
-    const { buildingId, url, caption, isPrimary, order } = validatedFields.data;
+    // Validate file
+    const validation = validateImageFile(file);
+    if (!validation.valid) {
+      return { success: false, error: validation.error! };
+    }
+
+    // Process and save image
+    const uploadResult = await processAndSaveImage(file, BUILDING_IMAGES_PATH);
+
+    // Determine if this should be primary
+    const isPrimary = isPrimaryStr === "true";
 
     // Use transaction to handle primary image logic
     const image = await prisma.$transaction(async (tx) => {
@@ -61,14 +79,25 @@ export async function uploadBuildingImage(
         });
       }
 
-      // Create new image
+      // Check if this is first image (auto-set as primary)
+      const existingCount = await tx.buildingImage.count({
+        where: { buildingId },
+      });
+      const shouldBePrimary = isPrimary || existingCount === 0;
+
+      // Create new image record
       return await tx.buildingImage.create({
         data: {
           buildingId,
-          url,
+          fileName: uploadResult.fileName,
+          filePath: uploadResult.filePath,
+          fileSize: uploadResult.fileSize,
+          mimeType: uploadResult.mimeType,
+          width: uploadResult.width,
+          height: uploadResult.height,
           caption,
-          isPrimary,
-          order,
+          isPrimary: shouldBePrimary,
+          order: existingCount,
         },
       });
     });
@@ -82,7 +111,7 @@ export async function uploadBuildingImage(
 }
 
 // ========================================
-// START ACTION: UPDATE IMAGE
+// UPDATE IMAGE
 // ========================================
 
 export async function updateBuildingImage(
@@ -115,7 +144,7 @@ export async function updateBuildingImage(
           where: {
             buildingId: existingImage.buildingId,
             isPrimary: true,
-            id: { not: id }, // Exclude current
+            id: { not: id },
           },
           data: { isPrimary: false },
         });
@@ -149,13 +178,17 @@ export async function deleteBuildingImage(
   try {
     const image = await prisma.buildingImage.findUnique({
       where: { id },
-      select: { buildingId: true },
+      select: { buildingId: true, filePath: true },
     });
 
     if (!image) {
       return { success: false, error: "Gambar tidak ditemukan" };
     }
 
+    // Delete file from storage
+    await deleteImageFile(image.filePath);
+
+    // Delete from database
     await prisma.buildingImage.delete({
       where: { id },
     });

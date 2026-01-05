@@ -9,7 +9,6 @@ import {
   useRef,
 } from "react";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -41,6 +40,7 @@ import {
   OccupantListItem,
   OccupantStats,
   FilterOptions,
+  OccupancyStatus,
 } from "../_actions/occupants.types";
 import { getOccupants, getOccupantStats } from "../_actions/occupants.actions";
 import { getColumns } from "./columns";
@@ -102,7 +102,7 @@ export function OccupantsClient({
   const initialFilters = useMemo((): FilterState => {
     return {
       search: searchParams.get("search") || "",
-      status: (searchParams.get("status") as FilterState["status"]) || "all",
+      status: (searchParams.get("status") || "all") as FilterState["status"],
       occupantType:
         (searchParams.get("type") as FilterState["occupantType"]) || "all",
       gender: (searchParams.get("gender") as FilterState["gender"]) || "all",
@@ -143,7 +143,12 @@ export function OccupantsClient({
         const result = await getOccupants(
           {
             search: f.search || undefined,
-            status: f.status !== "all" ? [f.status] : undefined,
+            status:
+              f.status !== "all"
+                ? f.status.includes(",")
+                  ? (f.status.split(",") as OccupancyStatus[])
+                  : [f.status as OccupancyStatus]
+                : undefined,
             occupantType: f.occupantType !== "all" ? f.occupantType : undefined,
             gender: f.gender !== "all" ? f.gender : undefined,
             buildingId: f.buildingId !== "all" ? f.buildingId : undefined,
@@ -222,6 +227,18 @@ export function OccupantsClient({
     [filters, pageSize, fetchData]
   );
 
+  // Handle stat click (Quick Filter)
+  const handleStatClick = useCallback(
+    (status: string) => {
+      // Properly typed assignment since FilterState["status"] now accepts string
+      const newFilters: FilterState = { ...defaultFilters, status: status };
+      setFilters(newFilters);
+      setPage(1);
+      fetchData(newFilters, 1, pageSize);
+    },
+    [pageSize, fetchData]
+  );
+
   // Handle page change
   const handlePageChange = useCallback(
     (newPage: number) => {
@@ -259,7 +276,7 @@ export function OccupantsClient({
 
   // Handle update from detail sheet
   const handleUpdate = useCallback(() => {
-    // Refresh data after action (optimistic update would go here)
+    // Refresh data after action
     fetchData(filters, page, pageSize);
     refreshStats();
   }, [filters, page, pageSize, fetchData, refreshStats]);
@@ -278,9 +295,9 @@ export function OccupantsClient({
     () =>
       getColumns({
         onView: handleView,
-        onCheckIn: handleView, // Open detail sheet for check-in
-        onCheckOut: handleView, // Open detail sheet for check-out
-        onTransfer: handleView, // Open detail sheet for transfer
+        onCheckIn: handleView,
+        onCheckOut: handleView,
+        onTransfer: handleView,
       }),
     [handleView]
   );
@@ -296,197 +313,231 @@ export function OccupantsClient({
   const isLoadingState = isLoading || isPending;
 
   return (
-    <div className="space-y-6">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="space-y-8 pb-12">
+      {/* Header Section */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white dark:bg-slate-950 p-6 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-900">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-            <Users className="h-6 w-6" />
+          <h1 className="text-3xl font-bold tracking-tight text-foreground flex items-center gap-3">
             Penghuni
           </h1>
-          <p className="text-muted-foreground mt-1">
-            Kelola data penghuni dari semua bangunan dan area
+          <p className="text-muted-foreground mt-2 text-lg">
+            Dashboard pengelolaan data penghuni dan status hunian.
           </p>
         </div>
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex flex-wrap gap-3">
           <Button
             onClick={() => setScannerOpen(true)}
-            className="gap-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 shadow-lg"
+            size="lg"
+            className="gap-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 shadow-lg border-0"
           >
-            <QrCode className="h-4 w-4" />
+            <QrCode className="h-5 w-5" />
             Scan QR
           </Button>
           <Button
             variant="outline"
-            size="sm"
+            size="lg"
             onClick={handleRefresh}
             disabled={isLoadingState}
+            className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800"
           >
             <RefreshCw
               className={`h-4 w-4 mr-2 ${isLoadingState ? "animate-spin" : ""}`}
             />
-            Muat Ulang
+            Refresh
           </Button>
-          <Button variant="outline" size="sm" disabled={isLoadingState}>
+          <Button
+            variant="outline"
+            size="lg"
+            className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800"
+          >
             <Download className="h-4 w-4 mr-2" />
             Export
           </Button>
         </div>
       </div>
 
-      {/* Stats Cards */}
-      <OccupantStatsCards stats={stats} isLoading={isLoadingState} />
+      {/* Stats Overview */}
+      <OccupantStatsCards
+        stats={stats}
+        isLoading={isLoadingState}
+        onFilterClick={handleStatClick}
+      />
 
-      {/* Main Content */}
-      <Card>
-        <CardContent className="p-4 md:p-6 space-y-4">
-          {/* Filters */}
+      {/* Main Content Area */}
+      <div className="bg-white dark:bg-slate-950 rounded-2xl shadow-sm border border-slate-100 dark:border-slate-900 p-6 space-y-6">
+        {/* Filters Bar */}
+        <div className="p-1">
           <OccupantsFilters
             filters={filters}
             onFiltersChange={handleFiltersChange}
             filterOptions={filterOptions}
             isLoading={isLoadingState}
           />
+        </div>
 
-          {/* Table */}
-          <div className="rounded-md border">
-            <Table>
-              <TableHeader>
-                {table.getHeaderGroups().map((headerGroup) => (
-                  <TableRow key={headerGroup.id}>
-                    {headerGroup.headers.map((header) => (
-                      <TableHead key={header.id}>
-                        {header.isPlaceholder
-                          ? null
-                          : flexRender(
-                              header.column.columnDef.header,
-                              header.getContext()
-                            )}
-                      </TableHead>
+        {/* Table Container */}
+        <div className="rounded-xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+          <Table>
+            <TableHeader className="bg-slate-50 dark:bg-slate-900/50">
+              {table.getHeaderGroups().map((headerGroup) => (
+                <TableRow
+                  key={headerGroup.id}
+                  className="hover:bg-transparent border-slate-200 dark:border-slate-800"
+                >
+                  {headerGroup.headers.map((header) => (
+                    <TableHead
+                      key={header.id}
+                      className="font-semibold text-slate-700 dark:text-slate-300"
+                    >
+                      {header.isPlaceholder
+                        ? null
+                        : flexRender(
+                            header.column.columnDef.header,
+                            header.getContext()
+                          )}
+                    </TableHead>
+                  ))}
+                </TableRow>
+              ))}
+            </TableHeader>
+            <TableBody>
+              {isLoadingState ? (
+                // Loading skeleton
+                Array.from({ length: 5 }).map((_, i) => (
+                  <TableRow key={i}>
+                    {columns.map((_, j) => (
+                      <TableCell key={j}>
+                        <Skeleton className="h-10 w-full rounded-md" />
+                      </TableCell>
                     ))}
                   </TableRow>
-                ))}
-              </TableHeader>
-              <TableBody>
-                {isLoadingState ? (
-                  // Loading skeleton
-                  Array.from({ length: 5 }).map((_, i) => (
-                    <TableRow key={i}>
-                      {columns.map((_, j) => (
-                        <TableCell key={j}>
-                          <Skeleton className="h-8 w-full" />
-                        </TableCell>
-                      ))}
-                    </TableRow>
-                  ))
-                ) : table.getRowModel().rows.length === 0 ? (
-                  // Empty state
-                  <TableRow>
-                    <TableCell
-                      colSpan={columns.length}
-                      className="h-32 text-center"
-                    >
-                      <div className="text-muted-foreground">
-                        <Users className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                        <p>Tidak ada data penghuni</p>
-                        {(filters.search || filters.status !== "all") && (
-                          <Button
-                            variant="link"
-                            size="sm"
-                            onClick={() => handleFiltersChange(defaultFilters)}
-                          >
-                            Reset filter
-                          </Button>
-                        )}
+                ))
+              ) : table.getRowModel().rows.length === 0 ? (
+                // Empty state
+                <TableRow>
+                  <TableCell
+                    colSpan={columns.length}
+                    className="h-64 text-center"
+                  >
+                    <div className="flex flex-col items-center justify-center text-muted-foreground p-6">
+                      <div className="h-16 w-16 bg-slate-100 dark:bg-slate-900/50 rounded-full flex items-center justify-center mb-4">
+                        <Users className="h-8 w-8 opacity-40" />
                       </div>
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  // Data rows
-                  table.getRowModel().rows.map((row) => (
-                    <TableRow
-                      key={row.id}
-                      className="cursor-pointer hover:bg-muted/50"
-                      onClick={() => handleView(row.original)}
-                    >
-                      {row.getVisibleCells().map((cell) => (
-                        <TableCell
-                          key={cell.id}
-                          onClick={(e) => {
-                            // Prevent row click for action column
-                            if (cell.column.id === "actions") {
-                              e.stopPropagation();
-                            }
-                          }}
+                      <p className="text-lg font-medium text-foreground">
+                        Tidak ada data ditemukan
+                      </p>
+                      <p className="text-sm mt-1 max-w-xs mx-auto">
+                        Coba ubah filter pencarian atau muat ulang data.
+                      </p>
+                      {(filters.search || filters.status !== "all") && (
+                        <Button
+                          variant="secondary"
+                          className="mt-4"
+                          onClick={() => handleFiltersChange(defaultFilters)}
                         >
-                          {flexRender(
-                            cell.column.columnDef.cell,
-                            cell.getContext()
-                          )}
-                        </TableCell>
-                      ))}
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                          Reset semua filter
+                        </Button>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                // Data rows
+                table.getRowModel().rows.map((row) => (
+                  <TableRow
+                    key={row.id}
+                    className="cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors border-slate-100 dark:border-slate-800"
+                    onClick={() => handleView(row.original)}
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell
+                        key={cell.id}
+                        className="py-3"
+                        onClick={(e) => {
+                          if (cell.column.id === "actions") {
+                            e.stopPropagation();
+                          }
+                        }}
+                      >
+                        {flexRender(
+                          cell.column.columnDef.cell,
+                          cell.getContext()
+                        )}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
+
+        {/* Pagination */}
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
+          <div className="text-sm text-muted-foreground order-2 sm:order-1">
+            Menampilkan{" "}
+            <span className="font-medium text-foreground">
+              {(page - 1) * pageSize + 1}
+            </span>{" "}
+            -{" "}
+            <span className="font-medium text-foreground">
+              {Math.min(page * pageSize, data.pagination.totalItems)}
+            </span>{" "}
+            dari{" "}
+            <span className="font-medium text-foreground">
+              {data.pagination.totalItems}
+            </span>{" "}
+            data
           </div>
 
-          {/* Pagination */}
-          <div className="flex items-center justify-between">
-            <div className="text-sm text-muted-foreground">
-              Menampilkan {(page - 1) * pageSize + 1} -{" "}
-              {Math.min(page * pageSize, data.pagination.totalItems)} dari{" "}
-              {data.pagination.totalItems} data
+          <div className="flex items-center gap-2 order-1 sm:order-2">
+            <div className="flex items-center gap-2 mr-4">
+              <span className="text-xs text-muted-foreground uppercase tracking-wide font-medium hidden sm:inline">
+                Rows per page
+              </span>
+              <Select
+                value={String(pageSize)}
+                onValueChange={handlePageSizeChange}
+                disabled={isLoadingState}
+              >
+                <SelectTrigger className="w-[70px] h-9">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="10">10</SelectItem>
+                  <SelectItem value="20">20</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
+                  <SelectItem value="100">100</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-muted-foreground">
-                  Per halaman:
-                </span>
-                <Select
-                  value={String(pageSize)}
-                  onValueChange={handlePageSizeChange}
-                  disabled={isLoadingState}
-                >
-                  <SelectTrigger className="w-[70px] h-8">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="10">10</SelectItem>
-                    <SelectItem value="20">20</SelectItem>
-                    <SelectItem value="50">50</SelectItem>
-                    <SelectItem value="100">100</SelectItem>
-                  </SelectContent>
-                </Select>
+
+            <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-900 p-1 rounded-lg">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 rounded-md bg-white dark:bg-slate-950 shadow-sm disabled:opacity-50"
+                onClick={() => handlePageChange(page - 1)}
+                disabled={!data.pagination.hasPrevPage || isLoadingState}
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <div className="px-3 min-w-[3rem] text-center font-medium text-sm">
+                {page}
               </div>
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => handlePageChange(page - 1)}
-                  disabled={!data.pagination.hasPrevPage || isLoadingState}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                <span className="px-3 text-sm">
-                  {page} / {data.pagination.totalPages || 1}
-                </span>
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-8 w-8"
-                  onClick={() => handlePageChange(page + 1)}
-                  disabled={!data.pagination.hasNextPage || isLoadingState}
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8 rounded-md bg-white dark:bg-slate-950 shadow-sm disabled:opacity-50"
+                onClick={() => handlePageChange(page + 1)}
+                disabled={!data.pagination.hasNextPage || isLoadingState}
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
 
       {/* Detail Sheet */}
       <OccupantDetailSheet

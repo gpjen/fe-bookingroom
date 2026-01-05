@@ -1,131 +1,141 @@
 "use client";
 
-import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
-import { Clock, UserCheck, LogOut, Users } from "lucide-react";
+import { Clock, UserCheck, LogOut, Users, TrendingUp } from "lucide-react";
 import { OccupantStats } from "../_actions/occupants.types";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface OccupantStatsCardsProps {
   stats: OccupantStats;
   isLoading?: boolean;
+  onFilterClick?: (status: string) => void;
 }
 
-// Stat card with soft colors
-function StatCard({
-  icon: Icon,
-  label,
-  value,
-  description,
-  iconColor,
-  bgColor,
-  isLoading,
-}: {
-  icon: React.ComponentType<{ className?: string }>;
+interface StatCardProps {
   label: string;
   value: number;
-  description?: string;
-  iconColor: string;
-  bgColor: string;
+  subValue?: string;
+  icon: React.ElementType;
+  className?: string;
+  iconClassName?: string;
+  onClick?: () => void;
   isLoading?: boolean;
-}) {
-  return (
-    <Card className="relative overflow-hidden border shadow-sm hover:shadow-md transition-shadow">
-      <div className="p-5">
-        <div className="flex items-start justify-between">
-          <div className="flex-1">
-            {isLoading ? (
-              <div className="space-y-2">
-                <div className="h-8 w-16 bg-muted rounded animate-pulse" />
-                <div className="h-4 w-24 bg-muted/70 rounded animate-pulse" />
-              </div>
-            ) : (
-              <>
-                <p className="text-3xl font-bold tracking-tight">
-                  {value.toLocaleString()}
-                </p>
-                <p className="text-sm font-medium text-muted-foreground mt-1">
-                  {label}
-                </p>
-                {description && (
-                  <p className="text-xs text-muted-foreground/70 mt-0.5">
-                    {description}
-                  </p>
-                )}
-              </>
-            )}
-          </div>
+  trend?: string; // e.g. "+12%"
+}
 
-          <div
-            className={cn(
-              "h-12 w-12 rounded-xl flex items-center justify-center",
-              bgColor
-            )}
-          >
-            <Icon className={cn("h-6 w-6", iconColor)} />
-          </div>
+function StatCard({
+  label,
+  value,
+  subValue,
+  icon: Icon,
+  className,
+  iconClassName,
+  onClick,
+  isLoading,
+  trend,
+}: StatCardProps) {
+  return (
+    <div
+      onClick={onClick}
+      className={cn(
+        "group relative overflow-hidden rounded-2xl bg-white dark:bg-slate-950 p-6 transition-all duration-300 hover:shadow-lg cursor-pointer",
+        className
+      )}
+    >
+      <div className="flex justify-between items-start mb-4">
+        <div
+          className={cn(
+            "p-3 rounded-xl bg-opacity-10",
+            iconClassName
+              ? iconClassName.replace("text-", "bg-")
+              : "bg-slate-100"
+          )}
+        >
+          <Icon className={cn("h-6 w-6", iconClassName)} />
         </div>
+        {trend && (
+          <span className="flex items-center text-xs font-medium text-emerald-600 bg-emerald-50 px-2 py-1 rounded-full">
+            <TrendingUp className="h-3 w-3 mr-1" /> {trend}
+          </span>
+        )}
       </div>
-    </Card>
+
+      <div className="space-y-1 relative z-10">
+        <h3 className="text-sm font-medium text-muted-foreground">{label}</h3>
+        {isLoading ? (
+          <Skeleton className="h-9 w-24" />
+        ) : (
+          <div className="flex items-baseline gap-2">
+            <span className="text-3xl font-bold tracking-tight text-foreground">
+              {value.toLocaleString()}
+            </span>
+            {subValue && (
+              <span className="text-sm text-muted-foreground">{subValue}</span>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Decorative background element */}
+      <div className="absolute -right-6 -bottom-6 h-24 w-24 rounded-full bg-current opacity-[0.03] group-hover:scale-150 transition-transform duration-500 ease-out pointer-events-none" />
+    </div>
   );
 }
 
 export function OccupantStatsCards({
   stats,
   isLoading,
+  onFilterClick,
 }: OccupantStatsCardsProps) {
-  // Calculate percentages for context
-  const activeCount = stats.pending + stats.reserved + stats.checkedIn;
+  const activeCount = stats.checkedIn;
+  const pendingCount = stats.pending + stats.reserved;
+
+  // Calculate raw "active" percentage just for visual context (active vs total records)
   const activePercent =
-    stats.total > 0 ? Math.round((stats.checkedIn / stats.total) * 100) : 0;
+    stats.total > 0 ? Math.round((activeCount / stats.total) * 100) : 0;
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-      {/* Menunggu & Reservasi - Upcoming */}
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* INCOMING */}
       <StatCard
+        label="Akan Masuk"
+        value={pendingCount}
+        subValue={pendingCount > 0 ? "Pending & Reservasi" : "Tidak ada"}
         icon={Clock}
-        label="Menunggu Check-In"
-        value={stats.pending + stats.reserved}
-        description={
-          stats.pending > 0
-            ? `${stats.pending} pending, ${stats.reserved} dipesan`
-            : undefined
-        }
-        iconColor="text-blue-600 dark:text-blue-400"
-        bgColor="bg-blue-50 dark:bg-blue-950/30"
+        iconClassName="text-amber-600"
+        onClick={() => onFilterClick?.("PENDING,RESERVED")}
         isLoading={isLoading}
       />
 
-      {/* Aktif Check-In */}
+      {/* ACTIVE */}
       <StatCard
-        icon={UserCheck}
         label="Sedang Menginap"
-        value={stats.checkedIn}
-        description={
-          activePercent > 0 ? `${activePercent}% dari total` : undefined
-        }
-        iconColor="text-emerald-600 dark:text-emerald-400"
-        bgColor="bg-emerald-50 dark:bg-emerald-950/30"
-        isLoading={isLoading}
-      />
-
-      {/* Selesai Check-Out */}
-      <StatCard
-        icon={LogOut}
-        label="Sudah Check-Out"
-        value={stats.checkedOut}
-        iconColor="text-slate-500 dark:text-slate-400"
-        bgColor="bg-slate-100 dark:bg-slate-800/50"
-        isLoading={isLoading}
-      />
-
-      {/* Total Aktif */}
-      <StatCard
-        icon={Users}
-        label="Total Aktif"
         value={activeCount}
-        description={`dari ${stats.total} total record`}
-        iconColor="text-violet-600 dark:text-violet-400"
-        bgColor="bg-violet-50 dark:bg-violet-950/30"
+        subValue={`${activePercent}% dari total`}
+        icon={UserCheck}
+        iconClassName="text-emerald-600"
+        onClick={() => onFilterClick?.("CHECKED_IN")}
+        isLoading={isLoading}
+      />
+
+      {/* COMPLETED */}
+      <StatCard
+        label="Selesai (Check-Out)"
+        value={stats.checkedOut}
+        icon={LogOut}
+        iconClassName="text-blue-600"
+        onClick={() => onFilterClick?.("CHECKED_OUT")}
+        isLoading={isLoading}
+      />
+
+      {/* TOTAL */}
+      <StatCard
+        label="Total Terdaftar"
+        value={stats.total}
+        subValue="Semua waktu"
+        icon={Users}
+        iconClassName="text-violet-600"
+        onClick={() => onFilterClick?.("all")}
         isLoading={isLoading}
       />
     </div>

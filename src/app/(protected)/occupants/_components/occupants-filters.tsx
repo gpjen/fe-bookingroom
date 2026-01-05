@@ -25,7 +25,7 @@ import {
 
 export interface FilterState {
   search: string;
-  status: OccupancyStatus | "all";
+  status: OccupancyStatus | "all" | string;
   occupantType: OccupantType | "all";
   gender: Gender | "all";
   buildingId: string;

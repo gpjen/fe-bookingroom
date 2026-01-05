@@ -172,6 +172,13 @@ export function getColumns(
       header: "Status",
       cell: ({ row }) => {
         const status = row.original.status;
+        if (!status) {
+          return (
+            <Badge variant="outline" className="text-xs">
+              -
+            </Badge>
+          );
+        }
         const config = statusConfig[status];
         return (
           <Badge
@@ -190,6 +197,9 @@ export function getColumns(
       header: "Lokasi",
       cell: ({ row }) => {
         const occ = row.original;
+        if (!occ.buildingName) {
+          return <div className="text-sm text-muted-foreground">-</div>;
+        }
         return (
           <div className="text-sm">
             <div className="font-medium">{occ.buildingName}</div>
@@ -210,6 +220,11 @@ export function getColumns(
       header: "Periode Menginap",
       cell: ({ row }) => {
         const occ = row.original;
+
+        if (!occ.checkInDate) {
+          return <div className="text-sm text-muted-foreground italic">-</div>;
+        }
+
         const checkIn = new Date(occ.checkInDate);
         const checkOut = occ.checkOutDate ? new Date(occ.checkOutDate) : null;
         const today = new Date();

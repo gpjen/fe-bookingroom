@@ -83,12 +83,10 @@ export interface SortParams {
 // ========================================
 
 export interface OccupantListItem {
-  id: string;
-  
-  // Occupant Reference
-  occupantId: string;
+  id: string; // This is now OCCUPANT ID (User ID), not Occupancy ID
   
   // Occupant Info (from Occupant table)
+  occupantId: string; // Redundant but kept for compatibility logic (same as id)
   occupantName: string;
   occupantNik: string;
   occupantType: OccupantType;
@@ -96,36 +94,121 @@ export interface OccupantListItem {
   occupantPhone: string | null;
   occupantEmail: string | null;
   occupantCompany: string | null;
-  
-  // Stay Info
-  checkInDate: Date;
-  checkOutDate: Date | null; // NULL = indefinite stay (employees, special guests)
+
+  // Primary/Latest Occupancy Info (Flattened for Table Display)
+  // If multiple active, this shows the "most relevant" one.
+  primaryOccupancyId: string | null;
+  checkInDate: Date | null;
+  checkOutDate: Date | null; 
   actualCheckIn: Date | null;
   actualCheckOut: Date | null;
-  status: OccupancyStatus;
+  status: OccupancyStatus | null; // Null if no history?
   
-  // Location Info
-  bedId: string;
-  bedCode: string;
-  bedLabel: string;
-  roomId: string;
-  roomCode: string;
-  roomName: string;
-  floorNumber: number;
-  buildingId: string;
-  buildingCode: string;
-  buildingName: string;
-  areaId: string;
-  areaName: string;
+  // Location Info (Latest)
+  bedId: string | null;
+  bedCode: string | null;
+  bedLabel: string | null;
+  roomId: string | null;
+  roomCode: string | null;
+  roomName: string | null;
+  floorNumber: number | null;
+  buildingId: string | null;
+  buildingCode: string | null;
+  buildingName: string | null;
+  areaId: string | null;
+  areaName: string | null;
   
   // Booking Info (optional)
   bookingId: string | null;
   bookingCode: string | null;
+
+  // Aggregates
+  activeOccupancyCount: number;
+  totalOccupancyCount: number;
   
   // Metadata
   createdAt: Date;
   createdBy: string | null;
   createdByName: string | null;
+}
+
+// ========================================
+// OCCUPANCY DETAIL (Nested in Occupant)
+// ========================================
+
+export interface OccupancyLogItem {
+    id: string;
+    action: OccupancyLogAction;
+    
+    // Transfer details
+    fromBedId: string | null;
+    toBedId: string | null;
+    fromBedCode: string | null;
+    toBedCode: string | null;
+    
+    // Date change details
+    previousCheckInDate: Date | null;
+    newCheckInDate: Date | null;
+    previousCheckOutDate: Date | null;
+    newCheckOutDate: Date | null;
+    
+    // Performer
+    performedBy: string;
+    performedByName: string;
+    performedAt: Date;
+    
+    // Details
+    reason: string | null;
+    notes: string | null;
+  
+    // Context (Resolved for display)
+    buildingName: string;
+    roomCode: string;
+    bedCode: string;
+}
+
+export interface OccupancyDetailItem {
+    id: string;
+    status: OccupancyStatus;
+    
+    checkInDate: Date;
+    checkOutDate: Date | null;
+    originalCheckOutDate: Date | null;
+    actualCheckIn: Date | null;
+    actualCheckOut: Date | null;
+    
+    notes: string | null;
+    qrCode: string | null;
+    
+    // Location
+    bed: {
+        id: string;
+        code: string;
+        label: string;
+        room: {
+            id: string;
+            code: string;
+            name: string;
+            floorNumber: number;
+            building: {
+                id: string;
+                name: string;
+                area: {
+                    name: string;
+                }
+            }
+        }
+    };
+    
+    // Booking
+    booking: {
+        id: string;
+        code: string;
+        purpose: string | null;
+    } | null;
+
+    // Logs
+    logs: OccupancyLogItem[];
 }
 
 // ========================================
@@ -138,53 +221,14 @@ export interface OccupantDetail extends OccupantListItem {
   occupantDepartment: string | null;
   occupantPosition: string | null;
   
-  // Transfer info
-  transferredFromBedId: string | null;
-  transferReason: string | null;
-  transferredAt: Date | null;
-  transferredBy: string | null;
-  transferredByName: string | null;
-  
-  // Checkout info
-  originalCheckOutDate: Date | null;
-  checkoutReason: string | null;
-  checkoutBy: string | null;
-  checkoutByName: string | null;
-  
-  // Notes
-  notes: string | null;
-  qrCode: string | null;
-  
-  // Booking detail (if exists)
-  booking: {
-    id: string;
-    code: string;
-    requesterName: string;
-    requesterCompany: string | null;
-    purpose: string | null;
-    projectCode: string | null;
-    status: string;
-  } | null;
-  
-  // Room detail
-  room: {
-    id: string;
-    code: string;
-    name: string;
-    floorNumber: number;
-    floorName: string | null;
-    genderPolicy: string;
-    roomTypeName: string;
-  };
-  
-  // Activity logs
-  logs: OccupantLogItem[];
+  // List of all occupancies (Active & History)
+  occupancies: OccupancyDetailItem[];
   
   updatedAt: Date;
 }
 
 // ========================================
-// OCCUPANT LOG ITEM (history)
+// OCCUPANT LOG ACTION
 // ========================================
 
 export type OccupancyLogAction = 
@@ -197,31 +241,8 @@ export type OccupancyLogAction =
   | "CANCELLED"
   | "STATUS_CHANGED";
 
-export interface OccupantLogItem {
-  id: string;
-  action: OccupancyLogAction;
-  
-  // Transfer details
-  fromBedId: string | null;
-  toBedId: string | null;
-  fromBedCode: string | null;
-  toBedCode: string | null;
-  
-  // Date change details
-  previousCheckInDate: Date | null;
-  newCheckInDate: Date | null;
-  previousCheckOutDate: Date | null;
-  newCheckOutDate: Date | null;
-  
-  // Performer
-  performedBy: string;
-  performedByName: string;
-  performedAt: Date;
-  
-  // Details
-  reason: string | null;
-  notes: string | null;
-}
+// Alias for backward compat if needed (though we changed structure)
+export type OccupantLogItem = OccupancyLogItem;
 
 // ========================================
 // FILTER OPTIONS (for dropdowns)

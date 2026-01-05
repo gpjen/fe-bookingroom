@@ -1,6 +1,7 @@
 "use server";
 
 import { prisma } from "@/lib/db";
+import { Prisma } from "@prisma/client";
 import {
   ActionResponse,
   OccupantFilters,
@@ -8,12 +9,13 @@ import {
   PaginatedResult,
   OccupantListItem,
   OccupantDetail,
-  OccupantLogItem,
   FilterOptions,
   OccupantStats,
   OccupancyStatus,
   occupantQuerySchema,
   OccupantQueryParams,
+  OccupancyDetailItem,
+  OccupancyLogItem,
 } from "./occupants.types";
 
 // ========================================
@@ -53,51 +55,52 @@ function parseQueryToFilters(query: OccupantQueryParams): {
 }
 
 // ========================================
-// BUILD WHERE CLAUSE
+// BUILD WHERE CLAUSE (Targeting Occupant Table)
 // ========================================
 
-function buildWhereClause(filters: OccupantFilters) {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const where: any = {};
+function buildWhereClause(filters: OccupantFilters): Prisma.OccupantWhereInput {
+  const where: Prisma.OccupantWhereInput = {};
   
-  // Search (name, NIK, email, phone, company) - now search in Occupant table
+  // Search (name, NIK, email, phone, company)
   if (filters.search) {
     const searchLower = filters.search.toLowerCase();
     where.OR = [
-      { occupant: { name: { contains: searchLower, mode: "insensitive" } } },
-      { occupant: { nik: { contains: searchLower, mode: "insensitive" } } },
-      { occupant: { email: { contains: searchLower, mode: "insensitive" } } },
-      { occupant: { phone: { contains: searchLower, mode: "insensitive" } } },
-      { occupant: { company: { contains: searchLower, mode: "insensitive" } } },
-      { bed: { code: { contains: searchLower, mode: "insensitive" } } },
-      { bed: { room: { code: { contains: searchLower, mode: "insensitive" } } } },
-      { bed: { room: { building: { name: { contains: searchLower, mode: "insensitive" } } } } },
+      { name: { contains: searchLower, mode: "insensitive" } },
+      { nik: { contains: searchLower, mode: "insensitive" } },
+      { email: { contains: searchLower, mode: "insensitive" } },
+      { phone: { contains: searchLower, mode: "insensitive" } },
+      { company: { contains: searchLower, mode: "insensitive" } },
+      // Search in stays (occupancies) for Bed/Room matches
+      {
+        stays: {
+          some: {
+            OR: [
+              { bed: { code: { contains: searchLower, mode: "insensitive" } } },
+              { bed: { room: { code: { contains: searchLower, mode: "insensitive" } } } },
+              { bed: { room: { building: { name: { contains: searchLower, mode: "insensitive" } } } } },
+            ]
+          }
+        }
+      }
     ];
   }
   
+  // Filters definition
+  const occupancyWhere: Prisma.OccupancyWhereInput = {};
+
   // Status filter
   if (filters.status && filters.status.length > 0) {
-    where.status = { in: filters.status };
+    occupancyWhere.status = { in: filters.status };
   }
   
   // Active only (PENDING, RESERVED, CHECKED_IN)
   if (filters.activeOnly) {
-    where.status = { in: ["PENDING", "RESERVED", "CHECKED_IN"] };
-  }
-  
-  // Occupant type - now search in Occupant table
-  if (filters.occupantType) {
-    where.occupant = { ...where.occupant, type: filters.occupantType };
-  }
-  
-  // Gender - now search in Occupant table
-  if (filters.gender) {
-    where.occupant = { ...where.occupant, gender: filters.gender };
+    occupancyWhere.status = { in: ["PENDING", "RESERVED", "CHECKED_IN"] };
   }
   
   // Building filter
   if (filters.buildingId) {
-    where.bed = {
+    occupancyWhere.bed = {
       room: {
         buildingId: filters.buildingId,
       },
@@ -106,7 +109,7 @@ function buildWhereClause(filters: OccupantFilters) {
   
   // Area filter (via building)
   if (filters.areaId && !filters.buildingId) {
-    where.bed = {
+    occupancyWhere.bed = {
       room: {
         building: {
           areaId: filters.areaId,
@@ -117,30 +120,43 @@ function buildWhereClause(filters: OccupantFilters) {
   
   // Has booking filter
   if (filters.hasBooking === true) {
-    where.bookingId = { not: null };
+    occupancyWhere.bookingId = { not: null };
   } else if (filters.hasBooking === false) {
-    where.bookingId = null;
+    occupancyWhere.bookingId = null;
   }
   
   // Date range filters
   if (filters.checkInFrom || filters.checkInTo) {
-    where.checkInDate = {};
+    occupancyWhere.checkInDate = {};
     if (filters.checkInFrom) {
-      where.checkInDate.gte = filters.checkInFrom;
+      occupancyWhere.checkInDate.gte = filters.checkInFrom;
     }
     if (filters.checkInTo) {
-      where.checkInDate.lte = filters.checkInTo;
+      occupancyWhere.checkInDate.lte = filters.checkInTo;
     }
   }
   
   if (filters.checkOutFrom || filters.checkOutTo) {
-    where.checkOutDate = {};
+    occupancyWhere.checkOutDate = {};
     if (filters.checkOutFrom) {
-      where.checkOutDate.gte = filters.checkOutFrom;
+      occupancyWhere.checkOutDate.gte = filters.checkOutFrom;
     }
     if (filters.checkOutTo) {
-      where.checkOutDate.lte = filters.checkOutTo;
+      occupancyWhere.checkOutDate.lte = filters.checkOutTo;
     }
+  }
+
+  // Apply occupancy filters if any
+  if (Object.keys(occupancyWhere).length > 0) {
+    where.stays = { some: occupancyWhere };
+  }
+
+  // Direct Occupant filters
+  if (filters.occupantType) {
+    where.type = filters.occupantType;
+  }
+  if (filters.gender) {
+    where.gender = filters.gender;
   }
   
   return where;
@@ -150,23 +166,13 @@ function buildWhereClause(filters: OccupantFilters) {
 // BUILD ORDER BY CLAUSE
 // ========================================
 
-import { Prisma } from "@prisma/client";
-
-function buildOrderBy(sort: SortParams): Prisma.OccupancyOrderByWithRelationInput {
+function buildOrderBy(sort: SortParams): Prisma.OccupantOrderByWithRelationInput {
   const dir = sort.direction as Prisma.SortOrder;
   switch (sort.field) {
     case "occupantName":
-      return { occupant: { name: dir } };
-    case "checkInDate":
-      return { checkInDate: dir };
-    case "checkOutDate":
-      return { checkOutDate: dir };
-    case "status":
-      return { status: dir };
+      return { name: dir };
     case "createdAt":
       return { createdAt: dir };
-    case "buildingName":
-      return { bed: { room: { building: { name: dir } } } };
     default:
       return { createdAt: "desc" };
   }
@@ -186,76 +192,108 @@ export async function getOccupants(
     const where = buildWhereClause(filters);
     const orderBy = buildOrderBy(sort);
     
-    // Get total count
-    const totalItems = await prisma.occupancy.count({ where });
+    // Get total count of unique occupants
+    const totalItems = await prisma.occupant.count({ where });
     
     // Calculate pagination
     const totalPages = Math.ceil(totalItems / pageSize);
     const skip = (page - 1) * pageSize;
     
-    // Fetch data with relations using include for better type inference
-    const occupancies = await prisma.occupancy.findMany({
+    // Fetch occupants with their latest/relevant stays
+    const occupants = await prisma.occupant.findMany({
       where,
       orderBy,
       skip,
       take: pageSize,
       include: {
-        occupant: true,
-        booking: {
-          select: {
-            code: true,
-          },
-        },
-        bed: {
+        stays: {
+          orderBy: [
+             // Hacky sort: we want Active first. But we can't custom sort in Prisma easily in one go for list item selection
+             // We will sort in JS after fetching
+             { checkInDate: 'desc' },
+          ],
           include: {
-            room: {
+            bed: {
               include: {
-                building: {
+                room: {
                   include: {
-                    area: true,
-                  },
-                },
-              },
+                    building: {
+                      include: { area: true }
+                    }
+                  }
+                }
+              }
             },
-          },
-        },
+            booking: true
+          }
+        }
       },
     });
     
-    // Transform to OccupantListItem using Occupant data
-    const data: OccupantListItem[] = occupancies.map((occ) => ({
-      id: occ.id,
-      occupantId: occ.occupantId,
-      occupantName: occ.occupant.name,
-      occupantNik: occ.occupant.nik,
-      occupantType: occ.occupant.type,
-      occupantGender: occ.occupant.gender,
-      occupantPhone: occ.occupant.phone,
-      occupantEmail: occ.occupant.email,
-      occupantCompany: occ.occupant.company,
-      checkInDate: occ.checkInDate,
-      checkOutDate: occ.checkOutDate,
-      actualCheckIn: occ.actualCheckIn,
-      actualCheckOut: occ.actualCheckOut,
-      status: occ.status,
-      bedId: occ.bed.id,
-      bedCode: occ.bed.code,
-      bedLabel: occ.bed.label,
-      roomId: occ.bed.room.id,
-      roomCode: occ.bed.room.code,
-      roomName: occ.bed.room.name,
-      floorNumber: occ.bed.room.floorNumber,
-      buildingId: occ.bed.room.building.id,
-      buildingCode: occ.bed.room.building.code,
-      buildingName: occ.bed.room.building.name,
-      areaId: occ.bed.room.building.area.id,
-      areaName: occ.bed.room.building.area.name,
-      bookingId: occ.bookingId,
-      bookingCode: occ.booking?.code || null,
-      createdAt: occ.createdAt,
-      createdBy: occ.createdBy,
-      createdByName: occ.createdByName,
-    }));
+    // Transform to OccupantListItem
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const data: OccupantListItem[] = occupants.map((occ: any) => {
+      // Determine primary occupancy
+      const activeStats = ["CHECKED_IN", "RESERVED", "PENDING"];
+      
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const sortedOccupancies = [...occ.stays].sort((a: any, b: any) => {
+         // Custom sort: Active first, then by date desc
+         const aActive = activeStats.includes(a.status);
+         const bActive = activeStats.includes(b.status);
+         if (aActive && !bActive) return -1;
+         if (!aActive && bActive) return 1;
+         return new Date(b.checkInDate).getTime() - new Date(a.checkInDate).getTime();
+      });
+
+      const primary = sortedOccupancies[0];
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const activeCount = occ.stays.filter((o: any) => activeStats.includes(o.status)).length;
+
+      return {
+        id: occ.id, // User ID
+        occupantId: occ.id,
+        occupantName: occ.name,
+        occupantNik: occ.nik,
+        occupantType: occ.type,
+        occupantGender: occ.gender,
+        occupantPhone: occ.phone,
+        occupantEmail: occ.email,
+        occupantCompany: occ.company,
+        
+        // Primary Occupancy Info
+        primaryOccupancyId: primary?.id || null,
+        checkInDate: primary?.checkInDate || null,
+        checkOutDate: primary?.checkOutDate || null,
+        actualCheckIn: primary?.actualCheckIn || null,
+        actualCheckOut: primary?.actualCheckOut || null,
+        status: primary?.status || null,
+
+        // Location
+        bedId: primary?.bedId || null,
+        bedCode: primary?.bed.code || null,
+        bedLabel: primary?.bed.label || null,
+        roomId: primary?.bed.room.id || null,
+        roomCode: primary?.bed.room.code || null,
+        roomName: primary?.bed.room.name || null,
+        floorNumber: primary?.bed.room.floorNumber || null,
+        buildingId: primary?.bed.room.building.id || null,
+        buildingCode: primary?.bed.room.building.code || null,
+        buildingName: primary?.bed.room.building.name || null,
+        areaId: primary?.bed.room.building.area.id || null,
+        areaName: primary?.bed.room.building.area.name || null,
+
+        bookingId: primary?.bookingId || null,
+        bookingCode: primary?.booking?.code || null,
+        
+        activeOccupancyCount: activeCount,
+        totalOccupancyCount: occ.stays.length,
+
+        createdAt: occ.createdAt,
+        createdBy: null, // Occupant doesn't have createdBy field directly visible/needed
+        createdByName: null,
+      };
+    });
     
     return {
       success: true,
@@ -278,191 +316,206 @@ export async function getOccupants(
 }
 
 // ========================================
-// GET OCCUPANT BY ID (DETAIL + HISTORY)
+// GET OCCUPANT BY ID (DETAIL + NESTED HISTORY)
 // ========================================
 
 export async function getOccupantById(
-  id: string
+  id: string // Occupant ID
 ): Promise<ActionResponse<OccupantDetail>> {
   try {
-    const occupancy = await prisma.occupancy.findUnique({
+    const occupant = await prisma.occupant.findUnique({
       where: { id },
       include: {
-        occupant: true,
-        booking: {
-          select: {
-            id: true,
-            code: true,
-            requesterName: true,
-            requesterCompany: true,
-            purpose: true,
-            projectCode: true,
-            status: true,
-          },
-        },
-        bed: {
-          select: {
-            id: true,
-            code: true,
-            label: true,
-            room: {
-              select: {
-                id: true,
-                code: true,
-                name: true,
-                floorNumber: true,
-                floorName: true,
-                genderPolicy: true,
-                roomType: {
-                  select: {
-                    name: true,
-                  },
-                },
-                building: {
-                  select: {
-                    id: true,
-                    code: true,
-                    name: true,
-                    area: {
-                      select: {
-                        id: true,
-                        name: true,
-                      },
-                    },
-                  },
-                },
-              },
+        stays: {
+          orderBy: { checkInDate: "desc" },
+          include: {
+            booking: true,
+            bed: {
+              include: {
+                room: {
+                  include: {
+                    roomType: true,
+                    building: {
+                      include: {
+                        area: true
+                      }
+                    }
+                  }
+                }
+              }
             },
-          },
-        },
-        logs: {
-          orderBy: { performedAt: "desc" },
-          select: {
-            id: true,
-            action: true,
-            fromBedId: true,
-            toBedId: true,
-            previousCheckInDate: true,
-            newCheckInDate: true,
-            previousCheckOutDate: true,
-            newCheckOutDate: true,
-            performedBy: true,
-            performedByName: true,
-            performedAt: true,
-            reason: true,
-            notes: true,
-          },
-        },
-      },
+            logs: {
+              orderBy: { performedAt: "desc" }
+            }
+          }
+        }
+      }
     });
-    
-    if (!occupancy) {
+
+    if (!occupant) {
       return { success: false, error: "Data penghuni tidak ditemukan" };
     }
-    
-    // Get bed codes for transfer logs
-    const bedIds = occupancy.logs
-      .flatMap((log) => [log.fromBedId, log.toBedId])
-      .filter((id): id is string => id !== null);
-    
-    const beds = bedIds.length > 0
-      ? await prisma.bed.findMany({
-          where: { id: { in: bedIds } },
-          select: { id: true, code: true },
-        })
-      : [];
-    
-    const bedCodeMap = new Map(beds.map((b) => [b.id, b.code]));
-    
-    // Transform logs
-    const logs: OccupantLogItem[] = occupancy.logs.map((log) => ({
-      id: log.id,
-      action: log.action,
-      fromBedId: log.fromBedId,
-      toBedId: log.toBedId,
-      fromBedCode: log.fromBedId ? bedCodeMap.get(log.fromBedId) || null : null,
-      toBedCode: log.toBedId ? bedCodeMap.get(log.toBedId) || null : null,
-      previousCheckInDate: log.previousCheckInDate,
-      newCheckInDate: log.newCheckInDate,
-      previousCheckOutDate: log.previousCheckOutDate,
-      newCheckOutDate: log.newCheckOutDate,
-      performedBy: log.performedBy,
-      performedByName: log.performedByName,
-      performedAt: log.performedAt,
-      reason: log.reason,
-      notes: log.notes,
-    }));
-    
+
+    // Resolve Context for proper display of Flat fields
+    // We reuse the logic from getOccupants to pick "Primary"
+    const activeStats = ["CHECKED_IN", "RESERVED", "PENDING"];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sortedOccupancies = [...occupant.stays].sort((a: any, b: any) => {
+       const aActive = activeStats.includes(a.status);
+       const bActive = activeStats.includes(b.status);
+       if (aActive && !bActive) return -1;
+       if (!aActive && bActive) return 1;
+       return new Date(b.checkInDate).getTime() - new Date(a.checkInDate).getTime();
+    });
+    const primary = sortedOccupancies[0];
+
+    // RESOLVE LOGS CONTEXT (Bed/Room Names)
+    const bedIds = new Set<string>();
+    occupant.stays.forEach(occ => {
+        bedIds.add(occ.bedId);
+        occ.logs.forEach(log => {
+            if (log.bedId) bedIds.add(log.bedId);
+            if (log.fromBedId) bedIds.add(log.fromBedId);
+            if (log.toBedId) bedIds.add(log.toBedId);
+        });
+    });
+
+    const bedsInfo = await prisma.bed.findMany({
+      where: { id: { in: Array.from(bedIds) } },
+      select: {
+        id: true,
+        code: true,
+        room: {
+            select: {
+                code: true,
+                building: { select: { name: true } }
+            }
+        }
+      }
+    });
+    const bedMap = new Map(bedsInfo.map(b => [b.id, b]));
+
+    // Map Nested Occupancies
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const mappedOccupancies: OccupancyDetailItem[] = occupant.stays.map((occ: any) => {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const mappedLogs: OccupancyLogItem[] = occ.logs.map((log: any) => {
+            const contextBedId = log.bedId || log.toBedId || log.fromBedId || occ.bedId;
+            const bedInfo = contextBedId ? bedMap.get(contextBedId) : null;
+            
+            return {
+                id: log.id,
+                action: log.action,
+                fromBedId: log.fromBedId,
+                toBedId: log.toBedId,
+                fromBedCode: log.fromBedId ? bedMap.get(log.fromBedId)?.code || null : null,
+                toBedCode: log.toBedId ? bedMap.get(log.toBedId)?.code || null : null,
+                previousCheckInDate: log.previousCheckInDate,
+                newCheckInDate: log.newCheckInDate,
+                previousCheckOutDate: log.previousCheckOutDate,
+                newCheckOutDate: log.newCheckOutDate,
+                performedBy: log.performedBy,
+                performedByName: log.performedByName,
+                performedAt: log.performedAt,
+                reason: log.reason,
+                notes: log.notes,
+                buildingName: bedInfo?.room.building.name || "-",
+                roomCode: bedInfo?.room.code || "-",
+                bedCode: bedInfo?.code || "-",
+            };
+        });
+
+        return {
+            id: occ.id,
+            status: occ.status,
+            checkInDate: occ.checkInDate,
+            checkOutDate: occ.checkOutDate,
+            originalCheckOutDate: occ.originalCheckOutDate,
+            actualCheckIn: occ.actualCheckIn,
+            actualCheckOut: occ.actualCheckOut,
+            notes: occ.notes,
+            qrCode: occ.qrCode,
+            bed: {
+                id: occ.bed.id,
+                code: occ.bed.code,
+                label: occ.bed.label,
+                room: {
+                    id: occ.bed.room.id,
+                    code: occ.bed.room.code,
+                    name: occ.bed.room.name,
+                    floorNumber: occ.bed.room.floorNumber,
+                    building: {
+                        id: occ.bed.room.building.id,
+                        name: occ.bed.room.building.name,
+                        area: {
+                            name: occ.bed.room.building.area.name
+                        }
+                    }
+                }
+            },
+            booking: occ.booking ? {
+                id: occ.booking.id,
+                code: occ.booking.code,
+                purpose: occ.booking.purpose,
+            } : null,
+            logs: mappedLogs,
+        };
+    });
+
+    // Construct Detail
     const detail: OccupantDetail = {
-      id: occupancy.id,
-      occupantId: occupancy.occupantId,
-      occupantName: occupancy.occupant.name,
-      occupantNik: occupancy.occupant.nik,
-      occupantType: occupancy.occupant.type,
-      occupantGender: occupancy.occupant.gender,
-      occupantPhone: occupancy.occupant.phone,
-      occupantEmail: occupancy.occupant.email,
-      occupantCompany: occupancy.occupant.company,
-      occupantUserId: occupancy.occupant.userId,
-      occupantDepartment: occupancy.occupant.department,
-      occupantPosition: occupancy.occupant.position,
-      checkInDate: occupancy.checkInDate,
-      checkOutDate: occupancy.checkOutDate,
-      originalCheckOutDate: occupancy.originalCheckOutDate,
-      actualCheckIn: occupancy.actualCheckIn,
-      actualCheckOut: occupancy.actualCheckOut,
-      status: occupancy.status,
-      qrCode: occupancy.qrCode,
-      notes: occupancy.notes,
-      bedId: occupancy.bed.id,
-      bedCode: occupancy.bed.code,
-      bedLabel: occupancy.bed.label,
-      roomId: occupancy.bed.room.id,
-      roomCode: occupancy.bed.room.code,
-      roomName: occupancy.bed.room.name,
-      floorNumber: occupancy.bed.room.floorNumber,
-      buildingId: occupancy.bed.room.building.id,
-      buildingCode: occupancy.bed.room.building.code,
-      buildingName: occupancy.bed.room.building.name,
-      areaId: occupancy.bed.room.building.area.id,
-      areaName: occupancy.bed.room.building.area.name,
-      bookingId: occupancy.bookingId,
-      bookingCode: occupancy.booking?.code || null,
-      createdAt: occupancy.createdAt,
-      createdBy: occupancy.createdBy,
-      createdByName: occupancy.createdByName,
-      updatedAt: occupancy.updatedAt,
-      transferredFromBedId: occupancy.transferredFromBedId,
-      transferReason: occupancy.transferReason,
-      transferredAt: occupancy.transferredAt,
-      transferredBy: occupancy.transferredBy,
-      transferredByName: occupancy.transferredByName,
-      checkoutReason: occupancy.checkoutReason,
-      checkoutBy: occupancy.checkoutBy,
-      checkoutByName: occupancy.checkoutByName,
-      booking: occupancy.booking
-        ? {
-            id: occupancy.booking.id,
-            code: occupancy.booking.code,
-            requesterName: occupancy.booking.requesterName,
-            requesterCompany: occupancy.booking.requesterCompany,
-            purpose: occupancy.booking.purpose,
-            projectCode: occupancy.booking.projectCode,
-            status: occupancy.booking.status,
-          }
-        : null,
-      room: {
-        id: occupancy.bed.room.id,
-        code: occupancy.bed.room.code,
-        name: occupancy.bed.room.name,
-        floorNumber: occupancy.bed.room.floorNumber,
-        floorName: occupancy.bed.room.floorName,
-        genderPolicy: occupancy.bed.room.genderPolicy,
-        roomTypeName: occupancy.bed.room.roomType.name,
-      },
-      logs,
+      // Base List Item Props
+      id: occupant.id,
+      occupantId: occupant.id,
+      occupantName: occupant.name,
+      occupantNik: occupant.nik,
+      occupantType: occupant.type,
+      occupantGender: occupant.gender,
+      occupantPhone: occupant.phone,
+      occupantEmail: occupant.email,
+      occupantCompany: occupant.company,
+      
+      // Primary Info
+      primaryOccupancyId: primary?.id || null,
+      checkInDate: primary?.checkInDate || null,
+      checkOutDate: primary?.checkOutDate || null,
+      actualCheckIn: primary?.actualCheckIn || null,
+      actualCheckOut: primary?.actualCheckOut || null,
+      status: primary?.status || null,
+
+      bedId: primary?.bedId || null,
+      bedCode: primary?.bed.code || null,
+      bedLabel: primary?.bed.label || null,
+      roomId: primary?.bed.room.id || null,
+      roomCode: primary?.bed.room.code || null,
+      roomName: primary?.bed.room.name || null,
+      floorNumber: primary?.bed.room.floorNumber || null,
+      buildingId: primary?.bed.room.building.id || null,
+      buildingCode: primary?.bed.room.building.code || null,
+      buildingName: primary?.bed.room.building.name || null,
+      areaId: primary?.bed.room.building.area.id || null,
+      areaName: primary?.bed.room.building.area.name || null,
+
+      bookingId: primary?.bookingId || null,
+      bookingCode: primary?.booking?.code || null,
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      activeOccupancyCount: occupant.stays.filter((o: any) => activeStats.includes(o.status)).length,
+      totalOccupancyCount: occupant.stays.length,
+
+      createdAt: occupant.createdAt,
+      createdBy: null,
+      createdByName: null,
+
+      // Detail Props
+      occupantUserId: occupant.userId,
+      occupantDepartment: occupant.department,
+      occupantPosition: occupant.position,
+      updatedAt: occupant.updatedAt,
+      
+      occupancies: mappedOccupancies
     };
-    
+
     return { success: true, data: detail };
   } catch (error) {
     console.error("[GET_OCCUPANT_BY_ID_ERROR]", error);
@@ -476,21 +529,18 @@ export async function getOccupantById(
 
 export async function getFilterOptions(): Promise<ActionResponse<FilterOptions>> {
   try {
-    // Get areas
     const areas = await prisma.area.findMany({
       where: { status: "ACTIVE" },
       select: { id: true, code: true, name: true },
       orderBy: { name: "asc" },
     });
     
-    // Get buildings
     const buildings = await prisma.building.findMany({
       where: { status: true },
       select: { id: true, code: true, name: true, areaId: true },
       orderBy: { name: "asc" },
     });
     
-    // Get status counts
     const statusCounts = await prisma.occupancy.groupBy({
       by: ["status"],
       _count: { status: true },
@@ -553,7 +603,7 @@ export async function getOccupantStats(): Promise<ActionResponse<OccupantStats>>
 }
 
 // ========================================
-// GET ALL PAGE DATA (OPTIMIZED)
+// GET ALL PAGE DATA
 // ========================================
 
 export interface OccupantsPageData {
@@ -568,7 +618,6 @@ export async function getOccupantsPageData(
   try {
     const { filters, sort, page, pageSize } = parseQueryToFilters(query);
     
-    // Parallel fetch
     const [occupantsResult, statsResult, filterOptionsResult] = await Promise.all([
       getOccupants(filters, sort, page, pageSize),
       getOccupantStats(),

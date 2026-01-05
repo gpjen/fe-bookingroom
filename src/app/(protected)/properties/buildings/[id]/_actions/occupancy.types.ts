@@ -41,7 +41,7 @@ export interface OccupancyData {
   
   // Dates
   checkInDate: Date;
-  checkOutDate: Date;
+  checkOutDate: Date | null; // Nullable for indefinite stays
   actualCheckIn: Date | null;
   actualCheckOut: Date | null;
   
@@ -61,7 +61,7 @@ export interface ActiveOccupancyInfo {
   occupantGender: Gender;
   occupantCompany: string | null;
   checkInDate: Date;
-  checkOutDate: Date;
+  checkOutDate: Date | null; // Nullable for indefinite stays
   actualCheckIn: Date | null;
   status: OccupancyStatus;
 }

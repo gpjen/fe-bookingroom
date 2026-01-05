@@ -26,7 +26,6 @@ import {
   ShieldCheck,
   MapPinned,
   CalendarCheck2,
-  ListChecks,
   DoorOpen,
   ClipboardList,
   BarChart3,
@@ -41,6 +40,7 @@ import {
   Folder,
   Home,
   DoorOpenIcon,
+  UsersRound,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -95,13 +95,6 @@ const menuConfig: MenuItem[] = [
         permissions: ["booking-request:read"],
       },
       {
-        href: "/booking/occupant-status",
-        label: "Status Penghuni",
-        icon: ListChecks,
-        active: true,
-        permissions: ["booking-occupant-status:read"],
-      },
-      {
         href: "/booking/mine",
         label: "Pemesanan Saya",
         icon: DoorOpen,
@@ -120,11 +113,11 @@ const menuConfig: MenuItem[] = [
   },
   {
     type: "single",
-    href: "/reports",
-    label: "Reports & Analytics",
-    icon: BarChart3,
+    href: "/occupants",
+    label: "Penghuni",
+    icon: UsersRound,
     active: true,
-    permissions: ["reports:read"],
+    permissions: ["occupant:read"],
   },
   {
     type: "group",
@@ -199,6 +192,14 @@ const menuConfig: MenuItem[] = [
         permissions: ["admin-logs:read"],
       },
     ],
+  },
+  {
+    type: "single",
+    href: "/reports",
+    label: "Reports & Analytics",
+    icon: BarChart3,
+    active: true,
+    permissions: ["reports:read"],
   },
   {
     type: "single",

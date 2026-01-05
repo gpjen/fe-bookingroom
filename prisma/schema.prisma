@@ -675,8 +675,9 @@ model Occupancy {
   occupantPosition   String?
 
   // Stay Period (can be different from Booking dates, but within range)
+  // checkOutDate is optional - NULL means indefinite stay (e.g., employees, special guests)
   checkInDate          DateTime  @db.Date
-  checkOutDate         DateTime  @db.Date
+  checkOutDate         DateTime? @db.Date
   originalCheckOutDate DateTime? @db.Date // Stored if date was changed
   actualCheckIn        DateTime?
   actualCheckOut       DateTime?

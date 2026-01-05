@@ -640,8 +640,9 @@ function BedListItem({
   const Icon = config.icon;
   const occupancy = bed.activeOccupancy;
 
-  // Format date
-  const formatDate = (date: Date) => {
+  // Format date - handle null for indefinite stays
+  const formatDate = (date: Date | null) => {
+    if (!date) return "~";
     return new Date(date).toLocaleDateString("id-ID", {
       day: "numeric",
       month: "short",
@@ -699,7 +700,11 @@ function BedListItem({
           )}
           <p className="text-[10px] text-muted-foreground mt-1 ml-5">
             {formatDate(occupancy.checkInDate)} -{" "}
-            {formatDate(occupancy.checkOutDate)}
+            {occupancy.checkOutDate ? (
+              formatDate(occupancy.checkOutDate)
+            ) : (
+              <span className="italic">Belum ditentukan</span>
+            )}
           </p>
         </div>
       )}

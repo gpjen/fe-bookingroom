@@ -36,43 +36,49 @@ async function main() {
     { key: "booking-occupant-status:read", description: "View occupant status", category: "booking" },
     { key: "booking-occupant-status:update", description: "Update occupant status", category: "booking" },
     { key: "booking-mine:read", description: "View my bookings", category: "booking" },
+
+    // Occupants
+    { key: "occupant:read", description: "View occupants", category: "occupant" },
+    { key: "occupant:create", description: "Create occupant", category: "occupant" },
+    { key: "occupant:update", description: "Update occupant", category: "occupant" },
+    { key: "occupant:delete", description: "Delete occupant", category: "occupant" },
     
     // Buildings
-    { key: "building:read", description: "View buildings", category: "property" },
-    { key: "building:create", description: "Create building", category: "property" },
-    { key: "building:update", description: "Update building", category: "property" },
-    { key: "building:delete", description: "Delete building", category: "property" },
+    { key: "building:read", description: "View buildings", category: "buildings" },
+    { key: "building:create", description: "Create building", category: "buildings" },
+    { key: "building:update", description: "Update building", category: "buildings" },
+    { key: "building:delete", description: "Delete building", category: "buildings" },
     
     // Reports
     { key: "reports:read", description: "View reports", category: "reports" },
     { key: "reports:export", description: "Export reports", category: "reports" },
     
-    // Property Management
-    { key: "property:read", description: "Access property menu", category: "property" },
+    // Master Data
+    { key: "property:read", description: "Access master data menu", category: "master-data" },
     
     // Companies
-    { key: "companies:read", description: "View companies", category: "property" },
-    { key: "companies:create", description: "Create company", category: "property" },
-    { key: "companies:update", description: "Update company", category: "property" },
-    { key: "companies:delete", description: "Delete company", category: "property" },
+    { key: "companies:read", description: "View companies", category: "master-data" },
+    { key: "companies:create", description: "Create company", category: "master-data" },
+    { key: "companies:update", description: "Update company", category: "master-data" },
+    { key: "companies:delete", description: "Delete company", category: "master-data" },
     
     // Areas
-    { key: "area:read", description: "View areas", category: "property" },
-    { key: "area:create", description: "Create area", category: "property" },
-    { key: "area:update", description: "Update area", category: "property" },
-    { key: "area:delete", description: "Delete area", category: "property" },
+    { key: "area:read", description: "View areas", category: "master-data" },
+    { key: "area:create", description: "Create area", category: "master-data" },
+    { key: "area:update", description: "Update area", category: "master-data" },
+    { key: "area:delete", description: "Delete area", category: "master-data" },
     
     // Building Types
-    { key: "building-type:read", description: "View building types", category: "property" },
-    { key: "building-type:create", description: "Create building type", category: "property" },
-    { key: "building-type:update", description: "Update building type", category: "property" },
-    { key: "building-type:delete", description: "Delete building type", category: "property" },
+    { key: "building-type:read", description: "View building types", category: "master-data" },
+    { key: "building-type:create", description: "Create building type", category: "master-data" },
+    { key: "building-type:update", description: "Update building type", category: "master-data" },
+    { key: "building-type:delete", description: "Delete building type", category: "master-data" },
     
     // Room Types
-    { key: "room-type:read", description: "View room types", category: "property" },
-    { key: "room-type:create", description: "Create room type", category: "property" },
-    { key: "room-type:update", description: "Update room type", category: "property" },
-    { key: "room-type:delete", description: "Delete room type", category: "property" },
+    { key: "room-type:read", description: "View room types", category: "master-data" },
+    { key: "room-type:create", description: "Create room type", category: "master-data" },
+    { key: "room-type:update", description: "Update room type", category: "master-data" },
+    { key: "room-type:delete", description: "Delete room type", category: "master-data" },
     
     // Administration
     { key: "admin:read", description: "Access admin menu", category: "admin" },

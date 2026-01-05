@@ -103,12 +103,14 @@ export async function getBuildingStats(
       };
     }
 
-    // Get bed statistics
+    // Get bed statistics (exclude deleted)
     const bedStats = await prisma.bed.groupBy({
       by: ["status"],
       where: {
+        deletedAt: null,
         room: {
           buildingId: id,
+          deletedAt: null,
         },
       },
       _count: {
@@ -190,9 +192,9 @@ export async function getRoomsGroupedByFloor(
       };
     }
 
-    // Get all rooms with beds, ordered by floor and code
+    // Get all rooms with beds, ordered by floor and code (exclude deleted)
     const rooms = await prisma.room.findMany({
-      where: { buildingId },
+      where: { buildingId, deletedAt: null },
       orderBy: [{ floorNumber: "asc" }, { code: "asc" }],
       select: {
         id: true,
@@ -220,6 +222,7 @@ export async function getRoomsGroupedByFloor(
         },
 
         beds: {
+          where: { deletedAt: null },
           orderBy: { position: "asc" },
           select: {
             id: true,
@@ -385,21 +388,23 @@ export async function getAllBuildingPageData(
 
     // Fetch stats and floors in parallel
     const [bedStats, rooms, images] = await Promise.all([
-      // Bed statistics
+      // Bed statistics (exclude deleted)
       prisma.bed.groupBy({
         by: ["status"],
         where: {
+          deletedAt: null,
           room: {
             buildingId: id,
+            deletedAt: null,
           },
         },
         _count: {
           id: true,
         },
       }),
-      // Rooms with beds
+      // Rooms with beds (exclude deleted)
       prisma.room.findMany({
-        where: { buildingId: id },
+        where: { buildingId: id, deletedAt: null },
         orderBy: [{ floorNumber: "asc" }, { code: "asc" }],
         select: {
           id: true,
@@ -427,6 +432,7 @@ export async function getAllBuildingPageData(
           },
 
           beds: {
+            where: { deletedAt: null },
             orderBy: { position: "asc" },
             select: {
               id: true,

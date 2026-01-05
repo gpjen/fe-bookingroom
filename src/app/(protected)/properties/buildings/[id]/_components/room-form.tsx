@@ -704,6 +704,12 @@ export function RoomForm({
   // Local room data state for refreshing beds without closing sheet
   const [roomData, setRoomData] = useState<RoomWithBeds | null>(room || null);
 
+  // Check if room has active occupancy (OCCUPIED or RESERVED beds)
+  const hasActiveOccupancy =
+    roomData?.beds.some(
+      (bed) => bed.status === "OCCUPIED" || bed.status === "RESERVED"
+    ) ?? false;
+
   // Sync roomData with prop when it changes
   useEffect(() => {
     setRoomData(room || null);
@@ -861,6 +867,24 @@ export function RoomForm({
             <TabsContent value="detail" className="flex-1 overflow-hidden m-0">
               <ScrollArea className="h-full">
                 <div className="px-5 py-4">
+                  {/* Info banner when has active occupancy */}
+                  {hasActiveOccupancy && (
+                    <div className="mb-4 p-3 rounded-lg bg-blue-50 dark:bg-blue-950/30 border border-blue-200 dark:border-blue-800">
+                      <div className="flex items-start gap-2">
+                        <User className="h-4 w-4 text-blue-600 dark:text-blue-400 mt-0.5 flex-shrink-0" />
+                        <div className="text-sm text-blue-700 dark:text-blue-300">
+                          <p className="font-medium">
+                            Ruangan memiliki penghuni aktif
+                          </p>
+                          <p className="text-xs mt-0.5 text-blue-600 dark:text-blue-400">
+                            Tipe ruangan tidak dapat diubah saat ada penghuni.
+                            Checkout semua penghuni terlebih dahulu.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   <Form {...form}>
                     <form
                       id="room-form"
@@ -905,7 +929,7 @@ export function RoomForm({
                         />
                       </div>
 
-                      {/* Floor - Disabled for edit */}
+                      {/* Floor & Room Type */}
                       <div className="grid grid-cols-2 gap-3">
                         <FormField
                           control={form.control}
@@ -934,11 +958,13 @@ export function RoomForm({
                           name="roomTypeId"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel className="text-xs">Tipe</FormLabel>
+                              <FormLabel className="text-xs">
+                                Tipe Ruangan
+                              </FormLabel>
                               <Select
                                 onValueChange={field.onChange}
                                 value={field.value}
-                                disabled={true}
+                                disabled={hasActiveOccupancy || isPending}
                               >
                                 <FormControl>
                                   <SelectTrigger>
@@ -948,11 +974,21 @@ export function RoomForm({
                                 <SelectContent>
                                   {roomTypes.map((type) => (
                                     <SelectItem key={type.id} value={type.id}>
-                                      {type.name}
+                                      {type.name} ({type.bedsPerRoom} bed)
                                     </SelectItem>
                                   ))}
                                 </SelectContent>
                               </Select>
+                              {hasActiveOccupancy ? (
+                                <FormDescription className="text-[10px]">
+                                  Tidak dapat diubah saat ada penghuni
+                                </FormDescription>
+                              ) : (
+                                <FormDescription className="text-[10px]">
+                                  Mengubah tipe tidak menghapus beds. Kelola di
+                                  tab Beds.
+                                </FormDescription>
+                              )}
                               <FormMessage />
                             </FormItem>
                           )}

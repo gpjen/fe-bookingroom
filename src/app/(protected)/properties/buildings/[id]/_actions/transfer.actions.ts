@@ -66,18 +66,19 @@ export async function getBuildingsInArea(
 
     const areaId = currentBed.room.building.areaId;
 
-    // Get all buildings in area with available bed count
+    // Get all buildings in area with available bed count (exclude deleted)
     const buildings = await prisma.building.findMany({
       where: {
         areaId: areaId,
-        status: true, // Boolean status
+        status: true,
+        deletedAt: null,
       },
       include: {
         rooms: {
-          where: { status: "ACTIVE" },
+          where: { status: "ACTIVE", deletedAt: null },
           include: {
             beds: {
-              where: { status: "AVAILABLE" },
+              where: { status: "AVAILABLE", deletedAt: null },
               select: { id: true },
             },
           },
@@ -113,6 +114,7 @@ export async function getRoomsWithAvailability(
       where: {
         buildingId,
         status: "ACTIVE",
+        deletedAt: null,
         // Filter by gender policy
         OR: [
           { genderPolicy: "MIX" },
@@ -135,6 +137,7 @@ export async function getRoomsWithAvailability(
         currentGender: true,
         roomType: { select: { name: true } },
         beds: {
+          where: { deletedAt: null },
           select: {
             id: true,
             status: true,
@@ -176,6 +179,7 @@ export async function getBedsWithReservations(
     const beds = await prisma.bed.findMany({
       where: {
         roomId,
+        deletedAt: null,
         ...(excludeBedId ? { id: { not: excludeBedId } } : {}),
       },
       select: {
@@ -191,9 +195,13 @@ export async function getBedsWithReservations(
           select: {
             id: true,
             status: true,
-            occupantName: true,
             checkInDate: true,
             checkOutDate: true,
+            occupant: {
+              select: {
+                name: true,
+              },
+            },
           },
         },
       },
@@ -224,7 +232,7 @@ export async function getBedsWithReservations(
         if (upcomingReservation) {
           hasUpcomingReservation = true;
           nextReservationStart = upcomingReservation.checkInDate;
-          nextReservationOccupant = upcomingReservation.occupantName;
+          nextReservationOccupant = upcomingReservation.occupant.name;
           // Available until the day before reservation starts
           const until = new Date(upcomingReservation.checkInDate);
           until.setDate(until.getDate() - 1);
@@ -234,8 +242,8 @@ export async function getBedsWithReservations(
       } else if (activeOccupancy) {
         // Bed is occupied, show when it will be available
         const checkoutDate = activeOccupancy.checkOutDate;
-        // Check if indefinite (year 2099)
-        if (checkoutDate.getFullYear() >= 2099) {
+        // If null or far future (year 2099), treat as indefinite
+        if (!checkoutDate || checkoutDate.getFullYear() >= 2099) {
           availableUntil = null; // indefinite
         } else {
           availableUntil = checkoutDate;
@@ -296,7 +304,11 @@ export async function validateTransferDates(
           select: {
             checkInDate: true,
             checkOutDate: true,
-            occupantName: true,
+            occupant: {
+              select: {
+                name: true,
+              },
+            },
           },
         },
       },
@@ -321,7 +333,7 @@ export async function validateTransferDates(
             success: true,
             data: {
               valid: false,
-              message: `Tanggal berakhir harus sebelum ${resStart.toLocaleDateString("id-ID")} (reservasi ${reservation.occupantName})`,
+              message: `Tanggal berakhir harus sebelum ${resStart.toLocaleDateString("id-ID")} (reservasi ${reservation.occupant.name})`,
             },
           };
         }

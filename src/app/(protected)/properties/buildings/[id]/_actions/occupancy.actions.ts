@@ -45,7 +45,7 @@ export async function getBedsWithOccupancy(
 ): Promise<ActionResponse<BedWithOccupancy[]>> {
   try {
     const beds = await prisma.bed.findMany({
-      where: { roomId },
+      where: { roomId, deletedAt: null },
       orderBy: { position: "asc" },
       select: {
         id: true,
@@ -63,14 +63,20 @@ export async function getBedsWithOccupancy(
           take: 1,
           select: {
             id: true,
-            occupantName: true,
-            occupantType: true,
-            occupantGender: true,
-            occupantCompany: true,
             checkInDate: true,
             checkOutDate: true,
             actualCheckIn: true,
             status: true,
+            occupant: {
+              select: {
+                id: true,
+                name: true,
+                type: true,
+                gender: true,
+                company: true,
+                nik: true,
+              },
+            },
           },
         },
       },
@@ -87,10 +93,14 @@ export async function getBedsWithOccupancy(
       activeOccupancy: bed.occupancies[0]
         ? {
             id: bed.occupancies[0].id,
-            occupantName: bed.occupancies[0].occupantName,
-            occupantType: bed.occupancies[0].occupantType,
-            occupantGender: bed.occupancies[0].occupantGender,
-            occupantCompany: bed.occupancies[0].occupantCompany,
+            occupant: {
+              id: bed.occupancies[0].occupant.id,
+              name: bed.occupancies[0].occupant.name,
+              type: bed.occupancies[0].occupant.type,
+              gender: bed.occupancies[0].occupant.gender,
+              company: bed.occupancies[0].occupant.company,
+              nik: bed.occupancies[0].occupant.nik,
+            },
             checkInDate: bed.occupancies[0].checkInDate,
             checkOutDate: bed.occupancies[0].checkOutDate,
             actualCheckIn: bed.occupancies[0].actualCheckIn,
@@ -120,6 +130,9 @@ export async function getActiveOccupancy(
         status: { in: ["PENDING", "RESERVED", "CHECKED_IN"] },
       },
       orderBy: { checkInDate: "desc" },
+      include: {
+        occupant: true,
+      },
     });
 
     if (!occupancy) {
@@ -131,17 +144,24 @@ export async function getActiveOccupancy(
       data: {
         id: occupancy.id,
         bookingId: occupancy.bookingId,
+        occupantId: occupancy.occupantId,
         bedId: occupancy.bedId,
-        occupantType: occupancy.occupantType,
-        occupantUserId: occupancy.occupantUserId,
-        occupantName: occupancy.occupantName,
-        occupantNik: occupancy.occupantNik,
-        occupantGender: occupancy.occupantGender,
-        occupantPhone: occupancy.occupantPhone,
-        occupantEmail: occupancy.occupantEmail,
-        occupantCompany: occupancy.occupantCompany,
-        occupantDepartment: occupancy.occupantDepartment,
-        occupantPosition: occupancy.occupantPosition,
+        occupant: {
+          id: occupancy.occupant.id,
+          type: occupancy.occupant.type,
+          userId: occupancy.occupant.userId,
+          nik: occupancy.occupant.nik,
+          name: occupancy.occupant.name,
+          gender: occupancy.occupant.gender,
+          phone: occupancy.occupant.phone,
+          email: occupancy.occupant.email,
+          company: occupancy.occupant.company,
+          department: occupancy.occupant.department,
+          position: occupancy.occupant.position,
+          photoUrl: occupancy.occupant.photoUrl,
+          createdAt: occupancy.occupant.createdAt,
+          updatedAt: occupancy.occupant.updatedAt,
+        },
         checkInDate: occupancy.checkInDate,
         checkOutDate: occupancy.checkOutDate,
         actualCheckIn: occupancy.actualCheckIn,
@@ -193,6 +213,11 @@ export async function assignOccupant(
             buildingId: true,
             genderPolicy: true,
             currentGender: true,
+            building: {
+              select: {
+                areaId: true,
+              },
+            },
           },
         },
       },
@@ -206,24 +231,7 @@ export async function assignOccupant(
       return { success: false, error: "Bed tidak tersedia" };
     }
 
-    // Check gender policy
-    const room = bed.room;
-    if (room.genderPolicy === "MALE_ONLY" && data.occupantGender !== "MALE") {
-      return { success: false, error: "Ruangan ini hanya untuk laki-laki" };
-    }
-    if (room.genderPolicy === "FEMALE_ONLY" && data.occupantGender !== "FEMALE") {
-      return { success: false, error: "Ruangan ini hanya untuk perempuan" };
-    }
-    if (room.genderPolicy === "FLEXIBLE" && room.currentGender) {
-      if (room.currentGender !== data.occupantGender) {
-        return {
-          success: false,
-          error: `Ruangan ini saat ini untuk ${room.currentGender === "MALE" ? "laki-laki" : "perempuan"}`,
-        };
-      }
-    }
-
-    // Check if there's existing active occupancy
+    // Check if there's existing active occupancy on this bed
     const existingOccupancy = await prisma.occupancy.findFirst({
       where: {
         bedId: data.bedId,
@@ -235,29 +243,110 @@ export async function assignOccupant(
       return { success: false, error: "Bed sudah memiliki penghuni aktif" };
     }
 
+    // Find or create Occupant
+    let occupant;
+    
+    if (data.occupantId) {
+      // Use existing occupant
+      occupant = await prisma.occupant.findUnique({
+        where: { id: data.occupantId, deletedAt: null },
+      });
+      if (!occupant) {
+        return { success: false, error: "Occupant tidak ditemukan" };
+      }
+    } else if (data.occupantNik) {
+      // Find or create by NIK
+      occupant = await prisma.occupant.findUnique({
+        where: { nik: data.occupantNik },
+      });
+      
+      if (!occupant) {
+        // Create new occupant
+        if (!data.occupantName || !data.occupantGender) {
+          return { success: false, error: "Nama dan gender wajib untuk occupant baru" };
+        }
+        occupant = await prisma.occupant.create({
+          data: {
+            type: data.occupantType || "EMPLOYEE",
+            userId: data.occupantUserId || null,
+            nik: data.occupantNik,
+            name: data.occupantName,
+            gender: data.occupantGender,
+            phone: data.occupantPhone || null,
+            email: data.occupantEmail || null,
+            company: data.occupantCompany || null,
+            department: data.occupantDepartment || null,
+            position: data.occupantPosition || null,
+          },
+        });
+      }
+    } else {
+      return { success: false, error: "Occupant ID atau NIK wajib diisi" };
+    }
+
+    // Check gender policy
+    const room = bed.room;
+    if (room.genderPolicy === "MALE_ONLY" && occupant.gender !== "MALE") {
+      return { success: false, error: "Ruangan ini hanya untuk laki-laki" };
+    }
+    if (room.genderPolicy === "FEMALE_ONLY" && occupant.gender !== "FEMALE") {
+      return { success: false, error: "Ruangan ini hanya untuk perempuan" };
+    }
+    if (room.genderPolicy === "FLEXIBLE" && room.currentGender) {
+      if (room.currentGender !== occupant.gender) {
+        return {
+          success: false,
+          error: `Ruangan ini saat ini untuk ${room.currentGender === "MALE" ? "laki-laki" : "perempuan"}`,
+        };
+      }
+    }
+
+    // Check if occupant already has active stay in SAME area
+    const existingInSameArea = await prisma.occupancy.findFirst({
+      where: {
+        occupantId: occupant.id,
+        status: { in: ["PENDING", "RESERVED", "CHECKED_IN"] },
+        bed: {
+          room: {
+            building: {
+              areaId: room.building.areaId,
+            },
+          },
+        },
+      },
+      include: {
+        bed: {
+          include: {
+            room: {
+              include: {
+                building: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (existingInSameArea) {
+      return {
+        success: false,
+        error: `${occupant.name} sudah memiliki penginapan aktif di ${existingInSameArea.bed.room.building.name}`,
+      };
+    }
+
     // Create occupancy using transaction
     const result = await prisma.$transaction(async (tx) => {
       // Determine initial status
       const initialStatus = data.autoCheckIn ? "CHECKED_IN" : "RESERVED";
 
       // Create occupancy
-      const occupancy = await tx.occupancy.create({
+      const newOccupancy = await tx.occupancy.create({
         data: {
           bedId: data.bedId,
+          occupantId: occupant.id,
           bookingId: null, // Direct placement, no booking
-          occupantType: data.occupantType,
-          occupantUserId: data.occupantUserId || null,
-          occupantName: data.occupantName,
-          occupantNik: data.occupantNik || null,
-          occupantGender: data.occupantGender,
-          occupantPhone: data.occupantPhone || null,
-          occupantEmail: data.occupantEmail || null,
-          occupantCompany: data.occupantCompany || null,
-          occupantDepartment: data.occupantDepartment || null,
-          occupantPosition: data.occupantPosition || null,
           checkInDate: data.checkInDate,
-          // If no checkOutDate provided, set a far future date (indefinite stay)
-          checkOutDate: data.checkOutDate || new Date("2099-12-31"),
+          checkOutDate: data.checkOutDate || null, // null = indefinite
           actualCheckIn: data.autoCheckIn ? new Date() : null,
           status: initialStatus,
           createdBy: currentUser.id,
@@ -276,15 +365,15 @@ export async function assignOccupant(
       if (room.genderPolicy === "FLEXIBLE" && !room.currentGender) {
         await tx.room.update({
           where: { id: room.id },
-          data: { currentGender: data.occupantGender },
+          data: { currentGender: occupant.gender },
         });
       }
 
       // Create log
       await tx.occupancyLog.create({
         data: {
-          occupancyId: occupancy.id,
-          bedId: data.bedId, // Where this action occurred
+          occupancyId: newOccupancy.id,
+          bedId: data.bedId,
           action: data.autoCheckIn ? "CHECKED_IN" : "CREATED",
           performedBy: currentUser.id,
           performedByName: currentUser.name,
@@ -294,7 +383,7 @@ export async function assignOccupant(
         },
       });
 
-      return occupancy;
+      return newOccupancy;
     });
 
     // Revalidate cache
@@ -506,16 +595,17 @@ export async function transferOccupant(
       return { success: false, error: "Unauthorized" };
     }
 
-    // Get occupancy
+    // Get occupancy with occupant
     const occupancy = await prisma.occupancy.findUnique({
       where: { id: occupancyId },
       include: {
+        occupant: true,
         bed: {
           select: {
             id: true,
             code: true,
             label: true,
-            room: { select: { buildingId: true, name: true } },
+            room: { select: { id: true, buildingId: true, name: true, genderPolicy: true } },
           },
         },
       },
@@ -536,11 +626,6 @@ export async function transferOccupant(
     transferDateObj.setHours(0, 0, 0, 0);
     const checkInDateObj = new Date(occupancy.checkInDate);
     checkInDateObj.setHours(0, 0, 0, 0);
-
-    if (transferDateObj < today) {
-       // Allow retro-active transfer if admin needs to fix data, but generally warning.
-       // For now, let's assume valid as per schema validation
-    }
     
     if (transferDateObj < checkInDateObj) {
       return { success: false, error: "Tanggal transfer tidak boleh sebelum tanggal check-in awal" };
@@ -558,7 +643,7 @@ export async function transferOccupant(
           select: {
             id: true,
             name: true,
-            buildingId: true, // Fix: Added buildingId
+            buildingId: true,
             genderPolicy: true,
             currentGender: true,
           },
@@ -570,29 +655,22 @@ export async function transferOccupant(
       return { success: false, error: "Bed tujuan tidak ditemukan" };
     }
 
-    // Note: status check skipped here because UI handles extensive availability checks
-    // But double check just in case
     if (targetBed.status !== "AVAILABLE") {
-       // Check if we are merging? No, simple logic for now.
        return { success: false, error: "Bed tujuan tidak tersedia" };
     }
 
-    // Gender Policy Checks
+    // Gender Policy Checks using Occupant data
     const targetRoom = targetBed.room;
-    if (
-      targetRoom.genderPolicy === "MALE_ONLY" &&
-      occupancy.occupantGender !== "MALE"
-    ) {
+    const occupantGender = occupancy.occupant.gender;
+    
+    if (targetRoom.genderPolicy === "MALE_ONLY" && occupantGender !== "MALE") {
       return { success: false, error: "Ruangan tujuan hanya untuk laki-laki" };
     }
-    if (
-      targetRoom.genderPolicy === "FEMALE_ONLY" &&
-      occupancy.occupantGender !== "FEMALE"
-    ) {
+    if (targetRoom.genderPolicy === "FEMALE_ONLY" && occupantGender !== "FEMALE") {
       return { success: false, error: "Ruangan tujuan hanya untuk perempuan" };
     }
     if (targetRoom.genderPolicy === "FLEXIBLE" && targetRoom.currentGender) {
-      if (targetRoom.currentGender !== occupancy.occupantGender) {
+      if (targetRoom.currentGender !== occupantGender) {
         return {
           success: false,
           error: `Ruangan tujuan saat ini untuk ${targetRoom.currentGender === "MALE" ? "laki-laki" : "perempuan"}`,
@@ -601,180 +679,81 @@ export async function transferOccupant(
     }
 
     const oldBedId = occupancy.bedId;
-    const isSameDayTransfer = transferDateObj.getTime() === checkInDateObj.getTime();
     
-    // Determine new status based on transfer date
-    // If transfer date is today or past, new occupancy is immediate (CHECKED_IN/RESERVED same as old)
-    // If future, it's RESERVED.
-    const isFutureTransfer = transferDateObj > today;
-    const newOccupancyStatus = isFutureTransfer ? "RESERVED" : occupancy.status; 
-
-    // Final check out date: use new one if provided, else use old one if consistent, else default (2099)
-    let finalCheckOutDate = newCheckOutDate || occupancy.checkOutDate;
-    if (finalCheckOutDate <= transferDateObj) {
-       // If old checkout date is before new transfer start, we must extend it
-       finalCheckOutDate = new Date("2099-12-31");
+    // Final check out date: use new one if provided, else use old one
+    let finalCheckOutDate: Date | null = newCheckOutDate || occupancy.checkOutDate;
+    // If checkout date exists and is before/equal to transfer start, clear it
+    if (finalCheckOutDate && finalCheckOutDate <= transferDateObj) {
+       finalCheckOutDate = null;
     }
 
     await prisma.$transaction(async (tx) => {
+      // With Occupant model, transfer is simple: just update bedId
+      // No need to create new Occupancy because occupant data is in separate table
       
-      if (isSameDayTransfer) {
-        // SCENARIO A: MOVE (Correction/Immediate Move on arrival)
-        // Just update the booking to point to new bed
-        
-        await tx.occupancy.update({
-          where: { id: occupancyId },
-          data: {
-            bedId: targetBedId,
-            checkInDate: transferDate, // Just in case slight adjustment
-            checkOutDate: finalCheckOutDate,
-            transferredFromBedId: oldBedId,
-            transferReason: reason,
-            transferredAt: new Date(),
-            transferredBy: currentUser.id,
-            transferredByName: currentUser.name,
-          },
-        });
+      await tx.occupancy.update({
+        where: { id: occupancyId },
+        data: {
+          bedId: targetBedId,
+          checkOutDate: finalCheckOutDate,
+          transferredFromBedId: oldBedId,
+          transferReason: reason,
+          transferredAt: new Date(),
+          transferredBy: currentUser.id,
+          transferredByName: currentUser.name,
+        },
+      });
 
-        // Old Bed -> Available
-        await tx.bed.update({
-          where: { id: oldBedId },
-          data: { status: "AVAILABLE" },
-        });
+      // Old Bed -> Available
+      await tx.bed.update({
+        where: { id: oldBedId },
+        data: { status: "AVAILABLE" },
+      });
 
-        // New Bed -> Occupied/Reserved
-        await tx.bed.update({
-          where: { id: targetBedId },
-          data: { status: occupancy.status === "CHECKED_IN" ? "OCCUPIED" : "RESERVED" },
-        });
+      // New Bed -> Occupied/Reserved (same status as before)
+      await tx.bed.update({
+        where: { id: targetBedId },
+        data: { status: occupancy.status === "CHECKED_IN" ? "OCCUPIED" : "RESERVED" },
+      });
 
-        // Log move (same-day transfer)
-         await tx.occupancyLog.create({
-          data: {
-            occupancyId: occupancyId,
-            bedId: null, // Transfer uses fromBedId/toBedId
-            action: "TRANSFERRED",
-            fromBedId: oldBedId,
-            toBedId: targetBedId,
-            performedBy: currentUser.id,
-            performedByName: currentUser.name,
-            reason: reason,
-          },
-        });
-
-      } else {
-        // SCENARIO B: SPLIT (Mid-stay transfer)
-        // 1. Close old occupancy
-        await tx.occupancy.update({
-          where: { id: occupancyId },
-          data: {
-            status: isFutureTransfer ? occupancy.status : "CHECKED_OUT", // If future, status remains until date comes? No, simpler to checkout now effectively or split.
-            // COMPLEXITY: handling future split is hard. Let's assume IMMEDIATE EFFECT for simplicity as per requirements (move "now" or "from date X effectively replacing old").
-            // If transferDate is "tomorrow", old occupancy should end "tomorrow".
-            checkOutDate: transferDate, 
-            checkoutReason: `Transfer ke ${targetBed.room.name} - ${targetBed.code}`,
-            checkoutBy: currentUser.id,
-            checkoutByName: currentUser.name,
-          }
-        });
-
-        // 2. Create new occupancy
-        const newOccupancy = await tx.occupancy.create({
-          data: {
-            // Copy identity
-            bookingId: occupancy.bookingId,
-            occupantType: occupancy.occupantType,
-            occupantUserId: occupancy.occupantUserId,
-            occupantName: occupancy.occupantName,
-            occupantNik: occupancy.occupantNik,
-            occupantGender: occupancy.occupantGender,
-            occupantPhone: occupancy.occupantPhone,
-            occupantEmail: occupancy.occupantEmail,
-            occupantCompany: occupancy.occupantCompany,
-            occupantDepartment: occupancy.occupantDepartment,
-            occupantPosition: occupancy.occupantPosition,
-            
-            // New Location
-            bedId: targetBedId,
-            
-            // New Dates
-            checkInDate: transferDate,
-            checkOutDate: finalCheckOutDate,
-            actualCheckIn: isFutureTransfer ? null : new Date(), // If immediate, auto check-in
-            
-            // Transfer Info
-            transferredFromBedId: oldBedId,
-            transferReason: reason,
-            transferredAt: new Date(),
-            transferredBy: currentUser.id,
-            transferredByName: currentUser.name,
-            
-            status: newOccupancyStatus,
-            
-            createdBy: currentUser.id,
-            createdByName: currentUser.name,
-            notes: occupancy.notes,
-          }
-        });
-
-        // 3. Update Bed Statuses
-        // Old bed becomes available only if transfer is NOT in future (i.e. today/past)
-        if (!isFutureTransfer) {
-             await tx.bed.update({
-                where: { id: oldBedId },
-                data: { status: "AVAILABLE" },
-            });
-            await tx.bed.update({
-                where: { id: targetBedId },
-                data: { status: newOccupancyStatus === "CHECKED_IN" ? "OCCUPIED" : "RESERVED" },
-            });
-        } else {
-            // Future transfer: Old bed stays occupied until date. New bed becomes RESERVED.
-            // This requires a cron job or "Check Availability" logic to actually handle "RESERVED" slots blocking availability.
-            // For now, let's mark new bed as RESERVED.
-             await tx.bed.update({
-                where: { id: targetBedId },
-                data: { status: "RESERVED" },
-            });
-            // Old bed status doesn't change yet.
-        }
-
-        // Log transfer - single log attached to NEW occupancy
-        // This log will appear in history of BOTH source and destination rooms
-        // because query includes logs where fromBedId OR toBedId matches
-        // Note: bedId is null for transfers, use fromBedId/toBedId instead
-        await tx.occupancyLog.create({
-          data: {
-            occupancyId: newOccupancy.id,
-            bedId: null, // Transfer uses fromBedId/toBedId
-            action: "TRANSFERRED",
-            fromBedId: oldBedId,
-            toBedId: targetBedId,
-            performedBy: currentUser.id,
-            performedByName: currentUser.name,
-            reason: reason,
-          },
-        });
-
-        // Also mark old occupancy as checked out (in the source room)
-        await tx.occupancyLog.create({
-          data: {
-            occupancyId: occupancyId,
-            bedId: oldBedId, // Checkout happened at old bed
-            action: "CHECKED_OUT",
-            performedBy: currentUser.id,
-            performedByName: currentUser.name,
-            notes: `Check-out karena transfer ke ${targetBed.room.name}`,
-          },
-        });
-      }
+      // Log transfer
+      await tx.occupancyLog.create({
+        data: {
+          occupancyId: occupancyId,
+          bedId: null, // Transfer uses fromBedId/toBedId
+          action: "TRANSFERRED",
+          fromBedId: oldBedId,
+          toBedId: targetBedId,
+          performedBy: currentUser.id,
+          performedByName: currentUser.name,
+          reason: reason,
+        },
+      });
 
       // Update room gender if flexible
       if (targetRoom.genderPolicy === "FLEXIBLE" && !targetRoom.currentGender) {
         await tx.room.update({
           where: { id: targetRoom.id },
-          data: { currentGender: occupancy.occupantGender },
+          data: { currentGender: occupantGender },
         });
+      }
+
+      // Reset source room gender if it was flexible and no other occupants remain
+      if (occupancy.bed.room.genderPolicy === "FLEXIBLE") {
+        const remainingOccupants = await tx.occupancy.count({
+          where: {
+            bed: { roomId: occupancy.bed.room.id },
+            status: { in: ["PENDING", "RESERVED", "CHECKED_IN"] },
+            id: { not: occupancyId },
+          },
+        });
+
+        if (remainingOccupants === 0) {
+          await tx.room.update({
+            where: { id: occupancy.bed.room.id },
+            data: { currentGender: null },
+          });
+        }
       }
     });
 
@@ -924,14 +903,16 @@ export async function getAvailableBedsForTransfer(
 
     const areaId = currentBed.room.building.areaId;
 
-    // Find available beds in all buildings within the same area that match gender policy
+    // Find available beds in all buildings within the same area that match gender policy (exclude deleted)
     const availableBeds = await prisma.bed.findMany({
       where: {
         id: { not: currentBedId },
         status: "AVAILABLE",
+        deletedAt: null,
         room: {
           status: "ACTIVE",
-          building: { areaId: areaId },
+          deletedAt: null,
+          building: { areaId: areaId, deletedAt: null },
           OR: [
             { genderPolicy: "MIX" },
             { genderPolicy: occupantGender === "MALE" ? "MALE_ONLY" : "FEMALE_ONLY" },
@@ -1075,10 +1056,14 @@ export async function getRoomHistory(
         occupancy: {
           select: {
             id: true,
-            occupantName: true,
-            occupantType: true,
-            occupantGender: true,
             bookingId: true,
+            occupant: {
+              select: {
+                name: true,
+                type: true,
+                gender: true,
+              },
+            },
             booking: {
               select: {
                 code: true,
@@ -1165,9 +1150,11 @@ export async function getRoomHistory(
       notes: log.notes,
       occupancy: {
         id: log.occupancy.id,
-        occupantName: log.occupancy.occupantName,
-        occupantType: log.occupancy.occupantType as "EMPLOYEE" | "GUEST",
-        occupantGender: log.occupancy.occupantGender as "MALE" | "FEMALE",
+        occupant: {
+          name: log.occupancy.occupant.name,
+          type: log.occupancy.occupant.type as "EMPLOYEE" | "GUEST",
+          gender: log.occupancy.occupant.gender as "MALE" | "FEMALE",
+        },
         bookingId: log.occupancy.bookingId,
         booking: log.occupancy.booking,
         bed: log.occupancy.bed,

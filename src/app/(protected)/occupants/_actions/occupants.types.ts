@@ -85,9 +85,12 @@ export interface SortParams {
 export interface OccupantListItem {
   id: string;
   
-  // Occupant Info
+  // Occupant Reference
+  occupantId: string;
+  
+  // Occupant Info (from Occupant table)
   occupantName: string;
-  occupantNik: string | null;
+  occupantNik: string;
   occupantType: OccupantType;
   occupantGender: Gender;
   occupantPhone: string | null;

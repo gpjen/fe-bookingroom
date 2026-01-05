@@ -39,15 +39,15 @@ async function main() {
   const sampleOccupants = [
     // CHECKED_IN occupants
     {
-      name: "Ahmad Hidayat",
-      nik: "D0520001234",
+      name: "TEST",
+      nik: "D12345",
       type: "EMPLOYEE" as const,
       gender: "MALE" as const,
       company: "PT Dharma Cipta Mulia",
-      department: "Engineering",
-      position: "Senior Engineer",
+      department: "IT",
+      position: "APP",
       phone: "081234567890",
-      email: "ahmad.hidayat@company.com",
+      email: "test@app.com",
       status: "CHECKED_IN" as const,
       daysAgo: 3,
       stayDays: 14,
@@ -82,7 +82,7 @@ async function main() {
     },
     {
       name: "John Smith",
-      nik: null,
+      nik: "GUEST-001",
       type: "GUEST" as const,
       gender: "MALE" as const,
       company: "PT Vendor International",
@@ -140,7 +140,7 @@ async function main() {
     },
     {
       name: "Maria Santos",
-      nik: null,
+      nik: "L8762138746",
       type: "GUEST" as const,
       gender: "FEMALE" as const,
       company: "PT Contractor Asia",
@@ -213,19 +213,34 @@ async function main() {
       continue;
     }
 
-    // Create occupancy
+    // Find or create Occupant (master data)
+    // NIK is required in Occupant table, so we assert it's not null
+    const nikValue = occupant.nik!;
+    let occ = await prisma.occupant.findUnique({
+      where: { nik: nikValue },
+    });
+
+    if (!occ) {
+      occ = await prisma.occupant.create({
+        data: {
+          type: occupant.type,
+          nik: nikValue,
+          name: occupant.name,
+          gender: occupant.gender,
+          phone: occupant.phone || undefined,
+          email: occupant.email || undefined,
+          company: occupant.company || undefined,
+          department: occupant.department || undefined,
+          position: occupant.position || undefined,
+        },
+      });
+    }
+
+    // Create occupancy with reference to Occupant
     await prisma.occupancy.create({
       data: {
         bedId: bed.id,
-        occupantType: occupant.type,
-        occupantName: occupant.name,
-        occupantNik: occupant.nik,
-        occupantGender: occupant.gender,
-        occupantPhone: occupant.phone,
-        occupantEmail: occupant.email,
-        occupantCompany: occupant.company,
-        occupantDepartment: occupant.department,
-        occupantPosition: occupant.position,
+        occupantId: occ.id,
         checkInDate: checkInDate,
         checkOutDate: checkOutDate,
         actualCheckIn: occupant.status === "CHECKED_IN" || occupant.status === "CHECKED_OUT" 

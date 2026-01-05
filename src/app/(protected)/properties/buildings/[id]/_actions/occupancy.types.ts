@@ -19,25 +19,38 @@ export type ActionResponse<T = unknown> =
   | { success: false; error: string };
 
 // ========================================
+// OCCUPANT DATA TYPES (Master Data)
+// ========================================
+
+export interface OccupantData {
+  id: string;
+  type: OccupantType;
+  userId: string | null;
+  nik: string;
+  name: string;
+  gender: Gender;
+  phone: string | null;
+  email: string | null;
+  company: string | null;
+  department: string | null;
+  position: string | null;
+  photoUrl: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// ========================================
 // OCCUPANCY DATA TYPES
 // ========================================
 
 export interface OccupancyData {
   id: string;
   bookingId: string | null;
+  occupantId: string;
   bedId: string;
   
-  // Occupant Info
-  occupantType: OccupantType;
-  occupantUserId: string | null;
-  occupantName: string;
-  occupantNik: string | null;
-  occupantGender: Gender;
-  occupantPhone: string | null;
-  occupantEmail: string | null;
-  occupantCompany: string | null;
-  occupantDepartment: string | null;
-  occupantPosition: string | null;
+  // Occupant Info (joined from Occupant)
+  occupant: OccupantData;
   
   // Dates
   checkInDate: Date;
@@ -56,10 +69,14 @@ export interface OccupancyData {
 
 export interface ActiveOccupancyInfo {
   id: string;
-  occupantName: string;
-  occupantType: OccupantType;
-  occupantGender: Gender;
-  occupantCompany: string | null;
+  occupant: {
+    id: string;
+    name: string;
+    type: OccupantType;
+    gender: Gender;
+    company: string | null;
+    nik: string;
+  };
   checkInDate: Date;
   checkOutDate: Date | null; // Nullable for indefinite stays
   actualCheckIn: Date | null;
@@ -83,13 +100,16 @@ export interface BedWithOccupancy {
 
 export const assignOccupantSchema = z.object({
   bedId: z.string().min(1, "Bed ID wajib"),
-  occupantType: z.enum(["EMPLOYEE", "GUEST"]),
   
-  // Occupant Identity
+  // Either use existing occupant or create new
+  occupantId: z.string().optional().nullable(), // Use existing occupant
+  
+  // New occupant fields (used when occupantId is not provided)
+  occupantType: z.enum(["EMPLOYEE", "GUEST"]).optional(),
   occupantUserId: z.string().optional().nullable(),
-  occupantName: z.string().min(2, "Nama minimal 2 karakter"),
+  occupantName: z.string().optional(),
   occupantNik: z.string().optional().nullable(),
-  occupantGender: z.enum(["MALE", "FEMALE"]),
+  occupantGender: z.enum(["MALE", "FEMALE"]).optional(),
   occupantPhone: z.string().optional().nullable(),
   occupantEmail: z.string().email().optional().nullable().or(z.literal("")),
   occupantCompany: z.string().optional().nullable(),
@@ -103,6 +123,26 @@ export const assignOccupantSchema = z.object({
   // Options
   autoCheckIn: z.boolean().default(false), // Langsung check-in atau pending
   notes: z.string().optional().nullable(),
+}).refine((data) => {
+  // Must have either occupantId (existing) or occupantNik (new)
+  if (!data.occupantId && !data.occupantNik) {
+    return false;
+  }
+  return true;
+}, {
+  message: "Harus pilih occupant yang sudah ada atau masukkan NIK baru",
+  path: ["occupantNik"],
+}).refine((data) => {
+  // If new occupant, name and gender are required
+  if (!data.occupantId) {
+    if (!data.occupantName || data.occupantName.length < 2) {
+      return false;
+    }
+  }
+  return true;
+}, {
+  message: "Nama wajib diisi (minimal 2 karakter)",
+  path: ["occupantName"],
 }).refine((data) => {
   // If checkOutDate provided, must be after checkInDate
   if (data.checkOutDate) {
@@ -198,9 +238,11 @@ export interface OccupancyLogData {
   // Occupancy info (joined)
   occupancy: {
     id: string;
-    occupantName: string;
-    occupantType: OccupantType;
-    occupantGender: Gender;
+    occupant: {
+      name: string;
+      type: OccupantType;
+      gender: Gender;
+    };
     bookingId: string | null;
     booking: {
       code: string;
@@ -225,4 +267,20 @@ export interface RoomHistoryFilter {
   actionFilter?: OccupancyLogAction[];
   dateFrom?: Date;
   dateTo?: Date;
+}
+
+// ========================================
+// SEARCH/LOOKUP TYPES
+// ========================================
+
+export interface OccupantSearchResult {
+  id: string;
+  type: OccupantType;
+  nik: string;
+  name: string;
+  gender: Gender;
+  company: string | null;
+  department: string | null;
+  hasActiveStay: boolean;
+  activeStayArea: string | null;
 }

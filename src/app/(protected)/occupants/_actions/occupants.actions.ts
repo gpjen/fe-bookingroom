@@ -60,15 +60,15 @@ function buildWhereClause(filters: OccupantFilters) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const where: any = {};
   
-  // Search (name, NIK, email, phone, company)
+  // Search (name, NIK, email, phone, company) - now search in Occupant table
   if (filters.search) {
     const searchLower = filters.search.toLowerCase();
     where.OR = [
-      { occupantName: { contains: searchLower, mode: "insensitive" } },
-      { occupantNik: { contains: searchLower, mode: "insensitive" } },
-      { occupantEmail: { contains: searchLower, mode: "insensitive" } },
-      { occupantPhone: { contains: searchLower, mode: "insensitive" } },
-      { occupantCompany: { contains: searchLower, mode: "insensitive" } },
+      { occupant: { name: { contains: searchLower, mode: "insensitive" } } },
+      { occupant: { nik: { contains: searchLower, mode: "insensitive" } } },
+      { occupant: { email: { contains: searchLower, mode: "insensitive" } } },
+      { occupant: { phone: { contains: searchLower, mode: "insensitive" } } },
+      { occupant: { company: { contains: searchLower, mode: "insensitive" } } },
       { bed: { code: { contains: searchLower, mode: "insensitive" } } },
       { bed: { room: { code: { contains: searchLower, mode: "insensitive" } } } },
       { bed: { room: { building: { name: { contains: searchLower, mode: "insensitive" } } } } },
@@ -85,14 +85,14 @@ function buildWhereClause(filters: OccupantFilters) {
     where.status = { in: ["PENDING", "RESERVED", "CHECKED_IN"] };
   }
   
-  // Occupant type
+  // Occupant type - now search in Occupant table
   if (filters.occupantType) {
-    where.occupantType = filters.occupantType;
+    where.occupant = { ...where.occupant, type: filters.occupantType };
   }
   
-  // Gender
+  // Gender - now search in Occupant table
   if (filters.gender) {
-    where.occupantGender = filters.gender;
+    where.occupant = { ...where.occupant, gender: filters.gender };
   }
   
   // Building filter
@@ -156,7 +156,7 @@ function buildOrderBy(sort: SortParams): Prisma.OccupancyOrderByWithRelationInpu
   const dir = sort.direction as Prisma.SortOrder;
   switch (sort.field) {
     case "occupantName":
-      return { occupantName: dir };
+      return { occupant: { name: dir } };
     case "checkInDate":
       return { checkInDate: dir };
     case "checkOutDate":
@@ -200,6 +200,7 @@ export async function getOccupants(
       skip,
       take: pageSize,
       include: {
+        occupant: true,
         booking: {
           select: {
             code: true,
@@ -221,16 +222,17 @@ export async function getOccupants(
       },
     });
     
-    // Transform to OccupantListItem
+    // Transform to OccupantListItem using Occupant data
     const data: OccupantListItem[] = occupancies.map((occ) => ({
       id: occ.id,
-      occupantName: occ.occupantName,
-      occupantNik: occ.occupantNik,
-      occupantType: occ.occupantType,
-      occupantGender: occ.occupantGender,
-      occupantPhone: occ.occupantPhone,
-      occupantEmail: occ.occupantEmail,
-      occupantCompany: occ.occupantCompany,
+      occupantId: occ.occupantId,
+      occupantName: occ.occupant.name,
+      occupantNik: occ.occupant.nik,
+      occupantType: occ.occupant.type,
+      occupantGender: occ.occupant.gender,
+      occupantPhone: occ.occupant.phone,
+      occupantEmail: occ.occupant.email,
+      occupantCompany: occ.occupant.company,
       checkInDate: occ.checkInDate,
       checkOutDate: occ.checkOutDate,
       actualCheckIn: occ.actualCheckIn,
@@ -286,6 +288,7 @@ export async function getOccupantById(
     const occupancy = await prisma.occupancy.findUnique({
       where: { id },
       include: {
+        occupant: true,
         booking: {
           select: {
             id: true,
@@ -392,16 +395,17 @@ export async function getOccupantById(
     
     const detail: OccupantDetail = {
       id: occupancy.id,
-      occupantName: occupancy.occupantName,
-      occupantNik: occupancy.occupantNik,
-      occupantType: occupancy.occupantType,
-      occupantGender: occupancy.occupantGender,
-      occupantPhone: occupancy.occupantPhone,
-      occupantEmail: occupancy.occupantEmail,
-      occupantCompany: occupancy.occupantCompany,
-      occupantUserId: occupancy.occupantUserId,
-      occupantDepartment: occupancy.occupantDepartment,
-      occupantPosition: occupancy.occupantPosition,
+      occupantId: occupancy.occupantId,
+      occupantName: occupancy.occupant.name,
+      occupantNik: occupancy.occupant.nik,
+      occupantType: occupancy.occupant.type,
+      occupantGender: occupancy.occupant.gender,
+      occupantPhone: occupancy.occupant.phone,
+      occupantEmail: occupancy.occupant.email,
+      occupantCompany: occupancy.occupant.company,
+      occupantUserId: occupancy.occupant.userId,
+      occupantDepartment: occupancy.occupant.department,
+      occupantPosition: occupancy.occupant.position,
       checkInDate: occupancy.checkInDate,
       checkOutDate: occupancy.checkOutDate,
       originalCheckOutDate: occupancy.originalCheckOutDate,

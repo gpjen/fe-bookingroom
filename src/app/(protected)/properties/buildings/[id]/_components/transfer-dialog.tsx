@@ -159,7 +159,7 @@ export function TransferDialog({
         setLoadingRooms(true);
         const result = await getRoomsWithAvailability(
           selectedBuildingId,
-          bed.activeOccupancy!.occupantGender
+          bed.activeOccupancy!.occupant.gender
         );
         if (result.success) {
           setRooms(result.data);
@@ -299,7 +299,7 @@ export function TransferDialog({
             Transfer Penghuni
           </DialogTitle>
           <DialogDescription>
-            Pindahkan <strong>{bed.activeOccupancy.occupantName}</strong> dari{" "}
+            Pindahkan <strong>{bed.activeOccupancy.occupant.name}</strong> dari{" "}
             <span className="font-mono">{bed.code}</span> ke bed lain.
           </DialogDescription>
         </DialogHeader>
@@ -357,7 +357,7 @@ export function TransferDialog({
               ) : rooms.length === 0 ? (
                 <p className="text-sm text-muted-foreground py-2">
                   Tidak ada ruangan tersedia untuk gender{" "}
-                  {bed.activeOccupancy.occupantGender === "MALE"
+                  {bed.activeOccupancy.occupant.gender === "MALE"
                     ? "Pria"
                     : "Wanita"}
                 </p>

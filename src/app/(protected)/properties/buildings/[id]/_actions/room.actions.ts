@@ -2,6 +2,8 @@
 
 import { prisma } from "@/lib/db";
 import { revalidatePath } from "next/cache";
+import { getServerSession } from "next-auth";
+import { authOptions } from "@/auth";
 import {
   ActionResponse,
   RoomWithBeds,
@@ -63,6 +65,7 @@ export async function getRoomById(
         status: true,
         createdAt: true,
         updatedAt: true,
+        deletedAt: true,
         roomType: {
           select: {
             id: true,
@@ -73,6 +76,7 @@ export async function getRoomById(
           },
         },
         beds: {
+          where: { deletedAt: null },
           orderBy: { position: "asc" },
           select: {
             id: true,
@@ -87,7 +91,7 @@ export async function getRoomById(
       },
     });
 
-    if (!room) {
+    if (!room || room.deletedAt) {
       return { success: false, error: "Ruangan tidak ditemukan" };
     }
 
@@ -281,15 +285,22 @@ export async function deleteRoom(
   id: string
 ): Promise<ActionResponse<{ id: string }>> {
   try {
+    // Get current user for audit
+    const session = await getServerSession(authOptions);
+    const username = session?.user?.name || "system";
+
     // Check if room exists
+    // Note: After running migration, add `deletedAt: null` filter
     const room = await prisma.room.findUnique({
       where: { id },
       select: {
         id: true,
         buildingId: true,
+        deletedAt: true,
         beds: {
           select: {
             id: true,
+            deletedAt: true,
             _count: {
               select: {
                 occupancies: {
@@ -304,14 +315,14 @@ export async function deleteRoom(
       },
     });
 
-    if (!room) {
+    if (!room || room.deletedAt) {
       return { success: false, error: "Ruangan tidak ditemukan" };
     }
 
-    // Check for active occupancies
-    const hasActiveOccupancy = room.beds.some(
-      (bed) => bed._count.occupancies > 0
-    );
+    // Check for active occupancies (only non-deleted beds)
+    const hasActiveOccupancy = room.beds
+      .filter((bed) => !bed.deletedAt)
+      .some((bed) => bed._count.occupancies > 0);
 
     if (hasActiveOccupancy) {
       return {
@@ -321,10 +332,20 @@ export async function deleteRoom(
       };
     }
 
-    // Delete room (beds will cascade delete)
-    await prisma.room.delete({
-      where: { id },
-    });
+    // Soft delete room and its beds
+    const now = new Date();
+    await prisma.$transaction([
+      // Soft delete all beds in the room
+      prisma.bed.updateMany({
+        where: { roomId: id, deletedAt: null },
+        data: { deletedAt: now, deletedBy: username },
+      }),
+      // Soft delete the room
+      prisma.room.update({
+        where: { id },
+        data: { deletedAt: now, deletedBy: username },
+      }),
+    ]);
 
     // Revalidate cache
     revalidatePath(`/properties/buildings/${room.buildingId}`);
@@ -345,7 +366,7 @@ export async function getFloorNumbers(
 ): Promise<ActionResponse<{ floorNumber: number; floorName: string | null }[]>> {
   try {
     const floors = await prisma.room.findMany({
-      where: { buildingId },
+      where: { buildingId, deletedAt: null },
       distinct: ["floorNumber"],
       orderBy: { floorNumber: "asc" },
       select: {
@@ -502,12 +523,17 @@ export async function deleteBed(
   id: string
 ): Promise<ActionResponse<{ id: string }>> {
   try {
+    // Get current user for audit
+    const session = await getServerSession(authOptions);
+    const username = session?.user?.name || "system";
+
     // Check if bed exists
     const bed = await prisma.bed.findUnique({
       where: { id },
       select: {
         id: true,
         status: true,
+        deletedAt: true,
         room: {
           select: {
             buildingId: true,
@@ -525,7 +551,7 @@ export async function deleteBed(
       },
     });
 
-    if (!bed) {
+    if (!bed || bed.deletedAt) {
       return { success: false, error: "Bed tidak ditemukan" };
     }
 
@@ -537,9 +563,10 @@ export async function deleteBed(
       };
     }
 
-    // Delete bed
-    await prisma.bed.delete({
+    // Soft delete bed
+    await prisma.bed.update({
       where: { id },
+      data: { deletedAt: new Date(), deletedBy: username },
     });
 
     // Revalidate cache

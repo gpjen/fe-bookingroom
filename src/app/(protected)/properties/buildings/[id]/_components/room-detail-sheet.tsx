@@ -482,7 +482,7 @@ function CheckoutDialog({
             Checkout Penghuni
           </DialogTitle>
           <DialogDescription>
-            Checkout <strong>{bed?.activeOccupancy?.occupantName}</strong> dari{" "}
+            Checkout <strong>{bed?.activeOccupancy?.occupant.name}</strong> dari{" "}
             <span className="font-mono">{bed?.code}</span>?
           </DialogDescription>
         </DialogHeader>
@@ -570,7 +570,7 @@ function CancelDialog({
           </DialogTitle>
           <DialogDescription>
             Batalkan reservasi{" "}
-            <strong>{bed?.activeOccupancy?.occupantName}</strong>?
+            <strong>{bed?.activeOccupancy?.occupant.name}</strong>?
           </DialogDescription>
         </DialogHeader>
 
@@ -687,15 +687,15 @@ function BedListItem({
           <div className="flex items-center gap-2">
             <User className="h-3.5 w-3.5 text-muted-foreground" />
             <span className="text-sm font-medium">
-              {occupancy.occupantName}
+              {occupancy.occupant.name}
             </span>
             <Badge variant="secondary" className="text-[9px] ml-auto">
-              {occupancy.occupantType === "EMPLOYEE" ? "Karyawan" : "Tamu"}
+              {occupancy.occupant.type === "EMPLOYEE" ? "Karyawan" : "Tamu"}
             </Badge>
           </div>
-          {occupancy.occupantCompany && (
+          {occupancy.occupant.company && (
             <p className="text-[10px] text-muted-foreground mt-0.5 ml-5">
-              {occupancy.occupantCompany}
+              {occupancy.occupant.company}
             </p>
           )}
           <p className="text-[10px] text-muted-foreground mt-1 ml-5">
@@ -1053,7 +1053,7 @@ function HistoryTab({ room }: { room: RoomData }) {
 
   // Get action description
   const getActionDescription = (log: OccupancyLogData): string => {
-    const name = log.occupancy.occupantName;
+    const name = log.occupancy.occupant.name;
     const currentBed = log.occupancy.bed;
     const currentLocation = `${currentBed.label} (${currentBed.room.name}, ${currentBed.room.building.name})`;
 
@@ -1194,7 +1194,7 @@ function HistoryTab({ room }: { room: RoomData }) {
                     {/* Occupant type badge */}
                     <div className="mt-1">
                       <Badge variant="outline" className="text-[9px] h-4 px-1">
-                        {log.occupancy.occupantType === "EMPLOYEE"
+                        {log.occupancy.occupant.type === "EMPLOYEE"
                           ? "Karyawan"
                           : "Tamu"}
                       </Badge>

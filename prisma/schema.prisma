@@ -106,12 +106,15 @@ model Building {
   images        BuildingImage[] // Building photos
   rooms         Room[] // Rooms in this building
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime? // Soft delete timestamp
+  deletedBy String? // Username who deleted
 
   @@index([areaId])
   @@index([buildingTypeId])
   @@index([status])
+  @@index([deletedAt])
 }
 
 // ========================================
@@ -200,6 +203,7 @@ model User {
   userCompanies   UserCompany[]
   userBuildings   UserBuilding[]
   notifications   NotificationRecipient[]
+  occupant        Occupant? // Link to occupant record for stay history
 
   @@index([usernameKey])
   @@index([email])
@@ -424,6 +428,53 @@ enum OccupancyLogAction {
 }
 
 // ==========================================
+// OCCUPANT (Master Data for People)
+// ==========================================
+
+model Occupant {
+  id   String       @id @default(cuid())
+  type OccupantType // EMPLOYEE | GUEST
+
+  // Link to User (for EMPLOYEE type)
+  // When userId is set, this occupant is an employee and can see their stay history
+  userId String? @unique
+
+  // Identity (NIK is unique - one person = one record)
+  nik    String @unique // NIK for employee, KTP for guest
+  name   String
+  gender Gender
+
+  // Contact
+  phone String?
+  email String?
+
+  // Company Info (snapshot for guests, or from User for employees)
+  company    String?
+  department String?
+  position   String?
+
+  // Photo
+  photoUrl String?
+
+  // Soft delete
+  deletedAt DateTime?
+  deletedBy String?
+
+  // Relations
+  user  User?       @relation(fields: [userId], references: [id], onDelete: SetNull)
+  stays Occupancy[] // All stays (current + history)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([type])
+  @@index([nik])
+  @@index([deletedAt])
+  @@map("occupants")
+}
+
+// ==========================================
 // BUILDING IMAGE
 // ==========================================
 
@@ -490,8 +541,10 @@ model Room {
   beds     Bed[]
   images   RoomImage[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime? // Soft delete timestamp
+  deletedBy String? // Username who deleted
 
   @@index([buildingId])
   @@index([buildingId, floorNumber])
@@ -499,6 +552,7 @@ model Room {
   @@index([status])
   @@index([allowedOccupantType])
   @@index([isBookable])
+  @@index([deletedAt])
   @@map("rooms")
 }
 
@@ -553,11 +607,14 @@ model Bed {
   room        Room        @relation(fields: [roomId], references: [id], onDelete: Cascade)
   occupancies Occupancy[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime? // Soft delete timestamp
+  deletedBy String? // Username who deleted
 
   @@index([roomId])
   @@index([status])
+  @@index([deletedAt])
   @@map("beds")
 }
 
@@ -658,21 +715,10 @@ model BookingAttachment {
 // ==========================================
 
 model Occupancy {
-  id        String  @id @default(cuid())
-  bookingId String? // Nullable - NULL means direct placement by admin
-  bedId     String
-
-  // Occupant Type & Identity
-  occupantType       OccupantType
-  occupantUserId     String? // FK to User (for EMPLOYEE)
-  occupantName       String
-  occupantNik        String? // NIK (employee) or KTP (guest)
-  occupantGender     Gender
-  occupantPhone      String?
-  occupantEmail      String?
-  occupantCompany    String?
-  occupantDepartment String?
-  occupantPosition   String?
+  id         String  @id @default(cuid())
+  bookingId  String? // Nullable - NULL means direct placement by admin
+  occupantId String // Reference to master Occupant data
+  bedId      String
 
   // Stay Period (can be different from Booking dates, but within range)
   // checkOutDate is optional - NULL means indefinite stay (e.g., employees, special guests)
@@ -690,7 +736,7 @@ model Occupancy {
   createdBy     String?
   createdByName String?
 
-  // Transfer Info
+  // Transfer Info (for tracking bed changes within same stay)
   transferredFromBedId String?
   transferReason       String?
   transferredAt        DateTime?
@@ -705,18 +751,17 @@ model Occupancy {
   notes String?
 
   // Relations
-  booking Booking?       @relation(fields: [bookingId], references: [id], onDelete: SetNull)
-  bed     Bed            @relation(fields: [bedId], references: [id])
-  logs    OccupancyLog[]
+  occupant Occupant       @relation(fields: [occupantId], references: [id])
+  booking  Booking?       @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  bed      Bed            @relation(fields: [bedId], references: [id])
+  logs     OccupancyLog[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([occupantId])
   @@index([bookingId])
   @@index([bedId])
-  @@index([occupantType])
-  @@index([occupantUserId])
-  @@index([occupantNik])
   @@index([status])
   @@index([checkInDate])
   @@index([checkOutDate])

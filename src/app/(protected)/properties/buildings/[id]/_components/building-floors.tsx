@@ -55,9 +55,14 @@ interface RoomCardProps {
 
 function RoomCard({ room, onView, onEdit, onDelete }: RoomCardProps) {
   const bedsOccupied = room.beds.filter((b) => b.status === "OCCUPIED").length;
+  const bedsReserved = room.beds.filter((b) => b.status === "RESERVED").length;
+  const bedsAvailable = room.beds.filter(
+    (b) => b.status === "AVAILABLE"
+  ).length;
   const totalBeds = room.beds.length;
   const hasOccupants = bedsOccupied > 0;
   const isFull = bedsOccupied === totalBeds && totalBeds > 0;
+  const hasPendingCheckIns = bedsReserved > 0;
 
   // Status color for occupancy indicator
   const getIndicatorColor = () => {
@@ -81,14 +86,24 @@ function RoomCard({ room, onView, onEdit, onDelete }: RoomCardProps) {
   return (
     <div
       className={cn(
-        "group relative flex flex-col h-full min-h-[6rem] p-3 rounded-lg border cursor-pointer transition-all",
+        "group relative flex flex-col h-full min-h-[7rem] p-3 rounded-lg border cursor-pointer transition-all",
         "hover:shadow-sm hover:border-primary/40 hover:bg-slate-50/50 dark:hover:bg-slate-900/20",
         room.status === "MAINTENANCE" &&
           "bg-amber-50/50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-800",
-        room.status === "INACTIVE" && "opacity-50"
+        room.status === "INACTIVE" && "opacity-50",
+        hasPendingCheckIns && "ring-2 ring-blue-200 dark:ring-blue-800"
       )}
       onClick={onView}
     >
+      {/* Pending check-in indicator */}
+      {hasPendingCheckIns && (
+        <div className="absolute -top-2 -right-2 z-10">
+          <Badge className="h-5 px-1.5 text-[10px] bg-blue-500 hover:bg-blue-500 text-white shadow-sm animate-pulse">
+            {bedsReserved} pending
+          </Badge>
+        </div>
+      )}
+
       {/* Top section: Room info */}
       <div className="flex items-start justify-between mb-2">
         {/* Room code */}
@@ -188,18 +203,41 @@ function RoomCard({ room, onView, onEdit, onDelete }: RoomCardProps) {
               )}
             </div>
 
-            {/* Status label */}
-            <span className="text-xs font-medium">
-              {room.status === "MAINTENANCE"
-                ? "Perbaikan"
-                : room.status === "INACTIVE"
-                ? "Tidak Aktif"
-                : isFull
-                ? "Penuh"
-                : bedsOccupied > 0
-                ? "Terisi"
-                : "Kosong"}
-            </span>
+            {/* Status info */}
+            <div className="flex flex-col">
+              <span className="text-xs font-medium">
+                {room.status === "MAINTENANCE"
+                  ? "Perbaikan"
+                  : room.status === "INACTIVE"
+                  ? "Tidak Aktif"
+                  : isFull
+                  ? "Penuh"
+                  : bedsOccupied > 0
+                  ? "Terisi"
+                  : "Kosong"}
+              </span>
+              {/* Quick stats */}
+              <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                {bedsAvailable > 0 && (
+                  <span className="flex items-center gap-0.5">
+                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                    {bedsAvailable}
+                  </span>
+                )}
+                {bedsReserved > 0 && (
+                  <span className="flex items-center gap-0.5">
+                    <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />
+                    {bedsReserved}
+                  </span>
+                )}
+                {bedsOccupied > 0 && (
+                  <span className="flex items-center gap-0.5">
+                    <div className="w-1.5 h-1.5 rounded-full bg-orange-500" />
+                    {bedsOccupied}
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
 
           {/* Capacity info */}

@@ -13,7 +13,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Accordion,
   AccordionContent,
@@ -163,7 +162,8 @@ export function OccupantDetailSheet({
 }: OccupantDetailSheetProps) {
   const [detail, setDetail] = useState<OccupantDetail | null>(null);
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState("profile");
+  // Default to "stays" tab to show current/active occupancies first
+  const [activeTab, setActiveTab] = useState("stays");
   const [isPending, startTransition] = useTransition();
 
   // Fetch detail data
@@ -185,9 +185,10 @@ export function OccupantDetailSheet({
   useEffect(() => {
     if (open && occupant?.id) {
       fetchDetail(occupant.id);
+      setActiveTab("stays"); // Reset to stays tab
     } else if (!open) {
       setDetail(null);
-      setActiveTab("profile");
+      setActiveTab("stays");
     }
   }, [open, occupant?.id, fetchDetail]);
 
@@ -231,7 +232,7 @@ export function OccupantDetailSheet({
       <SheetContent className="w-full sm:max-w-xl overflow-hidden flex flex-col p-0 border-l border-border/40 shadow-2xl">
         <SheetHeader className="px-6 py-6 pb-2 space-y-4 bg-gradient-to-b from-muted/30 to-transparent">
           <div className="flex items-start justify-between">
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 flex-1 min-w-0">
               <SheetTitle className="text-xl font-bold tracking-tight">
                 {loading ? (
                   <Skeleton className="h-7 w-48" />
@@ -240,28 +241,76 @@ export function OccupantDetailSheet({
                 )}
               </SheetTitle>
               <SheetDescription asChild>
-                <div className="flex items-center gap-2 text-sm">
+                <div className="flex flex-col gap-2">
                   {loading ? (
                     <Skeleton className="h-5 w-32" />
                   ) : (
                     detail && (
-                      <div className="flex items-center gap-2 font-medium">
-                        <Badge
-                          variant="secondary"
-                          className="rounded-md px-2 py-0.5 h-6 bg-background/50 backdrop-blur-sm border shadow-sm text-foreground/80"
-                        >
-                          {detail.occupantType === "EMPLOYEE"
-                            ? "Karyawan"
-                            : "Tamu"}
-                        </Badge>
-                        <span className="text-muted-foreground flex items-center gap-1.5 text-xs">
+                      <>
+                        {/* Type and Company */}
+                        <div className="flex items-center gap-2 text-sm">
+                          <Badge
+                            variant="secondary"
+                            className="rounded-md px-2 py-0.5 h-6 bg-background/50 backdrop-blur-sm border shadow-sm text-foreground/80"
+                          >
+                            {detail.occupantType === "EMPLOYEE"
+                              ? "Karyawan"
+                              : "Tamu"}
+                          </Badge>
                           {detail.occupantCompany && (
-                            <span className="truncate max-w-[200px]">
+                            <span className="text-muted-foreground text-xs truncate max-w-[180px]">
                               {detail.occupantCompany}
                             </span>
                           )}
-                        </span>
-                      </div>
+                        </div>
+
+                        {/* Active Stays Summary */}
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {(() => {
+                            const activeOccupancies = detail.occupancies.filter(
+                              (o) =>
+                                ["PENDING", "RESERVED", "CHECKED_IN"].includes(
+                                  o.status
+                                )
+                            );
+                            const activeCount = activeOccupancies.length;
+
+                            if (activeCount === 0) {
+                              return (
+                                <Badge
+                                  variant="outline"
+                                  className="text-xs text-muted-foreground"
+                                >
+                                  Tidak ada hunian aktif
+                                </Badge>
+                              );
+                            }
+
+                            return (
+                              <>
+                                <Badge
+                                  variant="default"
+                                  className="text-xs bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400"
+                                >
+                                  <Building2 className="h-3 w-3 mr-1" />
+                                  {activeCount} Hunian Aktif
+                                </Badge>
+                                {activeCount > 1 && (
+                                  <span className="text-[10px] text-violet-600 dark:text-violet-400 font-medium">
+                                    di {activeCount} area berbeda
+                                  </span>
+                                )}
+                              </>
+                            );
+                          })()}
+
+                          {detail.occupancies.length > 0 && (
+                            <span className="text-[10px] text-muted-foreground">
+                              • {detail.occupancies.length} total riwayat
+                            </span>
+                          )}
+                        </div>
+                      </>
                     )
                   )}
                 </div>
@@ -310,7 +359,7 @@ export function OccupantDetailSheet({
 
             <Separator className="mt-4 opacity-50" />
 
-            <ScrollArea className="flex-1">
+            <div className="flex-1 min-h-0 overflow-y-auto">
               <div className="p-6">
                 <TabsContent value="stays" className="m-0 space-y-6">
                   {detail.occupancies.length === 0 ? (
@@ -670,7 +719,7 @@ export function OccupantDetailSheet({
                   </div>
                 </TabsContent>
               </div>
-            </ScrollArea>
+            </div>
           </Tabs>
         )}
       </SheetContent>

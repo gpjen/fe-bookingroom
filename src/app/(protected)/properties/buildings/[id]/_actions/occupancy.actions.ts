@@ -231,16 +231,64 @@ export async function assignOccupant(
       return { success: false, error: "Bed tidak tersedia" };
     }
 
-    // Check if there's existing active occupancy on this bed
-    const existingOccupancy = await prisma.occupancy.findFirst({
+    // Check for date conflicts with existing/future reservations on this bed
+    const requestedCheckIn = new Date(data.checkInDate);
+    requestedCheckIn.setHours(0, 0, 0, 0);
+    const requestedCheckOut = data.checkOutDate ? new Date(data.checkOutDate) : null;
+    if (requestedCheckOut) {
+      requestedCheckOut.setHours(23, 59, 59, 999);
+    }
+
+    // Find any occupancy that overlaps with the requested dates
+    // Overlap conditions:
+    // 1. Existing occupancy with no end date (indefinite) that started before requested checkout
+    // 2. Existing occupancy that starts before requested checkout AND ends after requested checkin
+    const overlappingOccupancies = await prisma.occupancy.findMany({
       where: {
         bedId: data.bedId,
         status: { in: ["PENDING", "RESERVED", "CHECKED_IN"] },
+        OR: [
+          // Case 1: Indefinite stay (no checkout date) - overlaps if starts before our checkout (or anytime if we also have no checkout)
+          {
+            checkOutDate: null,
+            checkInDate: requestedCheckOut 
+              ? { lte: requestedCheckOut }
+              : { lte: requestedCheckIn }, // If both indefinite, any overlap
+          },
+          // Case 2: Has checkout date - standard overlap check
+          // Two reservations overlap if: existingStart < requestedEnd AND existingEnd > requestedStart
+          {
+            AND: [
+              { checkOutDate: { not: null } },
+              { checkOutDate: { gt: requestedCheckIn } },
+              requestedCheckOut 
+                ? { checkInDate: { lt: requestedCheckOut } }
+                : {}, // If no checkout requested, any future reservation overlaps
+            ],
+          },
+        ],
       },
+      include: {
+        occupant: {
+          select: { name: true },
+        },
+      },
+      take: 1,
     });
 
-    if (existingOccupancy) {
-      return { success: false, error: "Bed sudah memiliki penghuni aktif" };
+    if (overlappingOccupancies.length > 0) {
+      const existing = overlappingOccupancies[0];
+      const existingCheckIn = new Date(existing.checkInDate);
+      const existingCheckOut = existing.checkOutDate ? new Date(existing.checkOutDate) : null;
+      
+      const dateInfo = existingCheckOut 
+        ? `${existingCheckIn.toLocaleDateString('id-ID')} - ${existingCheckOut.toLocaleDateString('id-ID')}`
+        : `mulai ${existingCheckIn.toLocaleDateString('id-ID')} (tanpa batas)`;
+      
+      return { 
+        success: false, 
+        error: `Bed sudah direservasi oleh ${existing.occupant.name} untuk periode ${dateInfo}` 
+      };
     }
 
     // Find or create Occupant

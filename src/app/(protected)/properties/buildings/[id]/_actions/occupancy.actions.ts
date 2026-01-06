@@ -308,7 +308,24 @@ export async function assignOccupant(
         where: { nik: data.occupantNik },
       });
       
-      if (!occupant) {
+      if (occupant) {
+        // Occupant exists - update with latest data from form
+        // This ensures the occupant record stays up-to-date
+        occupant = await prisma.occupant.update({
+          where: { id: occupant.id },
+          data: {
+            // Update fields if provided (don't overwrite with empty values)
+            ...(data.occupantName && { name: data.occupantName }),
+            ...(data.occupantGender && { gender: data.occupantGender }),
+            ...(data.occupantPhone !== undefined && { phone: data.occupantPhone || null }),
+            ...(data.occupantEmail !== undefined && { email: data.occupantEmail || null }),
+            ...(data.occupantCompany !== undefined && { company: data.occupantCompany || null }),
+            ...(data.occupantDepartment !== undefined && { department: data.occupantDepartment || null }),
+            // Update type if explicitly provided
+            ...(data.occupantType && { type: data.occupantType }),
+          },
+        });
+      } else {
         // Create new occupant
         if (!data.occupantName || !data.occupantGender) {
           return { success: false, error: "Nama dan gender wajib untuk occupant baru" };

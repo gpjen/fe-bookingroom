@@ -68,6 +68,7 @@ import {
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { RoomTypeOption, RoomWithBeds } from "../_actions/room.types";
+import { RoomGallery } from "./room-gallery";
 import {
   createRoom,
   updateRoom,
@@ -666,22 +667,11 @@ function BedsTabContent({ room, onBedUpdated }: BedsTabContentProps) {
 }
 
 // ========================================
-// GALLERY TAB COMPONENT (PLACEHOLDER)
+// GALLERY TAB COMPONENT
 // ========================================
 
 function GalleryTabContent({ room }: { room: RoomWithBeds }) {
-  return (
-    <div className="flex flex-col items-center justify-center py-8 text-center">
-      <div className="p-4 rounded-full bg-muted mb-3">
-        <Images className="h-8 w-8 text-muted-foreground" />
-      </div>
-      <h4 className="font-medium mb-1">Galeri Ruangan</h4>
-      <p className="text-sm text-muted-foreground max-w-xs">
-        Fitur upload dan kelola gambar ruangan akan segera hadir. Ruangan:{" "}
-        {room.name}
-      </p>
-    </div>
-  );
+  return <RoomGallery roomId={room.id} />;
 }
 
 // ========================================

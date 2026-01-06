@@ -97,14 +97,6 @@ export function NotificationsView({
             <div>
               <h1 className="text-2xl md:text-3xl font-bold tracking-tight flex items-center gap-2">
                 Notifikasi
-                {unreadCount > 0 && (
-                  <Badge
-                    variant="destructive"
-                    className="h-5 min-w-[20px] px-1.5 text-xs font-bold"
-                  >
-                    {unreadCount}
-                  </Badge>
-                )}
               </h1>
               <p className="text-sm text-muted-foreground mt-0.5">
                 {notifications.length} notifikasi total

@@ -1,136 +1,154 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { DataTable } from "@/components/ui/data-table";
-import { getColumns } from "./_components/columns";
-import { BookingRequest, BookingStatus } from "./_components/types";
-import { MOCK_BOOKING_REQUESTS, BUILDINGS } from "./_components/mock-data";
+import { getColumns, BookingTableItem } from "./_components/columns";
 import { DateRange } from "react-day-picker";
-import { ClipboardList, Download, RefreshCw } from "lucide-react";
+import {
+  ClipboardList,
+  Download,
+  RefreshCw,
+  Loader2,
+  AlertCircle,
+} from "lucide-react";
 import { Card } from "@/components/ui/card";
-
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { BookingDetailDialog } from "./_components/booking-detail-dialog";
 import { BookingFilters } from "./_components/booking-filters";
+import {
+  getAllBookings,
+  type BookingListItemExtended,
+} from "../_actions/booking.actions";
+
+// Map database status to UI status
+function mapStatus(dbStatus: string): BookingTableItem["status"] {
+  switch (dbStatus) {
+    case "PENDING":
+      return "request";
+    case "APPROVED":
+      return "approved";
+    case "REJECTED":
+      return "rejected";
+    case "CANCELLED":
+      return "cancelled";
+    default:
+      return "request";
+  }
+}
+
+// Map UI status to database status
+function mapStatusToDb(uiStatus: string): string {
+  switch (uiStatus) {
+    case "request":
+      return "PENDING";
+    case "approved":
+      return "APPROVED";
+    case "rejected":
+      return "REJECTED";
+    case "cancelled":
+      return "CANCELLED";
+    default:
+      return uiStatus.toUpperCase();
+  }
+}
+
+// Transform API data to table format
+function transformBooking(booking: BookingListItemExtended): BookingTableItem {
+  return {
+    id: booking.id,
+    bookingCode: booking.code,
+    requesterName: booking.requesterName,
+    requesterCompany: booking.requesterCompany || "-",
+    status: mapStatus(booking.status),
+    checkInDate: new Date(booking.checkInDate),
+    checkOutDate: new Date(booking.checkOutDate),
+    occupantCount: booking.occupantCount,
+    purpose: booking.purpose || "-",
+    areaName: booking.areaName || "-",
+    hasGuest: booking.hasGuest,
+    createdAt: new Date(booking.createdAt),
+  };
+}
 
 export default function BookingRequestPage() {
-  const [bookings, setBookings] = useState<BookingRequest[]>(
-    MOCK_BOOKING_REQUESTS
-  );
+  const [bookings, setBookings] = useState<BookingTableItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [total, setTotal] = useState(0);
+
+  // Filters
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [typeFilter, setTypeFilter] = useState<string>("all");
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
 
   // Dialog states
-  const [selectedBooking, setSelectedBooking] = useState<BookingRequest | null>(
-    null
-  );
+  const [selectedBooking, setSelectedBooking] =
+    useState<BookingTableItem | null>(null);
   const [actionType, setActionType] = useState<
     "view" | "approve" | "reject" | null
   >(null);
   const [adminNotes, setAdminNotes] = useState("");
   const [rejectReason, setRejectReason] = useState("");
 
+  // Fetch bookings from API
+  const fetchBookings = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+
+    const result = await getAllBookings({
+      search: searchQuery || undefined,
+      status: statusFilter !== "all" ? mapStatusToDb(statusFilter) : undefined,
+      dateFrom: dateRange?.from,
+      dateTo: dateRange?.to,
+    });
+
+    if (result.success) {
+      setBookings(result.data.data.map(transformBooking));
+      setTotal(result.data.total);
+    } else {
+      setError(result.error);
+      toast.error(result.error);
+    }
+
+    setIsLoading(false);
+  }, [searchQuery, statusFilter, dateRange]);
+
+  // Initial load and refresh on filter change
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchBookings();
+    }, 300); // Debounce search
+
+    return () => clearTimeout(timer);
+  }, [fetchBookings]);
+
   const handleAction = (
-    booking: BookingRequest,
+    booking: BookingTableItem,
     type: "view" | "approve" | "reject"
   ) => {
     setSelectedBooking(booking);
     setActionType(type);
-    setAdminNotes(booking.adminNotes || "");
-    setRejectReason(booking.rejectReason || "");
   };
 
-  // Filter bookings
-  const filteredBookings = bookings.filter((booking) => {
-    const searchLower = searchQuery.toLowerCase();
-    const matchesSearch =
-      booking.bookingCode.toLowerCase().includes(searchLower) ||
-      booking.requester.name.toLowerCase().includes(searchLower) ||
-      booking.requester.nik.toLowerCase().includes(searchLower) ||
-      booking.occupants.some((occ) =>
-        occ.name.toLowerCase().includes(searchLower)
-      ) ||
-      booking.occupants.some((occ) =>
-        BUILDINGS.find((b) => b.id === occ.buildingId)
-          ?.name.toLowerCase()
-          .includes(searchLower)
-      ) ||
-      BUILDINGS.find((b) => b.areaId === booking.areaId)
-        ?.area.toLowerCase()
-        .includes(searchLower);
-
-    const matchesStatus =
-      statusFilter === "all" || booking.status === statusFilter;
-
-    const matchesDate =
-      !dateRange?.from ||
-      booking.occupants.some(
-        (occ) =>
-          occ.inDate >= dateRange.from! &&
-          (!dateRange.to || occ.inDate <= dateRange.to!)
-      );
-
-    return matchesSearch && matchesStatus && matchesDate;
-  });
-
-  const handleConfirmAction = (updatedBookingFromDialog?: BookingRequest) => {
-    if (!selectedBooking || !actionType) return;
-
-    const updatedBookings = bookings.map((b) => {
-      if (b.id === selectedBooking.id) {
-        const baseBooking = updatedBookingFromDialog || b;
-
-        return {
-          ...baseBooking,
-          status:
-            actionType === "approve"
-              ? ("approved" as BookingStatus)
-              : actionType === "reject"
-              ? ("rejected" as BookingStatus)
-              : baseBooking.status,
-          adminNotes: adminNotes,
-          rejectReason: actionType === "reject" ? rejectReason : undefined,
-          approvedAt: actionType === "approve" ? new Date() : undefined,
-          approvedBy: actionType === "approve" ? "Admin System" : undefined,
-        };
-      }
-      return b;
-    });
-
-    setBookings(updatedBookings);
-    toast.success(
-      actionType === "approve"
-        ? "Booking berhasil disetujui"
-        : "Booking berhasil ditolak"
-    );
+  const handleConfirmAction = () => {
+    // TODO: Implement approve/reject with API
+    toast.info("Fitur approve/reject akan diimplementasi");
     setSelectedBooking(null);
     setActionType(null);
     setAdminNotes("");
     setRejectReason("");
   };
 
-  const _handleCancelAction = () => {
-    setActionType(null);
-    setSelectedBooking(null);
-    setAdminNotes("");
-    setRejectReason(""); // Reset rejectReason on cancel
-  };
-  void _handleCancelAction;
-
   const handleRefresh = () => {
     toast.info("Memuat ulang data...");
-    setTimeout(() => {
-      setBookings(MOCK_BOOKING_REQUESTS);
-      toast.success("Data berhasil dimuat ulang");
-    }, 500);
+    fetchBookings();
   };
 
   const handleExport = () => {
     toast.success("Export dimulai", {
-      description: `Mengekspor ${filteredBookings.length} data`,
+      description: `Mengekspor ${bookings.length} data`,
     });
   };
 
@@ -159,6 +177,11 @@ export default function BookingRequestPage() {
             </h1>
             <p className="text-muted-foreground mt-1">
               Kelola dan verifikasi permintaan pemesanan ruangan.
+              {total > 0 && (
+                <span className="ml-2 text-sm font-medium">
+                  ({total} total data)
+                </span>
+              )}
             </p>
           </div>
           <div className="flex gap-2 w-full sm:w-auto">
@@ -166,9 +189,14 @@ export default function BookingRequestPage() {
               variant="outline"
               size="sm"
               onClick={handleRefresh}
+              disabled={isLoading}
               className="flex-1 sm:flex-none"
             >
-              <RefreshCw className="h-4 w-4 mr-2" />
+              {isLoading ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4 mr-2" />
+              )}
               Muat Ulang
             </Button>
             <Button
@@ -197,33 +225,64 @@ export default function BookingRequestPage() {
             activeFiltersCount={activeFiltersCount}
           />
 
-          <div className="rounded-md">
-            <DataTable
-              columns={getColumns({
-                onView: (b) => handleAction(b, "view"),
-              })}
-              data={filteredBookings}
-            />
-          </div>
+          {error ? (
+            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+              <AlertCircle className="h-12 w-12 mb-4 text-destructive" />
+              <p className="text-lg font-medium">Gagal memuat data</p>
+              <p className="text-sm">{error}</p>
+              <Button onClick={handleRefresh} className="mt-4">
+                Coba Lagi
+              </Button>
+            </div>
+          ) : (
+            <div className="rounded-md">
+              {isLoading && bookings.length === 0 ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                  <span className="ml-2 text-muted-foreground">
+                    Memuat data...
+                  </span>
+                </div>
+              ) : bookings.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+                  <ClipboardList className="h-12 w-12 mb-4 opacity-50" />
+                  <p className="text-lg font-medium">Tidak ada data booking</p>
+                  <p className="text-sm">
+                    Belum ada permintaan pemesanan yang tersedia
+                  </p>
+                </div>
+              ) : (
+                <DataTable
+                  columns={getColumns({
+                    onView: (b) => handleAction(b, "view"),
+                  })}
+                  data={bookings}
+                />
+              )}
+            </div>
+          )}
         </div>
 
-        <BookingDetailDialog
-          booking={selectedBooking}
-          actionType={actionType}
-          adminNotes={adminNotes}
-          onAdminNotesChange={setAdminNotes}
-          rejectReason={rejectReason}
-          onRejectReasonChange={setRejectReason}
-          onConfirm={handleConfirmAction}
-          onRequestApprove={() => setActionType("approve")}
-          onRequestReject={() => setActionType("reject")}
-          onCancel={() => {
-            setSelectedBooking(null);
-            setActionType(null);
-            setAdminNotes("");
-            setRejectReason("");
-          }}
-        />
+        {/* Keep dialog for future use - will implement detail view later */}
+        {selectedBooking && (
+          <BookingDetailDialog
+            booking={null} // Will implement proper mapping later
+            actionType={actionType}
+            adminNotes={adminNotes}
+            onAdminNotesChange={setAdminNotes}
+            rejectReason={rejectReason}
+            onRejectReasonChange={setRejectReason}
+            onConfirm={handleConfirmAction}
+            onRequestApprove={() => setActionType("approve")}
+            onRequestReject={() => setActionType("reject")}
+            onCancel={() => {
+              setSelectedBooking(null);
+              setActionType(null);
+              setAdminNotes("");
+              setRejectReason("");
+            }}
+          />
+        )}
       </div>
     </Card>
   );

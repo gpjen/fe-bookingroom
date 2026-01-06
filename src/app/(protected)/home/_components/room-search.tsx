@@ -30,21 +30,22 @@ import {
   Plus,
   X,
   AlertCircle,
+  Loader2,
 } from "lucide-react";
 import {
-  AREAS,
-  BUILDINGS,
+  useAreas,
+  useBuildings,
+  useRoomAvailability,
   ROOM_TYPES,
-  MOCK_ROOMS,
-  filterRooms,
   type RoomAvailability,
-} from "./mock-data";
+} from "./room-search-api";
 import type { SelectedBed } from "./booking-request-types";
 import { RoomAvailabilityTimeline } from "./room-availability-timeline";
 import { BookingRequestSheet } from "./booking-request-sheet/index";
 import { RoomDetailDialog } from "./room-detail-dialog";
 import { SelectionSummaryBar } from "./selection-summary-bar";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 import {
   format,
   addDays,
@@ -97,12 +98,22 @@ function DatePicker({
 }
 
 export function RoomSearch() {
+  // API Hooks for real data
+  const { areas } = useAreas();
+  const {
+    rooms,
+    error: roomsError,
+    searchRooms,
+    filterRooms: clientFilterRooms,
+  } = useRoomAvailability();
+
   const [startDate, setStartDate] = useState<Date | undefined>(undefined);
   const [endDate, setEndDate] = useState<Date | undefined>(undefined);
   const [employeeCount, setEmployeeCount] = useState<number>(1);
   const [guestCount, setGuestCount] = useState<number>(0);
   const [selectedArea, setSelectedArea] = useState<string>("");
   const [hasSearched, setHasSearched] = useState(false);
+  const [isSearching, setIsSearching] = useState(false);
 
   const [selectedBuilding, setSelectedBuilding] = useState<string>("all");
   const [roomRequirements, setRoomRequirements] = useState<
@@ -120,6 +131,9 @@ export function RoomSearch() {
   );
   const [roomDialogOpen, setRoomDialogOpen] = useState(false);
   const [bookingSheetOpen, setBookingSheetOpen] = useState(false);
+
+  // Get buildings for selected area
+  const { buildings } = useBuildings(selectedArea || undefined);
 
   const totalPeople = employeeCount + guestCount;
   const tomorrow = addDays(startOfDay(new Date()), 1);
@@ -154,16 +168,11 @@ export function RoomSearch() {
     setHasSearched(false);
   };
 
-  const filteredBuildings = useMemo(() => {
-    if (!selectedArea || selectedArea === "all") return [];
-    return BUILDINGS.filter((b) => b.areaId === selectedArea);
-  }, [selectedArea]);
-
+  // Filter rooms client-side (for building filter after search)
   const filteredRooms = useMemo(() => {
-    if (!hasSearched || !selectedArea) return [];
+    if (!hasSearched || rooms.length === 0) return [];
 
-    let rooms = filterRooms(MOCK_ROOMS, {
-      areaId: selectedArea,
+    let result = clientFilterRooms({
       buildingId: selectedBuilding === "all" ? undefined : selectedBuilding,
       onlyAvailable: true,
     });
@@ -171,18 +180,39 @@ export function RoomSearch() {
     // Filter by Room Requirements (Types) - using APPLIED requirements
     if (appliedRoomRequirements.length > 0) {
       const requiredTypes = new Set(appliedRoomRequirements.map((r) => r.type));
-      rooms = rooms.filter((r) => requiredTypes.has(r.type));
+      result = result.filter((r) => requiredTypes.has(r.type));
     }
 
-    rooms = rooms.sort((a, b) => b.availableBeds - a.availableBeds);
-    return rooms;
-  }, [hasSearched, selectedArea, selectedBuilding, appliedRoomRequirements]);
+    result = result.sort((a, b) => b.availableBeds - a.availableBeds);
+    return result;
+  }, [
+    hasSearched,
+    rooms,
+    selectedBuilding,
+    appliedRoomRequirements,
+    clientFilterRooms,
+  ]);
 
-  const handleSearch = () => {
+  const handleSearch = async () => {
     if (!startDate || !endDate || totalPeople === 0 || !selectedArea) return;
+
+    setIsSearching(true);
     setSelectedBeds([]); // Clear bed selections on new search
     setAppliedRoomRequirements(roomRequirements); // Snapshot the requirements
-    setHasSearched(true);
+
+    const success = await searchRooms({
+      areaId: selectedArea,
+      checkInDate: startDate,
+      checkOutDate: endDate,
+    });
+
+    if (success) {
+      setHasSearched(true);
+    } else if (roomsError) {
+      toast.error(roomsError);
+    }
+
+    setIsSearching(false);
   };
 
   const canSearch =
@@ -289,7 +319,7 @@ export function RoomSearch() {
                   <SelectValue placeholder="Pilih Area" />
                 </SelectTrigger>
                 <SelectContent>
-                  {AREAS.map((area) => (
+                  {areas.map((area) => (
                     <SelectItem key={area.id} value={area.id}>
                       {area.name}
                     </SelectItem>
@@ -605,11 +635,20 @@ export function RoomSearch() {
             <Button
               size="sm"
               onClick={handleSearch}
-              disabled={!canSearch}
+              disabled={!canSearch || isSearching}
               className="w-full sm:w-auto gap-1.5 px-4 font-semibold h-8"
             >
-              <Search className="h-3.5 w-3.5" />
-              Cari
+              {isSearching ? (
+                <>
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Mencari...
+                </>
+              ) : (
+                <>
+                  <Search className="h-3.5 w-3.5" />
+                  Cari
+                </>
+              )}
             </Button>
           </div>
         </CardContent>
@@ -624,7 +663,7 @@ export function RoomSearch() {
               <Sparkles className="h-4 w-4 text-primary" />
               <span className="text-sm font-semibold">Pilih Kamar</span>
               <span className="text-xs text-muted-foreground">
-                {AREAS.find((a) => a.id === selectedArea)?.name} • {totalPeople}{" "}
+                {areas.find((a) => a.id === selectedArea)?.name} • {totalPeople}{" "}
                 org • {duration} mlm
               </span>
             </div>
@@ -644,7 +683,7 @@ export function RoomSearch() {
                     <SelectItem value="all" className="text-xs">
                       Semua Gedung
                     </SelectItem>
-                    {filteredBuildings.map((b) => (
+                    {buildings.map((b) => (
                       <SelectItem key={b.id} value={b.id} className="text-xs">
                         {b.name}
                       </SelectItem>

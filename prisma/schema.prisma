@@ -395,11 +395,8 @@ enum BedStatus {
 enum BookingStatus {
   PENDING
   APPROVED
-  CHECKED_IN
-  CHECKED_OUT
-  CANCELLED
   REJECTED
-  EXPIRED
+  CANCELLED
 }
 
 enum OccupancyStatus {

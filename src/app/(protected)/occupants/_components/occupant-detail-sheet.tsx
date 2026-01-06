@@ -371,238 +371,266 @@ export function OccupantDetailSheet({
                       </p>
                     </div>
                   ) : (
-                    detail.occupancies.map((stay) => {
-                      const canCheckIn =
-                        stay.status === "RESERVED" || stay.status === "PENDING";
-                      const canCheckOut = stay.status === "CHECKED_IN";
-                      const StatusIcon = statusConfig[stay.status].icon;
+                    // Sort occupancies: CHECKED_IN first, then RESERVED/PENDING, then others
+                    [...detail.occupancies]
+                      .sort((a, b) => {
+                        const statusPriority: Record<OccupancyStatus, number> =
+                          {
+                            CHECKED_IN: 0,
+                            RESERVED: 1,
+                            PENDING: 2,
+                            CHECKED_OUT: 3,
+                            CANCELLED: 4,
+                            NO_SHOW: 5,
+                          };
+                        const priorityDiff =
+                          statusPriority[a.status] - statusPriority[b.status];
+                        if (priorityDiff !== 0) return priorityDiff;
+                        // Within same status, sort by check-in date (newest first)
+                        return (
+                          new Date(b.checkInDate).getTime() -
+                          new Date(a.checkInDate).getTime()
+                        );
+                      })
+                      .map((stay) => {
+                        const canCheckIn =
+                          stay.status === "RESERVED" ||
+                          stay.status === "PENDING";
+                        const canCheckOut = stay.status === "CHECKED_IN";
+                        const StatusIcon = statusConfig[stay.status].icon;
 
-                      return (
-                        <div
-                          key={stay.id}
-                          className="group relative rounded-2xl border border-border/50 bg-card text-card-foreground shadow-sm transition-all hover:shadow-md hover:border-border/80"
-                        >
-                          <div className="p-5">
-                            {/* Card Header */}
-                            <div className="flex items-start justify-between mb-5">
-                              <div className="flex items-start gap-4">
-                                <div
-                                  className={`h-10 w-10 mt-1 rounded-xl flex items-center justify-center shrink-0 shadow-sm ${
-                                    stay.status === "CHECKED_IN"
-                                      ? "bg-primary/10 text-primary"
-                                      : "bg-muted text-muted-foreground"
+                        return (
+                          <div
+                            key={stay.id}
+                            className="group relative rounded-2xl border border-border/50 bg-card text-card-foreground shadow-sm transition-all hover:shadow-md hover:border-border/80"
+                          >
+                            <div className="p-5">
+                              {/* Card Header */}
+                              <div className="flex items-start justify-between mb-5">
+                                <div className="flex items-start gap-4">
+                                  <div
+                                    className={`h-10 w-10 mt-1 rounded-xl flex items-center justify-center shrink-0 shadow-sm ${
+                                      stay.status === "CHECKED_IN"
+                                        ? "bg-primary/10 text-primary"
+                                        : "bg-muted text-muted-foreground"
+                                    }`}
+                                  >
+                                    <Building2 className="h-5 w-5" />
+                                  </div>
+                                  <div>
+                                    <h3 className="font-bold text-base tracking-tight">
+                                      {stay.bed.room.building.name}
+                                    </h3>
+                                    <div className="flex flex-wrap items-center gap-2 mt-1.5 text-sm text-muted-foreground">
+                                      <Badge
+                                        variant="outline"
+                                        className="font-normal bg-background/50 h-5 px-1.5 text-xs text-muted-foreground border-border/60"
+                                      >
+                                        {stay.bed.room.building.area.name}
+                                      </Badge>
+                                      <span className="flex items-center gap-1.5 text-xs">
+                                        <span className="w-1 h-1 rounded-full bg-border" />
+                                        {stay.bed.room.name}
+                                        <span className="w-1 h-1 rounded-full bg-border" />
+                                        Bed {stay.bed.code}
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                                <Badge
+                                  variant="outline"
+                                  className={`rounded-full px-2.5 py-0.5 border ${
+                                    statusConfig[stay.status].className
                                   }`}
                                 >
-                                  <Building2 className="h-5 w-5" />
-                                </div>
-                                <div>
-                                  <h3 className="font-bold text-base tracking-tight">
-                                    {stay.bed.room.building.name}
-                                  </h3>
-                                  <div className="flex flex-wrap items-center gap-2 mt-1.5 text-sm text-muted-foreground">
-                                    <Badge
-                                      variant="outline"
-                                      className="font-normal bg-background/50 h-5 px-1.5 text-xs text-muted-foreground border-border/60"
-                                    >
-                                      {stay.bed.room.building.area.name}
-                                    </Badge>
-                                    <span className="flex items-center gap-1.5 text-xs">
-                                      <span className="w-1 h-1 rounded-full bg-border" />
-                                      {stay.bed.room.name}
-                                      <span className="w-1 h-1 rounded-full bg-border" />
-                                      Bed {stay.bed.code}
-                                    </span>
-                                  </div>
-                                </div>
+                                  <StatusIcon className="h-3 w-3 mr-1.5" />
+                                  {statusConfig[stay.status].label}
+                                </Badge>
                               </div>
-                              <Badge
-                                variant="outline"
-                                className={`rounded-full px-2.5 py-0.5 border ${
-                                  statusConfig[stay.status].className
-                                }`}
-                              >
-                                <StatusIcon className="h-3 w-3 mr-1.5" />
-                                {statusConfig[stay.status].label}
-                              </Badge>
-                            </div>
 
-                            {/* Info & Dates */}
-                            <div className="relative overflow-hidden rounded-xl bg-muted/30 border border-border/20 p-4 mb-4">
-                              <div className="flex flex-col sm:flex-row gap-6">
-                                {/* Check In */}
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2 mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
-                                    <LogIn className="h-3.5 w-3.5" /> Check-In
-                                  </div>
-                                  <div className="font-semibold text-sm">
-                                    {formatDate(stay.checkInDate)}
-                                  </div>
-                                  {stay.actualCheckIn && (
-                                    <div className="text-[11px] text-emerald-600 mt-0.5 font-medium flex items-center gap-1">
-                                      <Clock className="h-3 w-3" />
-                                      {formatDateTime(stay.actualCheckIn)}
+                              {/* Info & Dates */}
+                              <div className="relative overflow-hidden rounded-xl bg-muted/30 border border-border/20 p-4 mb-4">
+                                <div className="flex flex-col sm:flex-row gap-6">
+                                  {/* Check In */}
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                                      <LogIn className="h-3.5 w-3.5" /> Check-In
                                     </div>
-                                  )}
-                                </div>
-
-                                {/* Separator for desktop */}
-                                <div className="hidden sm:block w-px bg-border/40 my-1" />
-
-                                {/* Check Out */}
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2 mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
-                                    <LogOut className="h-3.5 w-3.5" /> Check-Out
-                                  </div>
-                                  <div className="font-semibold text-sm">
-                                    {stay.checkOutDate ? (
-                                      formatDate(stay.checkOutDate)
-                                    ) : (
-                                      <span className="italic text-muted-foreground font-normal">
-                                        Belum ditentukan
-                                      </span>
-                                    )}
-                                  </div>
-                                  {stay.actualCheckOut && (
-                                    <div className="text-[11px] text-slate-600 mt-0.5 font-medium flex items-center gap-1">
-                                      <Clock className="h-3 w-3" />
-                                      {formatDateTime(stay.actualCheckOut)}
+                                    <div className="font-semibold text-sm">
+                                      {formatDate(stay.checkInDate)}
                                     </div>
-                                  )}
-                                  {stay.originalCheckOutDate &&
-                                    stay.checkOutDate &&
-                                    stay.originalCheckOutDate.getTime() !==
-                                      stay.checkOutDate.getTime() && (
-                                      <div className="text-[11px] text-amber-600 mt-1 flex items-start gap-1 leading-tight bg-amber-50 p-1 rounded">
-                                        <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
-                                        Awal:{" "}
-                                        {formatDate(stay.originalCheckOutDate)}
+                                    {stay.actualCheckIn && (
+                                      <div className="text-[11px] text-emerald-600 mt-0.5 font-medium flex items-center gap-1">
+                                        <Clock className="h-3 w-3" />
+                                        {formatDateTime(stay.actualCheckIn)}
                                       </div>
                                     )}
-                                </div>
-                              </div>
+                                  </div>
 
-                              {stay.booking?.code && (
-                                <div className="mt-3 pt-3 border-t border-border/30 flex items-center gap-2 text-xs text-muted-foreground">
-                                  <Ticket className="h-3.5 w-3.5 text-primary/70" />
-                                  Booking Ref:{" "}
-                                  <span className="font-mono text-foreground">
-                                    {stay.booking.code}
-                                  </span>
-                                </div>
-                              )}
-                            </div>
+                                  {/* Separator for desktop */}
+                                  <div className="hidden sm:block w-px bg-border/40 my-1" />
 
-                            {/* Actions & Logs */}
-                            <Accordion
-                              type="single"
-                              collapsible
-                              className="w-full border-t border-border/30 pt-1"
-                            >
-                              <AccordionItem value="logs" className="border-0">
-                                <div className="flex items-center justify-between">
-                                  <AccordionTrigger className="py-2 hover:no-underline text-xs font-medium text-muted-foreground data-[state=open]:text-primary pr-0 flex-1 justify-start gap-2">
-                                    <History className="h-3.5 w-3.5" />
-                                    Riwayat Aktivitas ({stay.logs.length})
-                                  </AccordionTrigger>
-
-                                  {/* Action Buttons floated right */}
-                                  <div className="flex gap-2">
-                                    {canCheckIn && (
-                                      <Button
-                                        size="sm"
-                                        className="h-7 text-xs px-3 shadow-sm"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleCheckIn(stay.id);
-                                        }}
-                                        disabled={isPending}
-                                      >
-                                        Check-In
-                                      </Button>
+                                  {/* Check Out */}
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2 mb-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground/70">
+                                      <LogOut className="h-3.5 w-3.5" />{" "}
+                                      Check-Out
+                                    </div>
+                                    <div className="font-semibold text-sm">
+                                      {stay.checkOutDate ? (
+                                        formatDate(stay.checkOutDate)
+                                      ) : (
+                                        <span className="italic text-muted-foreground font-normal">
+                                          Belum ditentukan
+                                        </span>
+                                      )}
+                                    </div>
+                                    {stay.actualCheckOut && (
+                                      <div className="text-[11px] text-slate-600 mt-0.5 font-medium flex items-center gap-1">
+                                        <Clock className="h-3 w-3" />
+                                        {formatDateTime(stay.actualCheckOut)}
+                                      </div>
                                     )}
-                                    {canCheckOut && (
-                                      <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="h-7 text-xs px-3 border-slate-200 text-slate-700 bg-white hover:bg-slate-50"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          handleCheckOut(stay.id);
-                                        }}
-                                        disabled={isPending}
-                                      >
-                                        Check-Out
-                                      </Button>
-                                    )}
+                                    {stay.originalCheckOutDate &&
+                                      stay.checkOutDate &&
+                                      stay.originalCheckOutDate.getTime() !==
+                                        stay.checkOutDate.getTime() && (
+                                        <div className="text-[11px] text-amber-600 mt-1 flex items-start gap-1 leading-tight bg-amber-50 p-1 rounded">
+                                          <AlertCircle className="h-3 w-3 mt-0.5 shrink-0" />
+                                          Awal:{" "}
+                                          {formatDate(
+                                            stay.originalCheckOutDate
+                                          )}
+                                        </div>
+                                      )}
                                   </div>
                                 </div>
 
-                                <AccordionContent className="pt-2 pb-0">
-                                  {stay.logs.length === 0 ? (
-                                    <div className="p-3 text-center text-xs text-muted-foreground bg-muted/10 rounded-lg italic">
-                                      Belum ada aktivitas tercatat
+                                {stay.booking?.code && (
+                                  <div className="mt-3 pt-3 border-t border-border/30 flex items-center gap-2 text-xs text-muted-foreground">
+                                    <Ticket className="h-3.5 w-3.5 text-primary/70" />
+                                    Booking Ref:{" "}
+                                    <span className="font-mono text-foreground">
+                                      {stay.booking.code}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Actions & Logs */}
+                              <Accordion
+                                type="single"
+                                collapsible
+                                className="w-full border-t border-border/30 pt-1"
+                              >
+                                <AccordionItem
+                                  value="logs"
+                                  className="border-0"
+                                >
+                                  <div className="flex items-center justify-between">
+                                    <AccordionTrigger className="py-2 hover:no-underline text-xs font-medium text-muted-foreground data-[state=open]:text-primary pr-0 flex-1 justify-start gap-2">
+                                      <History className="h-3.5 w-3.5" />
+                                      Riwayat Aktivitas ({stay.logs.length})
+                                    </AccordionTrigger>
+
+                                    {/* Action Buttons floated right */}
+                                    <div className="flex gap-2">
+                                      {canCheckIn && (
+                                        <Button
+                                          size="sm"
+                                          className="h-7 text-xs px-3 shadow-sm"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleCheckIn(stay.id);
+                                          }}
+                                          disabled={isPending}
+                                        >
+                                          Check-In
+                                        </Button>
+                                      )}
+                                      {canCheckOut && (
+                                        <Button
+                                          variant="outline"
+                                          size="sm"
+                                          className="h-7 text-xs px-3 border-slate-200 text-slate-700 bg-white hover:bg-slate-50"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleCheckOut(stay.id);
+                                          }}
+                                          disabled={isPending}
+                                        >
+                                          Check-Out
+                                        </Button>
+                                      )}
                                     </div>
-                                  ) : (
-                                    <div className="relative pl-3 space-y-4 before:absolute before:left-[5px] before:top-2 before:bottom-2 before:w-px before:bg-border/40">
-                                      {stay.logs.map((log) => {
-                                        const config =
-                                          logActionConfig[log.action];
-                                        return (
-                                          <div
-                                            key={log.id}
-                                            className="relative pl-5 text-sm"
-                                          >
-                                            <div className="absolute left-[-4px] top-1.5 h-2.5 w-2.5 rounded-full bg-background border-2 border-muted-foreground/30 ring-2 ring-background" />
+                                  </div>
 
-                                            <div className="flex flex-col gap-1">
-                                              <div className="flex items-center justify-between gap-2">
-                                                <span
-                                                  className={`font-semibold text-xs ${config.className} flex items-center gap-1.5`}
-                                                >
-                                                  {config.label}
-                                                </span>
-                                                <span className="text-[10px] text-muted-foreground whitespace-nowrap">
-                                                  {formatDistanceToNow(
-                                                    new Date(log.performedAt),
-                                                    {
-                                                      addSuffix: true,
-                                                      locale: id,
-                                                    }
-                                                  )}
-                                                </span>
-                                              </div>
+                                  <AccordionContent className="pt-2 pb-0">
+                                    {stay.logs.length === 0 ? (
+                                      <div className="p-3 text-center text-xs text-muted-foreground bg-muted/10 rounded-lg italic">
+                                        Belum ada aktivitas tercatat
+                                      </div>
+                                    ) : (
+                                      <div className="relative pl-3 space-y-4 before:absolute before:left-[5px] before:top-2 before:bottom-2 before:w-px before:bg-border/40">
+                                        {stay.logs.map((log) => {
+                                          const config =
+                                            logActionConfig[log.action];
+                                          return (
+                                            <div
+                                              key={log.id}
+                                              className="relative pl-5 text-sm"
+                                            >
+                                              <div className="absolute left-[-4px] top-1.5 h-2.5 w-2.5 rounded-full bg-background border-2 border-muted-foreground/30 ring-2 ring-background" />
 
-                                              <div className="text-xs text-foreground/80">
-                                                {log.buildingName}{" "}
-                                                <span className="text-muted-foreground">
-                                                  •
-                                                </span>{" "}
-                                                {log.roomCode}
-                                              </div>
-
-                                              {log.notes && (
-                                                <div className="text-xs text-muted-foreground italic bg-muted/20 px-2 py-1 rounded mt-0.5">
-                                                  &quot;{log.notes}&quot;
+                                              <div className="flex flex-col gap-1">
+                                                <div className="flex items-center justify-between gap-2">
+                                                  <span
+                                                    className={`font-semibold text-xs ${config.className} flex items-center gap-1.5`}
+                                                  >
+                                                    {config.label}
+                                                  </span>
+                                                  <span className="text-[10px] text-muted-foreground whitespace-nowrap">
+                                                    {formatDistanceToNow(
+                                                      new Date(log.performedAt),
+                                                      {
+                                                        addSuffix: true,
+                                                        locale: id,
+                                                      }
+                                                    )}
+                                                  </span>
                                                 </div>
-                                              )}
 
-                                              <div className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5">
-                                                <User className="h-3 w-3" />{" "}
-                                                {log.performedByName}
+                                                <div className="text-xs text-foreground/80">
+                                                  {log.buildingName}{" "}
+                                                  <span className="text-muted-foreground">
+                                                    •
+                                                  </span>{" "}
+                                                  {log.roomCode}
+                                                </div>
+
+                                                {log.notes && (
+                                                  <div className="text-xs text-muted-foreground italic bg-muted/20 px-2 py-1 rounded mt-0.5">
+                                                    &quot;{log.notes}&quot;
+                                                  </div>
+                                                )}
+
+                                                <div className="text-[10px] text-muted-foreground flex items-center gap-1 mt-0.5">
+                                                  <User className="h-3 w-3" />{" "}
+                                                  {log.performedByName}
+                                                </div>
                                               </div>
                                             </div>
-                                          </div>
-                                        );
-                                      })}
-                                    </div>
-                                  )}
-                                </AccordionContent>
-                              </AccordionItem>
-                            </Accordion>
+                                          );
+                                        })}
+                                      </div>
+                                    )}
+                                  </AccordionContent>
+                                </AccordionItem>
+                              </Accordion>
+                            </div>
                           </div>
-                        </div>
-                      );
-                    })
+                        );
+                      })
                   )}
                 </TabsContent>
 

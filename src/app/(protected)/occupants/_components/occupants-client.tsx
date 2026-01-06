@@ -295,9 +295,6 @@ export function OccupantsClient({
     () =>
       getColumns({
         onView: handleView,
-        onCheckIn: handleView,
-        onCheckOut: handleView,
-        onTransfer: handleView,
       }),
     [handleView]
   );

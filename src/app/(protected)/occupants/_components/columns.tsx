@@ -4,29 +4,12 @@ import { ColumnDef } from "@tanstack/react-table";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import {
-  Eye,
-  MoreHorizontal,
-  LogIn,
-  LogOut,
-  ArrowRightLeft,
-  User,
-  Briefcase,
-  MapPin,
-  Building2,
-} from "lucide-react";
+import { Eye, User, Briefcase, MapPin, Building2 } from "lucide-react";
 import {
   OccupantListItem,
   OccupancyStatus,
@@ -134,9 +117,6 @@ const genderConfig: Record<Gender, { label: string; className: string }> = {
 
 export interface ColumnActionsProps {
   onView: (occupant: OccupantListItem) => void;
-  onCheckIn?: (occupant: OccupantListItem) => void;
-  onCheckOut?: (occupant: OccupantListItem) => void;
-  onTransfer?: (occupant: OccupantListItem) => void;
 }
 
 // ========================================
@@ -447,62 +427,17 @@ export function getColumns(
       header: "",
       cell: ({ row }) => {
         const occ = row.original;
-        const canCheckIn =
-          occ.status === "RESERVED" || occ.status === "PENDING";
-        const canCheckOut = occ.status === "CHECKED_IN";
-        const canTransfer = occ.status === "CHECKED_IN";
-        const hasMultipleStays = (occ.activeOccupancyCount || 0) > 1;
 
         return (
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="h-8 w-8">
-                <MoreHorizontal className="h-4 w-4" />
-                <span className="sr-only">Aksi</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuItem onClick={() => actions.onView(occ)}>
-                <Eye className="mr-2 h-4 w-4" />
-                Lihat Detail
-                {hasMultipleStays && (
-                  <Badge variant="secondary" className="ml-auto text-[10px]">
-                    {occ.activeOccupancyCount} stay
-                  </Badge>
-                )}
-              </DropdownMenuItem>
-
-              {(canCheckIn || canCheckOut || canTransfer) && (
-                <>
-                  <DropdownMenuSeparator />
-                  <div className="px-2 py-1.5 text-xs text-muted-foreground">
-                    Aksi Cepat (Lokasi Utama)
-                  </div>
-                </>
-              )}
-
-              {canCheckIn && actions.onCheckIn && (
-                <DropdownMenuItem onClick={() => actions.onCheckIn!(occ)}>
-                  <LogIn className="mr-2 h-4 w-4 text-emerald-600" />
-                  Check-In
-                </DropdownMenuItem>
-              )}
-
-              {canCheckOut && actions.onCheckOut && (
-                <DropdownMenuItem onClick={() => actions.onCheckOut!(occ)}>
-                  <LogOut className="mr-2 h-4 w-4 text-slate-600" />
-                  Check-Out
-                </DropdownMenuItem>
-              )}
-
-              {canTransfer && actions.onTransfer && (
-                <DropdownMenuItem onClick={() => actions.onTransfer!(occ)}>
-                  <ArrowRightLeft className="mr-2 h-4 w-4 text-blue-600" />
-                  Transfer
-                </DropdownMenuItem>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-8 gap-1.5 text-xs"
+            onClick={() => actions.onView(occ)}
+          >
+            <Eye className="h-3.5 w-3.5" />
+            Detail
+          </Button>
         );
       },
     },

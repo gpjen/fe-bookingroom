@@ -209,6 +209,8 @@ export interface BookingOccupant {
   bedCode?: string;
   actualCheckInAt?: Date | null;
   actualCheckOutAt?: Date | null;
+  cancelledAt?: Date | null;
+  cancelledByName?: string | null;
   cancelledReason?: string | null;
   
   // Selection IDs (for form usage)

@@ -735,6 +735,12 @@ model Occupancy {
   transferredBy        String?
   transferredByName    String?
 
+  // Cancellation fields for booking
+  cancelledAt     DateTime?
+  cancelledBy     String?
+  cancelledByName String?
+  cancelledReason String?
+
   // Checkout Info
   checkoutReason String?
   checkoutBy     String?

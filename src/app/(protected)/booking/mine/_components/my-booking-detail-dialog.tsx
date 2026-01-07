@@ -39,7 +39,7 @@ import {
   Download,
   LayoutGrid,
 } from "lucide-react";
-import { format } from "date-fns";
+import { format, differenceInCalendarDays, startOfDay } from "date-fns";
 import { id } from "date-fns/locale";
 import { cn, formatDate, formatDateTime } from "@/lib/utils";
 import type {
@@ -79,12 +79,30 @@ export function MyBookingDetailDialog({
   if (!booking) return null;
 
   const canCancelRequest = booking.status === "PENDING";
+
+  // Calculate days until check-in for an occupant
+  const getDaysUntilCheckIn = (occupant: BookingOccupant): number => {
+    if (!occupant.inDate) return Infinity;
+    const checkInDate = startOfDay(new Date(occupant.inDate));
+    const today = startOfDay(new Date());
+    return differenceInCalendarDays(checkInDate, today);
+  };
+
+  // Check if cancellation is possible for an occupant
   const canCancelOccupant = (occupant: BookingOccupant) => {
-    return (
-      booking.status === "APPROVED" &&
-      occupant.status === "RESERVED" &&
-      !occupant.actualCheckInAt
-    );
+    if (booking.status !== "APPROVED") return false;
+    if (occupant.status !== "RESERVED") return false;
+    if (occupant.actualCheckInAt) return false; // Already checked in
+
+    const daysUntil = getDaysUntilCheckIn(occupant);
+    // Can cancel if at least 1 day before check-in (H-1 or more)
+    return daysUntil >= 1;
+  };
+
+  // Check if it's an urgent cancellation (H-1, needs warning)
+  const isUrgentCancel = (occupant: BookingOccupant): boolean => {
+    const daysUntil = getDaysUntilCheckIn(occupant);
+    return daysUntil === 1; // Exactly 1 day before check-in
   };
 
   const handleCancelRequest = () => {
@@ -299,28 +317,16 @@ export function MyBookingDetailDialog({
               {/* Purpose */}
               <Section title="Tujuan" icon={FileText}>
                 <div className="p-3 bg-muted/50 rounded-lg">
-                  <p className="text-sm font-medium">{booking.purpose}</p>
+                  <p className="text-sm whitespace-pre-wrap">
+                    {booking.purpose}
+                  </p>
                   {booking.notes && (
-                    <p className="text-xs text-muted-foreground mt-2 italic">
+                    <p className="text-xs text-muted-foreground mt-2 italic whitespace-pre-wrap">
                       Catatan: {booking.notes}
                     </p>
                   )}
                 </div>
               </Section>
-
-              {/* Requester Info */}
-              {/* <Section title="Informasi Pemohon" icon={Users}>
-                <CompactProfileCard
-                  label="Pemohon"
-                  name={booking.requester.name}
-                  identifier={booking.requester.nik}
-                  company={booking.requester.company}
-                  department={booking.requester.department}
-                  phone={booking.requester.phone}
-                  email={booking.requester.email}
-                  variant="blue"
-                />
-              </Section> */}
 
               {/* Companion Info (if exists) */}
               {booking.companion && (
@@ -329,9 +335,9 @@ export function MyBookingDetailDialog({
                     label="PIC"
                     name={booking.companion.name || "-"}
                     identifier={booking.companion.nik || "-"}
-                    company="-" // Companion info in booking request might not have company/dept yet unless updated
-                    department="-"
-                    phone={booking.companion.phone || undefined}
+                    company={booking.companion.company || "-"}
+                    department={booking.companion.department || "-"}
+                    phone={booking.companion.phone || "-"}
                     variant="amber"
                   />
                 </Section>
@@ -388,18 +394,28 @@ export function MyBookingDetailDialog({
                               {occupant.identifier}
                             </p>
 
-                            {/* Contact & Company */}
-                            <div className="mt-2 grid grid-cols-2 gap-2 text-xs">
-                              {occupant.phone && (
-                                <div className="flex items-center gap-1.5 text-muted-foreground">
-                                  <Phone className="h-3 w-3" />
-                                  <span>{occupant.phone}</span>
-                                </div>
-                              )}
+                            {/* Company, Department & Contact Info */}
+                            <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
                               {occupant.company && (
                                 <div className="flex items-center gap-1.5 text-muted-foreground">
-                                  <Briefcase className="h-3 w-3" />
-                                  <span>{occupant.company}</span>
+                                  <Briefcase className="h-3 w-3 flex-shrink-0" />
+                                  <span className="truncate">
+                                    {occupant.company}
+                                  </span>
+                                </div>
+                              )}
+                              {occupant.department && (
+                                <div className="flex items-center gap-1.5 text-muted-foreground">
+                                  <Building className="h-3 w-3 flex-shrink-0" />
+                                  <span className="truncate">
+                                    {occupant.department}
+                                  </span>
+                                </div>
+                              )}
+                              {occupant.phone && (
+                                <div className="flex items-center gap-1.5 text-muted-foreground">
+                                  <Phone className="h-3 w-3 flex-shrink-0" />
+                                  <span>{occupant.phone}</span>
                                 </div>
                               )}
                             </div>
@@ -493,31 +509,69 @@ export function MyBookingDetailDialog({
                               </div>
                             )}
 
-                            {/* Cancel Reason */}
-                            {occupant.status === "CANCELLED" &&
-                              occupant.cancelledReason && (
-                                <div className="mt-3 p-2 bg-gray-100 dark:bg-gray-800 rounded text-xs">
+                            {/* Cancel Info */}
+                            {occupant.status === "CANCELLED" && (
+                              <div className="mt-3 p-3 bg-gray-100 dark:bg-gray-800 rounded-lg text-xs space-y-1">
+                                <p className="font-medium text-gray-700 dark:text-gray-300">
+                                  🚫 Dibatalkan
+                                </p>
+                                {occupant.cancelledAt && (
                                   <p className="text-muted-foreground">
-                                    Alasan pembatalan:{" "}
+                                    Waktu:{" "}
+                                    <span className="text-foreground">
+                                      {format(
+                                        new Date(occupant.cancelledAt),
+                                        "dd MMM yyyy, HH:mm",
+                                        { locale: id }
+                                      )}
+                                    </span>
+                                  </p>
+                                )}
+                                {occupant.cancelledByName && (
+                                  <p className="text-muted-foreground">
+                                    Oleh:{" "}
+                                    <span className="text-foreground">
+                                      {occupant.cancelledByName}
+                                    </span>
+                                  </p>
+                                )}
+                                {occupant.cancelledReason && (
+                                  <p className="text-muted-foreground">
+                                    Alasan:{" "}
                                     <span className="text-foreground">
                                       {occupant.cancelledReason}
                                     </span>
                                   </p>
-                                </div>
-                              )}
+                                )}
+                              </div>
+                            )}
                           </div>
 
                           {/* Cancel Occupant Button */}
                           {canCancel && (
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30"
-                              onClick={() => openCancelOccupantDialog(occupant)}
-                            >
-                              <UserX className="h-4 w-4 mr-1" />
-                              Batalkan
-                            </Button>
+                            <div className="flex flex-col items-end gap-1">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className={cn(
+                                  "hover:bg-rose-50 dark:hover:bg-rose-950/30",
+                                  isUrgentCancel(occupant)
+                                    ? "text-amber-600 hover:text-amber-700 border border-amber-300"
+                                    : "text-rose-600 hover:text-rose-700"
+                                )}
+                                onClick={() =>
+                                  openCancelOccupantDialog(occupant)
+                                }
+                              >
+                                <UserX className="h-4 w-4 mr-1" />
+                                Batalkan
+                              </Button>
+                              {isUrgentCancel(occupant) && (
+                                <span className="text-[10px] text-amber-600 font-medium">
+                                  ⚠️ H-1 Check-in
+                                </span>
+                              )}
+                            </div>
                           )}
                         </div>
                       </div>
@@ -555,37 +609,41 @@ export function MyBookingDetailDialog({
           </div>
 
           {/* Footer */}
-          <div className="px-6 py-4 border-t bg-muted/30 space-y-3">
-            <div className="flex gap-2">
-              {canCancelRequest && (
-                <Button
-                  variant="destructive"
-                  className="flex-1"
-                  onClick={() => {
-                    setCancelReason("");
-                    setCancelRequestOpen(true);
-                  }}
-                >
-                  <Ban className="h-4 w-4 mr-2" />
-                  Batalkan Permintaan
+          <div className="px-6 py-4 border-t bg-muted/30">
+            <div className="flex items-center justify-between gap-3">
+              {/* Left: Cancel button (if pending) */}
+              <div>
+                {canCancelRequest && (
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={() => {
+                      setCancelReason("");
+                      setCancelRequestOpen(true);
+                    }}
+                  >
+                    <Ban className="h-4 w-4 mr-2" />
+                    Batalkan Permintaan
+                  </Button>
+                )}
+              </div>
+
+              {/* Right: Action buttons */}
+              <div className="flex items-center gap-2">
+                {booking.status === "APPROVED" && (
+                  <Button
+                    size="sm"
+                    onClick={() => setDownloadDialogOpen(true)}
+                    className="bg-emerald-600 hover:bg-emerald-700"
+                  >
+                    <Download className="h-4 w-4 mr-2" />
+                    Unduh Tiket
+                  </Button>
+                )}
+                <Button variant="outline" size="sm" onClick={onClose}>
+                  Tutup
                 </Button>
-              )}
-              {booking.status === "APPROVED" && (
-                <Button
-                  onClick={() => setDownloadDialogOpen(true)}
-                  className="bg-emerald-600 hover:bg-emerald-700"
-                >
-                  <Download className="h-4 w-4 mr-2" />
-                  Unduh Tiket
-                </Button>
-              )}
-              <Button
-                variant="outline"
-                className={canCancelRequest ? "" : "w-full"}
-                onClick={onClose}
-              >
-                Tutup
-              </Button>
+              </div>
             </div>
           </div>
         </SheetContent>
@@ -634,11 +692,33 @@ export function MyBookingDetailDialog({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Batalkan Penghuni?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Anda yakin ingin membatalkan{" "}
-              <strong>{selectedOccupant?.name}</strong> dari booking ini?
-              Tindakan ini tidak dapat dibatalkan.
+            <AlertDialogTitle>
+              {selectedOccupant && isUrgentCancel(selectedOccupant)
+                ? "⚠️ Peringatan: Pembatalan H-1"
+                : "Batalkan Penghuni?"}
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 text-sm text-muted-foreground">
+                {selectedOccupant && isUrgentCancel(selectedOccupant) && (
+                  <div className="p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
+                    <p className="text-amber-800 dark:text-amber-300 text-sm font-medium">
+                      ⚠️ Anda membatalkan penghuni ini 1 hari sebelum jadwal
+                      check-in!
+                    </p>
+                    <p className="text-amber-700 dark:text-amber-400 text-xs mt-1">
+                      Pembatalan mendadak dapat menyulitkan operasional.
+                      Pastikan alasan pembatalan valid.
+                    </p>
+                  </div>
+                )}
+                <p>
+                  Anda yakin ingin membatalkan{" "}
+                  <strong className="text-foreground">
+                    {selectedOccupant?.name}
+                  </strong>{" "}
+                  dari booking ini? Tindakan ini tidak dapat dibatalkan.
+                </p>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="py-4">
@@ -647,14 +727,25 @@ export function MyBookingDetailDialog({
               className="text-sm font-medium"
             >
               Alasan Pembatalan <span className="text-rose-500">*</span>
+              {selectedOccupant && isUrgentCancel(selectedOccupant) && (
+                <span className="text-amber-600 text-xs ml-2">
+                  (Wajib detail untuk H-1)
+                </span>
+              )}
             </Label>
             <Textarea
               id="cancelOccupantReason"
-              placeholder="Tuliskan alasan pembatalan..."
+              placeholder={
+                selectedOccupant && isUrgentCancel(selectedOccupant)
+                  ? "Tuliskan alasan detail mengapa harus dibatalkan mendadak..."
+                  : "Tuliskan alasan pembatalan..."
+              }
               value={cancelReason}
               onChange={(e) => setCancelReason(e.target.value)}
               className="mt-2"
-              rows={3}
+              rows={
+                selectedOccupant && isUrgentCancel(selectedOccupant) ? 4 : 3
+              }
             />
           </div>
           <AlertDialogFooter>

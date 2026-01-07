@@ -226,12 +226,19 @@ export interface BookingDetail extends BookingListItem {
     status: string;
     checkInDate: Date;
     checkOutDate: Date | null;
+    // Cancellation info
+    cancelledAt: Date | null;
+    cancelledBy: string | null;
+    cancelledByName: string | null;
+    cancelledReason: string | null;
     occupant: {
       id: string;
       name: string;
       nik: string | null;
       gender: string | null;
       company: string | null;
+      department: string | null;
+      phone: string | null;
     };
     bed: {
       id: string;
@@ -280,4 +287,7 @@ export interface GetBookingsParams {
   status?: BookingStatus;
   page?: number;
   limit?: number;
+  search?: string;
+  dateFrom?: Date;
+  dateTo?: Date;
 }

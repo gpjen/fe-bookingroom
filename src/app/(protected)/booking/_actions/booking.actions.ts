@@ -473,6 +473,26 @@ export async function getMyBookings(
       where.status = params.status;
     }
 
+    // Date range filter
+    if (params?.dateFrom || params?.dateTo) {
+      where.checkInDate = {};
+      if (params.dateFrom) {
+        where.checkInDate.gte = params.dateFrom;
+      }
+      if (params.dateTo) {
+        where.checkInDate.lte = params.dateTo;
+      }
+    }
+
+    // Search filter
+    if (params?.search && params.search.trim()) {
+      const searchTerm = params.search.trim();
+      where.OR = [
+        { code: { contains: searchTerm, mode: "insensitive" } },
+        { purpose: { contains: searchTerm, mode: "insensitive" } },
+      ];
+    }
+
     const [bookings, total] = await Promise.all([
       prisma.booking.findMany({
         where,
@@ -706,6 +726,8 @@ export async function getBookingById(
                 nik: true,
                 gender: true,
                 company: true,
+                department: true,
+                phone: true,
               },
             },
             bed: {
@@ -788,12 +810,18 @@ export async function getBookingById(
         status: occ.status,
         checkInDate: occ.checkInDate,
         checkOutDate: occ.checkOutDate,
+        cancelledAt: occ.cancelledAt,
+        cancelledBy: occ.cancelledBy,
+        cancelledByName: occ.cancelledByName,
+        cancelledReason: occ.cancelledReason,
         occupant: {
           id: occ.occupant.id,
           name: occ.occupant.name,
           nik: occ.occupant.nik,
           gender: occ.occupant.gender,
           company: occ.occupant.company,
+          department: occ.occupant.department,
+          phone: occ.occupant.phone,
         },
         bed: {
           id: occ.bed.id,
@@ -1242,3 +1270,110 @@ export async function cancelBooking(
   }
 }
 
+// ========================================
+// CANCEL OCCUPANCY (Single Occupant)
+// ========================================
+
+interface CancelOccupancyInput {
+  bookingId: string;
+  occupancyId: string;
+  reason: string;
+}
+
+export async function cancelOccupancy(
+  input: CancelOccupancyInput
+): Promise<ActionResponse<{ id: string }>> {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    if (!input.reason || input.reason.trim().length === 0) {
+      return { success: false, error: "Alasan pembatalan wajib diisi" };
+    }
+
+    // Get booking with this occupancy
+    const booking = await prisma.booking.findUnique({
+      where: { id: input.bookingId },
+      include: {
+        occupancies: {
+          where: { id: input.occupancyId },
+        },
+      },
+    });
+
+    if (!booking) {
+      return { success: false, error: "Booking tidak ditemukan" };
+    }
+
+    if (booking.status !== "APPROVED") {
+      return { success: false, error: "Hanya booking yang disetujui yang dapat dibatalkan per penghuni" };
+    }
+
+    const occupancy = booking.occupancies[0];
+    if (!occupancy) {
+      return { success: false, error: "Data penghuni tidak ditemukan" };
+    }
+
+    if (occupancy.status !== "RESERVED") {
+      return { success: false, error: "Penghuni ini tidak dapat dibatalkan (status: " + occupancy.status + ")" };
+    }
+
+    if (occupancy.actualCheckIn) {
+      return { success: false, error: "Penghuni yang sudah check-in tidak dapat dibatalkan" };
+    }
+
+    // Check time-based restriction (must be at least H-1)
+    const today = startOfDay(new Date());
+    const checkInDate = startOfDay(new Date(occupancy.checkInDate));
+    const daysUntilCheckIn = Math.floor((checkInDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+    if (daysUntilCheckIn < 1) {
+      return { success: false, error: "Tidak dapat membatalkan pada hari check-in (H-0)" };
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const user = session.user as any;
+    // Use NIK or preferred_username as identifier, fallback to sub/id
+    const userId = user.nik || user.preferred_username || user.sub || user.id || "unknown";
+    const userName = user.name || user.preferred_username || "Unknown";
+
+    // Cancel the occupancy
+    await prisma.$transaction(async (tx) => {
+      await tx.occupancy.update({
+        where: { id: input.occupancyId },
+        data: {
+          status: "CANCELLED",
+          cancelledAt: new Date(),
+          cancelledBy: userId,
+          cancelledByName: userName,
+          cancelledReason: input.reason.trim(),
+        },
+      });
+
+      // Reset bed status to AVAILABLE if no other active occupancies
+      const activeOccupancies = await tx.occupancy.count({
+        where: {
+          bedId: occupancy.bedId,
+          status: { in: ["PENDING", "RESERVED", "CHECKED_IN"] },
+        },
+      });
+
+      if (activeOccupancies === 0) {
+        await tx.bed.update({
+          where: { id: occupancy.bedId },
+          data: { status: "AVAILABLE" },
+        });
+      }
+    });
+
+    revalidatePath("/booking/mine");
+    revalidatePath("/booking/admin");
+
+    return { success: true, data: { id: input.occupancyId } };
+  } catch (error) {
+    console.error("[CANCEL_OCCUPANCY_ERROR]", error);
+    return { success: false, error: "Gagal membatalkan penghuni" };
+  }
+}

@@ -102,18 +102,18 @@ function transformToDetailData(data: BookingDetail): BookingDetailData {
         type: "employee",
         gender:
           occ.occupant.gender === "FEMALE" ? ("P" as const) : ("L" as const),
+        company: occ.occupant.company,
+        department: occ.occupant.department,
+        phone: occ.occupant.phone,
         inDate: new Date(occ.checkInDate),
         outDate: occ.checkOutDate ? new Date(occ.checkOutDate) : undefined,
         status: occ.status as OccupancyStatus,
-        // buildingName: occ.bed?.room?.building?.name, // Bed might be null if not assigned
-        // roomCode: occ.bed?.room?.code,
-        // bedCode: occ.bed?.code,
-        // These are not in the default BookingDetail type from actions usually unless deeply typed
-        // We will leave them for now or assume they exist in 'occ' if we trusted the action return type fully.
-        // But let's check safety.
         buildingName: occ.bed?.room?.building?.name,
         roomCode: occ.bed?.room?.code,
         bedCode: occ.bed?.code,
+        cancelledAt: occ.cancelledAt ? new Date(occ.cancelledAt) : null,
+        cancelledByName: occ.cancelledByName,
+        cancelledReason: occ.cancelledReason,
       })
     ),
     attachments: data.attachments,

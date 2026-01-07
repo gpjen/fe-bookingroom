@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,16 +12,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Sheet,
-  SheetContent,
-  SheetDescription,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-  SheetFooter,
-  SheetClose,
-} from "@/components/ui/sheet";
 import { DataTable } from "@/components/ui/data-table";
 import { DatePickerWithRange } from "@/components/ui/date-picker-with-range";
 import { MyBookingDetailDialog } from "./_components/my-booking-detail-dialog";
@@ -29,6 +19,9 @@ import {
   BookingRequest,
   BookingStatus,
   OccupancyStatus,
+  BookingOccupant,
+  BOOKING_STATUS_CONFIG,
+  CompanionInfo,
 } from "@/app/(protected)/booking/request/_components/types";
 import { ColumnDef } from "@tanstack/react-table";
 import { DateRange } from "react-day-picker";
@@ -36,57 +29,117 @@ import { cn, formatDate } from "@/lib/utils";
 import {
   FileText,
   Search,
-  Filter,
-  X,
+  RefreshCw,
+  Plus,
   Eye,
-  Clock,
   CheckCircle,
   XCircle,
+  Clock,
   Ban,
-  Plus,
-  RefreshCw,
+  Loader2,
+  AlertCircle,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import { BookingRequestForm } from "@/components/booking/booking-request-form";
 
-const getStatusConfig = (status: BookingStatus) => {
-  const config: Record<
-    BookingStatus,
-    { label: string; className: string; icon: typeof Clock }
-  > = {
-    PENDING: {
-      label: "Menunggu",
-      className:
-        "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900/30 dark:text-amber-400",
-      icon: Clock,
-    },
-    APPROVED: {
-      label: "Disetujui",
-      className:
-        "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-900/30 dark:text-emerald-400",
-      icon: CheckCircle,
-    },
-    REJECTED: {
-      label: "Ditolak",
-      className:
-        "bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-900/30 dark:text-rose-400",
-      icon: XCircle,
-    },
-    CANCELLED: {
-      label: "Dibatalkan",
-      className:
-        "bg-gray-100 text-gray-800 border-gray-300 dark:bg-gray-900/30 dark:text-gray-400",
-      icon: Ban,
-    },
-  };
-  return config[status];
-};
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
-interface ColumnsProps {
-  onView: (booking: BookingRequest) => void;
+import {
+  getMyBookings,
+  getBookingById,
+  cancelBooking,
+  cancelOccupancy,
+  createBookingRequest,
+} from "../_actions/booking.actions";
+import {
+  type BookingDetail,
+  type BookingListItem,
+  type CreateBookingInput,
+} from "../_actions/booking.types";
+
+// ==========================================
+// TRANSFORMER
+// ==========================================
+
+function transformToDetailData(data: BookingDetail): BookingRequest {
+  return {
+    id: data.id,
+    code: data.code,
+    status: data.status,
+    checkInDate: data.checkInDate ? new Date(data.checkInDate) : null,
+    checkOutDate: data.checkOutDate ? new Date(data.checkOutDate) : null,
+    requesterUserId: data.requesterUserId,
+    requesterName: data.requesterName,
+    requesterNik: data.requesterNik,
+    requesterEmail: data.requesterEmail,
+    requesterPhone: data.requesterPhone,
+    requesterCompany: data.requesterCompany,
+    requesterDepartment: data.requesterDepartment,
+    requesterPosition: data.requesterPosition,
+    companion: data.companionName
+      ? {
+          name: data.companionName,
+          nik: data.companionNik,
+          email: data.companionEmail,
+          phone: data.companionPhone,
+          company: data.companionCompany,
+          department: data.companionDepartment,
+        }
+      : null,
+    purpose: data.purpose,
+    projectCode: data.projectCode,
+    notes: data.notes,
+    approvedBy: data.approvedBy,
+    approvedAt: data.approvedAt ? new Date(data.approvedAt) : null,
+    rejectedBy: data.rejectedBy,
+    rejectedAt: data.rejectedAt ? new Date(data.rejectedAt) : null,
+    rejectionReason: data.rejectionReason,
+    cancelledBy: data.cancelledBy,
+    cancelledAt: data.cancelledAt ? new Date(data.cancelledAt) : null,
+    cancellationReason: data.cancellationReason,
+    occupants: data.occupancies.map(
+      (occ): BookingOccupant => ({
+        id: occ.id,
+        name: occ.occupant.name,
+        identifier: occ.occupant.nik || "-",
+        type: "employee", // TODO: Retrieve from occupant type if available
+        gender:
+          occ.occupant.gender === "FEMALE" ? ("P" as const) : ("L" as const),
+        company: occ.occupant.company,
+        department: occ.occupant.department,
+        phone: occ.occupant.phone,
+        inDate: new Date(occ.checkInDate),
+        outDate: occ.checkOutDate ? new Date(occ.checkOutDate) : undefined,
+        status: occ.status as OccupancyStatus,
+        buildingName: occ.bed?.room?.building?.name,
+        roomCode: occ.bed?.room?.code,
+        bedCode: occ.bed?.code,
+        cancelledAt: occ.cancelledAt ? new Date(occ.cancelledAt) : null,
+        cancelledByName: occ.cancelledByName,
+        cancelledReason: occ.cancelledReason,
+      })
+    ),
+    attachments: data.attachments,
+    createdAt: new Date(data.createdAt),
+    updatedAt: new Date(data.updatedAt),
+  };
 }
 
-const getColumns = ({ onView }: ColumnsProps): ColumnDef<BookingRequest>[] => [
+// ==========================================
+// COLUMNS
+// ==========================================
+
+interface ColumnsProps {
+  onView: (booking: BookingListItem) => void;
+}
+
+const getColumns = ({ onView }: ColumnsProps): ColumnDef<BookingListItem>[] => [
   {
     id: "no",
     header: () => <div className="text-center font-semibold">NO</div>,
@@ -109,9 +162,7 @@ const getColumns = ({ onView }: ColumnsProps): ColumnDef<BookingRequest>[] => [
     accessorKey: "code",
     header: "Kode Booking",
     cell: ({ row }) => (
-      <div className="font-mono text-sm font-semibold text-primary">
-        {row.original.code}
-      </div>
+      <span className="font-mono text-sm font-medium">{row.original.code}</span>
     ),
   },
   {
@@ -119,234 +170,306 @@ const getColumns = ({ onView }: ColumnsProps): ColumnDef<BookingRequest>[] => [
     header: "Status",
     cell: ({ row }) => {
       const status = row.original.status;
-      const config = getStatusConfig(status);
-      const Icon = config.icon;
-      // const expiredDate = row.original.expiresAt;
+      const config = BOOKING_STATUS_CONFIG[status];
+      // Fallback if config missing
+      if (!config) return <Badge>{status}</Badge>;
 
       return (
-        <div className="flex flex-col">
-          <Badge
-            variant="outline"
-            className={cn(
-              "gap-1.5 text-xs font-medium flex items-center w-fit",
-              config.className
-            )}
-          >
-            <Icon className="h-3 w-3" />
-            {config.label}
-          </Badge>
-        </div>
+        <Badge
+          variant="outline"
+          className={cn(
+            "gap-1.5 text-xs font-medium flex items-center w-fit",
+            config.className
+          )}
+        >
+          {status === "PENDING" && <Clock className="h-3 w-3" />}
+          {status === "APPROVED" && <CheckCircle className="h-3 w-3" />}
+          {status === "REJECTED" && <XCircle className="h-3 w-3" />}
+          {status === "CANCELLED" && <Ban className="h-3 w-3" />}
+          {config.label}
+        </Badge>
       );
     },
   },
   {
-    accessorKey: "occupants",
-    header: "Penghuni",
-    cell: ({ row }) => {
-      const occupants = row.original.occupants;
-      const count = occupants.length;
-      const types = occupants.reduce((acc, curr) => {
-        acc[curr.type] = (acc[curr.type] || 0) + 1;
-        return acc;
-      }, {} as Record<string, number>);
-
-      const summary = Object.entries(types)
-        .map(([type, cnt]) => {
-          const label = type === "employee" ? "Karyawan" : "Tamu";
-          return `${cnt} ${label}`;
-        })
-        .join(", ");
-
-      return (
-        <div className="flex flex-col">
-          <span className="font-semibold text-sm">{count} Orang</span>
-          <span className="text-xs text-muted-foreground">{summary}</span>
-        </div>
-      );
-    },
-  },
-  {
-    accessorKey: "area",
-    header: "Area",
-    cell: ({ row }) => {
-      const booking = row.original;
-      // Use first occupant building name as area approximation
-      const areaName = booking.occupants[0]?.buildingName || "-";
-
-      return (
-        <div className="flex flex-col space-y-0.5">
-          <span className="font-medium text-sm">{areaName}</span>
-        </div>
-      );
-    },
+    accessorKey: "occupantCount",
+    header: () => <div className="text-center">Penghuni</div>,
+    cell: ({ row }) => (
+      <div className="text-center font-medium">
+        {row.original.occupantCount} org
+      </div>
+    ),
   },
   {
     accessorKey: "purpose",
     header: "Tujuan",
-    cell: ({ row }) => {
-      const booking = row.original;
-
-      return (
-        <div className="flex flex-col max-w-[200px]">
-          <span className="text-sm font-medium truncate">
-            {booking.purpose}
-          </span>
-          {booking.notes && (
-            <span className="text-xs text-muted-foreground truncate italic">
-              &quot;{booking.notes}&quot;
+    cell: ({ row }) => (
+      <TooltipProvider>
+        <Tooltip delayDuration={300}>
+          <TooltipTrigger asChild>
+            <span className="text-sm line-clamp-1 max-w-[200px] cursor-help">
+              {row.original.purpose}
             </span>
-          )}
-        </div>
-      );
-    },
+          </TooltipTrigger>
+          <TooltipContent className="max-w-[400px] p-4 text-sm bg-popover text-popover-foreground shadow-xl">
+            <p className="whitespace-pre-wrap">{row.original.purpose}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    ),
   },
   {
     accessorKey: "createdAt",
-    header: "Tgl Pengajuan",
+    header: "Tanggal Request",
     cell: ({ row }) => (
-      <div className="text-sm">{formatDate(row.original.createdAt)}</div>
+      <span className="text-sm text-muted-foreground">
+        {formatDate(row.original.createdAt)}
+      </span>
     ),
   },
   {
     id: "actions",
-    cell: ({ row }) => {
-      const booking = row.original;
-
-      return (
-        <div className="text-right">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => onView(booking)}
-            className="h-8 px-3"
-          >
-            <Eye className="h-4 w-4 mr-1.5" />
-            Detail
-          </Button>
-        </div>
-      );
-    },
+    header: () => <div className="text-right">Aksi</div>,
+    cell: ({ row }) => (
+      <div className="flex justify-center gap-1">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          onClick={() => onView(row.original)}
+          title="Lihat Detail"
+        >
+          <Eye className="h-4 w-4" />
+        </Button>
+      </div>
+    ),
   },
 ];
 
+// ==========================================
+// MAIN COMPONENT
+// ==========================================
+
 export default function MyBookingsPage() {
-  const [bookings, setBookings] = useState<BookingRequest[]>([]);
+  // State
+  const [bookings, setBookings] = useState<BookingListItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [total, setTotal] = useState(0);
+
+  // Filter state
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
 
-  // Dialog states
+  // Dialog state
   const [selectedBooking, setSelectedBooking] = useState<BookingRequest | null>(
     null
   );
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isFormOpen, setIsFormOpen] = useState(false);
 
-  // Filter bookings
-  const filteredBookings = useMemo(() => {
-    return bookings
-      .filter((booking) => {
-        const searchLower = searchQuery.toLowerCase();
-        const matchesSearch =
-          (booking.code && booking.code.toLowerCase().includes(searchLower)) ||
-          (booking.purpose &&
-            booking.purpose.toLowerCase().includes(searchLower)) ||
-          booking.occupants.some((occ) =>
-            occ.name.toLowerCase().includes(searchLower)
-          ) ||
-          booking.occupants.some(
-            (occ) =>
-              occ.buildingName?.toLowerCase().includes(searchLower) ||
-              occ.roomCode?.toLowerCase().includes(searchLower)
-          );
+  // API Call
+  const fetchBookings = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
 
-        const matchesStatus =
-          statusFilter === "all" || booking.status === statusFilter;
+    try {
+      const result = await getMyBookings({
+        search: searchQuery || undefined,
+        status:
+          statusFilter !== "all" ? (statusFilter as BookingStatus) : undefined,
+        dateFrom: dateRange?.from,
+        dateTo: dateRange?.to,
+        limit: 50, // Reasonable limit for "My Bookings"
+      });
 
-        const matchesDate =
-          !dateRange?.from ||
-          booking.occupants.some((occ) => {
-            const checkIn = occ.inDate ? new Date(occ.inDate) : null;
-            return (
-              checkIn &&
-              checkIn >= dateRange.from! &&
-              (!dateRange.to || checkIn <= dateRange.to)
-            );
-          });
+      if (result.success) {
+        setBookings(result.data.data);
+        setTotal(result.data.total);
+      } else {
+        setError(result.error);
+        toast.error("Gagal memuat data booking", {
+          description: result.error,
+        });
+      }
+    } catch (err) {
+      console.error(err);
+      setError("Terjadi kesalahan sistem");
+      toast.error("Terjadi kesalahan saat memuat data");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [searchQuery, statusFilter, dateRange]);
 
-        return matchesSearch && matchesStatus && matchesDate;
-      })
-      .sort(
-        (a, b) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      );
-  }, [bookings, searchQuery, statusFilter, dateRange]);
+  // View Detail Handler
+  const handleView = async (item: BookingListItem) => {
+    setIsDetailOpen(true);
+    setSelectedBooking(null);
 
-  const handleView = (booking: BookingRequest) => {
-    setSelectedBooking(booking);
+    try {
+      const result = await getBookingById(item.id);
+      if (result.success) {
+        const detail = transformToDetailData(result.data);
+        setSelectedBooking(detail);
+      } else {
+        toast.error("Gagal memuat detail", { description: result.error });
+        setIsDetailOpen(false);
+      }
+    } catch {
+      toast.error("Terjadi kesalahan saat memuat detail");
+      setIsDetailOpen(false);
+    }
   };
 
-  const clearFilters = () => {
+  // Initial Fetch & Debounce
+  useEffect(() => {
+    const timer = setTimeout(fetchBookings, 300);
+    return () => clearTimeout(timer);
+  }, [fetchBookings]);
+
+  // Handlers
+  const handleRefresh = () => {
+    toast.info("Memuat ulang data...");
+    fetchBookings();
+  };
+
+  const handleClearFilters = () => {
     setSearchQuery("");
     setStatusFilter("all");
     setDateRange(undefined);
-    toast.info("Filter telah direset");
+    toast.info("Filter direset");
   };
 
-  const handleRefresh = () => {
-    toast.info("Memuat ulang data...");
-    setTimeout(() => {
-      toast.success("Data berhasil dimuat ulang");
-    }, 500);
-  };
+  const handleFormSubmit = async (data: {
+    areaId: string;
+    purpose: string;
+    notes?: string;
+    occupants: BookingOccupant[];
+    companion?: CompanionInfo;
+  }) => {
+    try {
+      // Calculate check-in/out dates from occupants
+      const occupants = data.occupants;
 
-  const handleFormSubmit = (data: unknown) => {
-    console.log("Booking Request Data:", data);
-    setIsFormOpen(false);
-    toast.success("Permintaan booking berhasil dibuat");
-  };
+      const checkInDateValue = occupants.reduce((min, o) => {
+        const date = o.inDate ? new Date(o.inDate).getTime() : Infinity;
+        return date < min ? date : min;
+      }, Infinity);
 
-  const handleCancelRequest = (bookingId: string, reason: string) => {
-    setBookings((prev) =>
-      prev.map((b) =>
-        b.id === bookingId
+      const checkInDate =
+        checkInDateValue === Infinity ? new Date() : new Date(checkInDateValue);
+
+      const checkOutDateValue = occupants.reduce((max, o) => {
+        const date = o.outDate ? new Date(o.outDate).getTime() : 0;
+        return date > max ? date : max;
+      }, 0);
+
+      const checkOutDate =
+        checkOutDateValue > 0
+          ? new Date(checkOutDateValue)
+          : new Date(checkInDate.getTime() + 24 * 60 * 60 * 1000); // Default 1 day
+
+      const payload: CreateBookingInput = {
+        purpose: data.purpose,
+        notes: data.notes,
+        checkInDate,
+        checkOutDate,
+        occupants: occupants.map((o) => ({
+          bedId: o.bedId || "",
+          name: o.name,
+          nik: o.identifier,
+          type: o.type === "guest" ? "GUEST" : "EMPLOYEE",
+          gender: o.gender === "P" ? "FEMALE" : "MALE",
+          email: o.email || undefined,
+          phone: o.phone || undefined,
+          company: o.company || undefined,
+          department: o.department || undefined,
+        })),
+        companion: data.companion
           ? {
-              ...b,
-              status: "CANCELLED" as BookingStatus,
-              cancelledAt: new Date(),
-              adminNotes: reason,
+              name: data.companion.name || "",
+              nik: data.companion.nik || "",
+              email: data.companion.email || undefined,
+              phone: data.companion.phone || undefined,
+              company: data.companion.company || undefined,
+              department: data.companion.department || undefined,
             }
-          : b
-      )
-    );
-    toast.success("Permintaan booking berhasil dibatalkan");
+          : undefined,
+      };
+
+      const result = await createBookingRequest(payload);
+
+      if (result.success) {
+        setIsFormOpen(false);
+        toast.success("Permintaan booking berhasil dibuat");
+        fetchBookings(); // Reload data
+      } else {
+        toast.error("Gagal membuat booking", {
+          description: result.error,
+        });
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Terjadi kesalahan sistem");
+    }
   };
 
-  const handleCancelOccupant = (
+  const handleCancelRequest = async (bookingId: string, reason: string) => {
+    try {
+      const result = await cancelBooking({ bookingId, reason });
+      if (result.success) {
+        toast.success("Booking berhasil dibatalkan");
+        fetchBookings();
+        setIsDetailOpen(false);
+      } else {
+        toast.error("Gagal membatalkan", { description: result.error });
+      }
+    } catch {
+      toast.error("Terjadi kesalahan sistem");
+    }
+  };
+
+  const handleCancelOccupant = async (
     bookingId: string,
     occupantId: string,
     reason: string
   ) => {
-    setBookings((prev) =>
-      prev.map((b) =>
-        b.id === bookingId
-          ? {
-              ...b,
-              occupants: b.occupants.map((occ) =>
-                occ.id === occupantId
-                  ? {
-                      ...occ,
-                      status: "CANCELLED" as OccupancyStatus,
-                      cancelledAt: new Date(),
-                      cancelReason: reason,
-                    }
-                  : occ
-              ),
-            }
-          : b
-      )
-    );
-    toast.success("Penghuni berhasil dibatalkan dari booking");
+    try {
+      const result = await cancelOccupancy({
+        bookingId,
+        occupancyId: occupantId,
+        reason,
+      });
+      if (result.success) {
+        toast.success("Penghuni berhasil dibatalkan");
+        // Refetch the detail to update the UI
+        if (selectedBooking) {
+          const updatedDetail = await getBookingById(selectedBooking.id);
+          if (updatedDetail.success) {
+            setSelectedBooking(transformToDetailData(updatedDetail.data));
+          }
+        }
+        fetchBookings(); // Refresh list
+      } else {
+        toast.error("Gagal membatalkan penghuni", {
+          description: result.error,
+        });
+      }
+    } catch {
+      toast.error("Terjadi kesalahan sistem");
+    }
   };
+
+  // Stats Logic (based on loaded bookings)
+  const stats = useMemo(() => {
+    return {
+      total: total, // Use API total
+      pending: bookings.filter((b) => b.status === "PENDING").length,
+      approved: bookings.filter((b) => b.status === "APPROVED").length,
+      rejected: bookings.filter((b) => b.status === "REJECTED").length,
+    };
+  }, [bookings, total]);
 
   const activeFiltersCount = [
     statusFilter !== "all",
@@ -354,261 +477,186 @@ export default function MyBookingsPage() {
     dateRange?.from !== undefined,
   ].filter(Boolean).length;
 
-  // Stats
-  const stats = useMemo(() => {
-    return {
-      total: bookings.length,
-      pending: bookings.filter((r) => r.status === "PENDING").length,
-      approved: bookings.filter((r) => r.status === "APPROVED").length,
-      rejected: bookings.filter((r) => r.status === "REJECTED").length,
-    };
-  }, [bookings]);
-
   return (
-    <>
-      <div className="space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
-              <FileText className="h-6 w-6" /> Pemesanan Saya
-            </h1>
-            <p className="text-muted-foreground mt-1">
-              Daftar semua permintaan booking yang telah Anda ajukan.
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={handleRefresh}>
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Muat Ulang
-            </Button>
-            <Button size="sm" onClick={() => setIsFormOpen(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Buat Permintaan
-            </Button>
-          </div>
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+            <FileText className="h-6 w-6" /> Pemesanan Saya
+          </h1>
+          <p className="text-muted-foreground mt-1">
+            Daftar semua permintaan booking yang telah Anda ajukan.
+          </p>
         </div>
-
-        {/* Quick Stats */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-          <Card className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-primary/10 rounded-lg">
-                <FileText className="h-5 w-5 text-primary" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{stats.total}</p>
-                <p className="text-xs text-muted-foreground">Total</p>
-              </div>
-            </div>
-          </Card>
-          <Card className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-amber-500/10 rounded-lg">
-                <Clock className="h-5 w-5 text-amber-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{stats.pending}</p>
-                <p className="text-xs text-muted-foreground">Menunggu</p>
-              </div>
-            </div>
-          </Card>
-          <Card className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-emerald-500/10 rounded-lg">
-                <CheckCircle className="h-5 w-5 text-emerald-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{stats.approved}</p>
-                <p className="text-xs text-muted-foreground">Disetujui</p>
-              </div>
-            </div>
-          </Card>
-          <Card className="p-4">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-rose-500/10 rounded-lg">
-                <XCircle className="h-5 w-5 text-rose-600" />
-              </div>
-              <div>
-                <p className="text-2xl font-bold">{stats.rejected}</p>
-                <p className="text-xs text-muted-foreground">Ditolak</p>
-              </div>
-            </div>
-          </Card>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={isLoading}
+          >
+            <RefreshCw
+              className={cn("h-4 w-4 mr-2", isLoading && "animate-spin")}
+            />
+            Muat Ulang
+          </Button>
+          <Button size="sm" onClick={() => setIsFormOpen(true)}>
+            <Plus className="h-4 w-4 mr-2" />
+            Buat Permintaan
+          </Button>
         </div>
+      </div>
 
-        {/* Main Content */}
-        <Card className="p-4 md:p-6">
-          <div className="space-y-4">
-            {/* Filters */}
-            <div className="w-full">
-              {/* Desktop Filter Bar */}
-              <div className="hidden lg:flex flex-wrap items-center gap-3 p-1 rounded-lg">
-                <div className="relative flex-1 min-w-[240px] max-w-sm">
-                  <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Cari kode, nama penghuni, lokasi..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-9 h-9"
-                  />
-                </div>
+      {/* Quick Stats Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <Card className="p-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-primary/10 rounded-lg">
+              <FileText className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold">{stats.total}</p>
+              <p className="text-xs text-muted-foreground">Total Request</p>
+            </div>
+          </div>
+        </Card>
+        <Card className="p-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-amber-500/10 rounded-lg">
+              <Clock className="h-5 w-5 text-amber-600" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold">{stats.pending}</p>
+              <p className="text-xs text-muted-foreground">Menunggu</p>
+            </div>
+          </div>
+        </Card>
+        <Card className="p-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-emerald-500/10 rounded-lg">
+              <CheckCircle className="h-5 w-5 text-emerald-600" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold">{stats.approved}</p>
+              <p className="text-xs text-muted-foreground">Disetujui</p>
+            </div>
+          </div>
+        </Card>
+        <Card className="p-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-rose-500/10 rounded-lg">
+              <XCircle className="h-5 w-5 text-rose-600" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold">{stats.rejected}</p>
+              <p className="text-xs text-muted-foreground">Ditolak</p>
+            </div>
+          </div>
+        </Card>
+      </div>
 
-                <div className="h-8 w-[1px] bg-border mx-1" />
+      {/* Main Content */}
+      <Card className="p-4 md:p-6">
+        <div className="space-y-4">
+          {/* Filters */}
+          <div className="w-full">
+            <div className="flex flex-col lg:flex-row gap-3">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Cari kode booking, nama, catatan..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
 
+              <div className="flex gap-2 overflow-x-auto pb-1 lg:pb-0">
                 <DatePickerWithRange
                   date={dateRange}
                   setDate={setDateRange}
-                  className="w-auto h-9"
+                  className="w-auto h-10"
                 />
 
                 <Select value={statusFilter} onValueChange={setStatusFilter}>
-                  <SelectTrigger className="w-[150px] h-9">
+                  <SelectTrigger className="w-[150px]">
                     <SelectValue placeholder="Status" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Semua Status</SelectItem>
-                    <SelectItem value="request">Menunggu</SelectItem>
-                    <SelectItem value="approved">Disetujui</SelectItem>
-                    <SelectItem value="rejected">Ditolak</SelectItem>
-                    <SelectItem value="cancelled">Dibatalkan</SelectItem>
-                    <SelectItem value="expired">Kedaluwarsa</SelectItem>
+                    <SelectItem value="PENDING">Menunggu</SelectItem>
+                    <SelectItem value="APPROVED">Disetujui</SelectItem>
+                    <SelectItem value="REJECTED">Ditolak</SelectItem>
+                    <SelectItem value="CANCELLED">Dibatalkan</SelectItem>
                   </SelectContent>
                 </Select>
 
                 {activeFiltersCount > 0 && (
                   <Button
                     variant="ghost"
-                    size="sm"
-                    onClick={clearFilters}
-                    className="h-9 px-2 text-muted-foreground hover:text-foreground ml-auto"
+                    onClick={handleClearFilters}
+                    className="px-2 text-muted-foreground hover:text-foreground"
                   >
                     <X className="h-4 w-4 mr-2" />
                     Reset
                   </Button>
                 )}
               </div>
-
-              {/* Mobile/Tablet Filter */}
-              <div className="lg:hidden flex items-center gap-2">
-                <div className="relative flex-1">
-                  <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    placeholder="Cari..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-9 h-10 w-full"
-                  />
-                </div>
-
-                <Sheet>
-                  <SheetTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      className="h-10 w-10 relative"
-                    >
-                      <Filter className="h-4 w-4" />
-                      {activeFiltersCount > 0 && (
-                        <span className="absolute -top-1 -right-1 h-3 w-3 bg-primary rounded-full border-2 border-background" />
-                      )}
-                    </Button>
-                  </SheetTrigger>
-                  <SheetContent side="right" className="w-full sm:w-[400px]">
-                    <SheetHeader>
-                      <SheetTitle>Filter Data</SheetTitle>
-                      <SheetDescription>
-                        Sesuaikan filter untuk menemukan data yang Anda cari.
-                      </SheetDescription>
-                    </SheetHeader>
-
-                    <div className="p-6 space-y-6">
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">
-                          Periode Tanggal
-                        </label>
-                        <DatePickerWithRange
-                          date={dateRange}
-                          setDate={setDateRange}
-                          className="w-full"
-                        />
-                      </div>
-
-                      <div className="space-y-2">
-                        <label className="text-sm font-medium">
-                          Status Booking
-                        </label>
-                        <Select
-                          value={statusFilter}
-                          onValueChange={setStatusFilter}
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Pilih Status" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="all">Semua Status</SelectItem>
-                            <SelectItem value="request">Menunggu</SelectItem>
-                            <SelectItem value="approved">Disetujui</SelectItem>
-                            <SelectItem value="rejected">Ditolak</SelectItem>
-                            <SelectItem value="cancelled">
-                              Dibatalkan
-                            </SelectItem>
-                            <SelectItem value="expired">Kedaluwarsa</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
-
-                    <SheetFooter className="flex-col sm:flex-row gap-2">
-                      {activeFiltersCount > 0 && (
-                        <Button
-                          variant="outline"
-                          onClick={clearFilters}
-                          className="w-full sm:w-auto"
-                        >
-                          Reset Filter
-                        </Button>
-                      )}
-                      <SheetClose asChild>
-                        <Button className="w-full sm:w-auto">Terapkan</Button>
-                      </SheetClose>
-                    </SheetFooter>
-                  </SheetContent>
-                </Sheet>
-              </div>
-            </div>
-
-            {/* Data Table */}
-            <div className="rounded-md">
-              <DataTable
-                columns={getColumns({ onView: handleView })}
-                data={filteredBookings}
-                showColumnToggle={true}
-                showPagination={true}
-                pageSizeOptions={[10, 20, 50, 100]}
-                emptyMessage="Tidak ada data pemesanan ditemukan."
-              />
             </div>
           </div>
-        </Card>
-      </div>
 
-      {/* Booking Detail Dialog */}
-      {selectedBooking && (
-        <MyBookingDetailDialog
-          booking={selectedBooking}
-          onClose={() => setSelectedBooking(null)}
-          onCancelRequest={handleCancelRequest}
-          onCancelOccupant={handleCancelOccupant}
-        />
-      )}
+          {/* Table */}
+          {error ? (
+            <div className="flex flex-col items-center justify-center py-12 text-muted-foreground">
+              <AlertCircle className="h-12 w-12 mb-4 text-destructive" />
+              <p className="text-lg font-medium">Gagal memuat data</p>
+              <p className="text-sm">{error}</p>
+              <Button onClick={handleRefresh} className="mt-4">
+                Coba Lagi
+              </Button>
+            </div>
+          ) : (
+            <div className="">
+              {isLoading && bookings.length === 0 ? (
+                <div className="flex items-center justify-center py-20">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                  <span className="ml-2 text-muted-foreground">
+                    Memuat data...
+                  </span>
+                </div>
+              ) : bookings.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-20 text-muted-foreground">
+                  <FileText className="h-12 w-12 mb-4 opacity-50" />
+                  <p className="text-lg font-medium">Belum ada booking</p>
+                  <p className="text-sm">
+                    Anda belum membuat permintaan booking apapun.
+                  </p>
+                </div>
+              ) : (
+                <DataTable
+                  columns={getColumns({ onView: handleView })}
+                  data={bookings}
+                />
+              )}
+            </div>
+          )}
+        </div>
+      </Card>
 
-      {/* Booking Request Form Dialog */}
+      {/* Dialogs */}
+      <MyBookingDetailDialog
+        booking={isDetailOpen ? selectedBooking : null}
+        onClose={() => setIsDetailOpen(false)}
+        onCancelRequest={handleCancelRequest}
+        onCancelOccupant={handleCancelOccupant}
+      />
+
       <BookingRequestForm
         isOpen={isFormOpen}
         onClose={() => setIsFormOpen(false)}
         onSubmit={handleFormSubmit}
       />
-    </>
+    </div>
   );
 }

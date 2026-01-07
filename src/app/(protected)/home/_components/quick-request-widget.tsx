@@ -20,10 +20,8 @@ import {
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import Link from "next/link";
-import {
-  getMyBookings,
-  BookingListItem,
-} from "@/app/(protected)/booking/_actions/booking.actions";
+import { getMyBookings } from "@/app/(protected)/booking/_actions/booking.actions";
+import { type BookingListItem } from "@/app/(protected)/booking/_actions/booking.types";
 
 interface QuickRequestSheetProps {
   trigger?: React.ReactNode;

@@ -763,6 +763,38 @@ function OccupancyCard({ occupancy }: { occupancy: BookingOccupant }) {
           </div>
         </>
       )}
+
+      {/* Cancellation Info */}
+      {occ.status === "CANCELLED" && occ.cancelledAt && (
+        <>
+          <Separator className="my-3" />
+          <div className="p-3 bg-gray-100 dark:bg-gray-800 rounded-lg text-xs space-y-1">
+            <p className="font-medium text-gray-700 dark:text-gray-300">
+              🚫 Dibatalkan
+            </p>
+            <p className="text-muted-foreground">
+              Waktu:{" "}
+              <span className="text-foreground">
+                {format(new Date(occ.cancelledAt), "dd MMM yyyy, HH:mm", {
+                  locale: localeId,
+                })}
+              </span>
+            </p>
+            {occ.cancelledByName && (
+              <p className="text-muted-foreground">
+                Oleh:{" "}
+                <span className="text-foreground">{occ.cancelledByName}</span>
+              </p>
+            )}
+            {occ.cancelledReason && (
+              <p className="text-muted-foreground">
+                Alasan:{" "}
+                <span className="text-foreground">{occ.cancelledReason}</span>
+              </p>
+            )}
+          </div>
+        </>
+      )}
     </div>
   );
 }

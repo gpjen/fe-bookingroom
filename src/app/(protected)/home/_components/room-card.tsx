@@ -23,7 +23,7 @@ import {
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
-import type { RoomAvailability, RoomType } from "./mock-data";
+import type { RoomAvailability, RoomType } from "./room-search-api";
 
 interface RoomCardProps {
   room: RoomAvailability;

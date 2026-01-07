@@ -12,7 +12,7 @@ import {
   Circle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { RoomAvailability, BedAvailability } from "../mock-data";
+import type { RoomAvailability, BedAvailability } from "../room-search-api";
 import type { SelectedBed } from "../booking-request-types";
 import {
   startOfDay,

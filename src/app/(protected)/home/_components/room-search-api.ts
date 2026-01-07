@@ -25,6 +25,7 @@ import type {
 // ========================================
 
 export type RoomType = "standard" | "vip" | "vvip";
+export type RoomAllocation = "employee" | "guest";
 export type RoomGender = "male" | "female" | "mix" | "flexible";
 export type RoomStatus = "available" | "partial" | "full" | "maintenance";
 export type BedStatus = "available" | "occupied" | "reserved" | "maintenance";

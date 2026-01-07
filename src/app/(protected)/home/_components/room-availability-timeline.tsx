@@ -29,7 +29,7 @@ import {
   Plus,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import type { RoomAvailability } from "./mock-data";
+import type { RoomAvailability } from "./room-search-api";
 import type { SelectedBed } from "./booking-request-types";
 
 interface RoomAvailabilityTimelineProps {
@@ -337,7 +337,10 @@ export function RoomAvailabilityTimeline({
                             <div className="bg-primary px-3 py-1.5 text-primary-foreground">
                               <p className="font-semibold text-xs flex items-center gap-2">
                                 <BedDouble className="h-3.5 w-3.5" />
-                                Kamar {room.code} • {format(day, "EEE, d MMM", { locale: localeId })}
+                                Kamar {room.code} •{" "}
+                                {format(day, "EEE, d MMM", {
+                                  locale: localeId,
+                                })}
                               </p>
                             </div>
 
@@ -387,10 +390,14 @@ export function RoomAvailabilityTimeline({
                                           : "text-gray-600 bg-gray-200 dark:bg-gray-700 dark:text-gray-400"
                                       )}
                                     >
-                                      {bed.currentStatus === "available" && "Kosong"}
-                                      {bed.currentStatus === "occupied" && "Terisi"}
-                                      {bed.currentStatus === "reserved" && "Booked"}
-                                      {bed.currentStatus === "maintenance" && "Maintenance"}
+                                      {bed.currentStatus === "available" &&
+                                        "Kosong"}
+                                      {bed.currentStatus === "occupied" &&
+                                        "Terisi"}
+                                      {bed.currentStatus === "reserved" &&
+                                        "Booked"}
+                                      {bed.currentStatus === "maintenance" &&
+                                        "Maintenance"}
                                     </span>
                                   </div>
                                 ))}

@@ -1,4 +1,4 @@
-import type { RoomAvailability, RoomGender, RoomAllocation } from "./mock-data";
+import type { RoomAvailability, RoomGender, RoomAllocation } from "./room-search-api";
 
 export interface SelectedBed {
   roomId: string;

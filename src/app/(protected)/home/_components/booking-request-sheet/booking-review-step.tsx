@@ -24,7 +24,6 @@ import type {
   CompanionInfo,
 } from "@/app/(protected)/booking/request/_components/types";
 import type { SelectedBed, BookingAttachment } from "../booking-request-types";
-import { AREAS } from "../mock-data";
 import { CompactProfileCard } from "@/components/common/compact-profile-card";
 import Image from "next/image";
 
@@ -56,9 +55,9 @@ export function BookingReviewStep({
     searchParams.endDate,
     searchParams.startDate
   );
+  // Get area name from selectedBeds (they all have the same area)
   const areaName =
-    AREAS.find((a) => a.id === searchParams.areaId)?.name ||
-    searchParams.areaId;
+    selectedBeds.length > 0 ? selectedBeds[0].areaName : searchParams.areaId;
 
   const formatFileSize = (bytes: number) => {
     if (bytes < 1024) return `${bytes} B`;

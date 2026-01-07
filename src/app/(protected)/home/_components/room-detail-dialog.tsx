@@ -36,7 +36,7 @@ import {
 import { format, differenceInDays } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import { cn } from "@/lib/utils";
-import type { RoomAvailability } from "./mock-data";
+import type { RoomAvailability } from "./room-search-api";
 import type { SelectedBed } from "./booking-request-types";
 import {
   startOfDay,

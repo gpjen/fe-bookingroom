@@ -1,10 +1,10 @@
 "use client";
 
-import { QuickRequestSheet } from "./_components/quick-request-widget";
+// import { QuickRequestSheet } from "./_components/quick-request-widget";
 import { RoomSearch } from "./_components/room-search";
 import { BookingGuideSheet } from "./_components/booking-guide";
-import { FileText, BookOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { BookOpen } from "lucide-react";
 
 export default function HomePage() {
   return (
@@ -22,7 +22,7 @@ export default function HomePage() {
 
         <div className="flex items-center gap-2">
           {/* Quick Request Sheet Trigger */}
-          <QuickRequestSheet
+          {/* <QuickRequestSheet
             trigger={
               <Button variant="outline" className="gap-2">
                 <FileText className="h-4 w-4 text-primary" />
@@ -30,7 +30,7 @@ export default function HomePage() {
                 <span className="sm:hidden">Request</span>
               </Button>
             }
-          />
+          /> */}
 
           {/* Booking Guide Sheet Trigger */}
           <BookingGuideSheet

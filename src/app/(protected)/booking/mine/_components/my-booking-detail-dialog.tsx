@@ -34,7 +34,6 @@ import {
   Clock,
   CheckCircle2,
   XCircle,
-  AlertCircle,
   Ban,
   UserX,
   Download,
@@ -47,9 +46,9 @@ import type {
   BookingRequest,
   BookingOccupant,
   BookingStatus,
-  OccupantStatus,
+  OccupancyStatus,
 } from "@/app/(protected)/booking/request/_components/types";
-import { BUILDINGS } from "@/app/(protected)/booking/request/_components/mock-data";
+
 import { TicketDownloadDialog } from "./ticket-download-dialog";
 import { CompactProfileCard } from "@/components/common/compact-profile-card";
 
@@ -79,11 +78,11 @@ export function MyBookingDetailDialog({
 
   if (!booking) return null;
 
-  const canCancelRequest = booking.status === "request";
+  const canCancelRequest = booking.status === "PENDING";
   const canCancelOccupant = (occupant: BookingOccupant) => {
     return (
-      booking.status === "approved" &&
-      occupant.status === "scheduled" &&
+      booking.status === "APPROVED" &&
+      occupant.status === "RESERVED" &&
       !occupant.actualCheckInAt
     );
   };
@@ -115,33 +114,66 @@ export function MyBookingDetailDialog({
       BookingStatus,
       { label: string; icon: typeof Clock; className: string }
     > = {
-      request: {
+      PENDING: {
         label: "Menunggu Persetujuan",
         icon: Clock,
         className:
           "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900/30 dark:text-amber-400",
       },
-      approved: {
+      APPROVED: {
         label: "Disetujui",
         icon: CheckCircle2,
         className:
           "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-900/30 dark:text-emerald-400",
       },
-      rejected: {
+      REJECTED: {
         label: "Ditolak",
         icon: XCircle,
         className:
           "bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-900/30 dark:text-rose-400",
       },
-      cancelled: {
+      CANCELLED: {
         label: "Dibatalkan",
         icon: Ban,
         className:
           "bg-gray-100 text-gray-800 border-gray-300 dark:bg-gray-900/30 dark:text-gray-400",
       },
-      expired: {
-        label: "Kedaluwarsa",
-        icon: AlertCircle,
+    };
+    return config[status];
+  };
+
+  const getOccupancyStatusConfig = (status: OccupancyStatus) => {
+    const config: Record<
+      OccupancyStatus,
+      { label: string; className: string }
+    > = {
+      PENDING: {
+        label: "Menunggu",
+        className:
+          "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900/30 dark:text-amber-400",
+      },
+      RESERVED: {
+        label: "Terjadwal",
+        className:
+          "bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-900/30 dark:text-blue-400",
+      },
+      CHECKED_IN: {
+        label: "Sudah Check-in",
+        className:
+          "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-900/30 dark:text-emerald-400",
+      },
+      CHECKED_OUT: {
+        label: "Sudah Check-out",
+        className:
+          "bg-slate-100 text-slate-800 border-slate-300 dark:bg-slate-900/30 dark:text-slate-400",
+      },
+      CANCELLED: {
+        label: "Dibatalkan",
+        className:
+          "bg-gray-100 text-gray-800 border-gray-300 dark:bg-gray-900/30 dark:text-gray-400",
+      },
+      NO_SHOW: {
+        label: "Tidak Hadir",
         className:
           "bg-orange-100 text-orange-800 border-orange-300 dark:bg-orange-900/30 dark:text-orange-400",
       },
@@ -149,38 +181,10 @@ export function MyBookingDetailDialog({
     return config[status];
   };
 
-  const getOccupantStatusConfig = (status: OccupantStatus) => {
-    const config: Record<OccupantStatus, { label: string; className: string }> =
-      {
-        scheduled: {
-          label: "Terjadwal",
-          className:
-            "bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-900/30 dark:text-blue-400",
-        },
-        checked_in: {
-          label: "Sudah Check-in",
-          className:
-            "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-900/30 dark:text-emerald-400",
-        },
-        checked_out: {
-          label: "Sudah Check-out",
-          className:
-            "bg-slate-100 text-slate-800 border-slate-300 dark:bg-slate-900/30 dark:text-slate-400",
-        },
-        cancelled: {
-          label: "Dibatalkan",
-          className:
-            "bg-gray-100 text-gray-800 border-gray-300 dark:bg-gray-900/30 dark:text-gray-400",
-        },
-      };
-    return config[status];
-  };
-
   const statusConfig = getStatusConfig(booking.status);
   const StatusIcon = statusConfig.icon;
 
-  const areaName =
-    BUILDINGS.find((b) => b.areaId === booking.areaId)?.area || "-";
+  const areaName = "Area 1"; // Placeholder until area data linked
 
   return (
     <>
@@ -194,7 +198,7 @@ export function MyBookingDetailDialog({
                   Detail Pemesanan
                 </SheetTitle>
                 <SheetDescription className="mt-1.5 font-mono text-sm flex items-center gap-2 flex-wrap">
-                  <span>{booking.bookingCode}</span>
+                  <span>{booking.code}</span>
                   <Badge
                     variant="outline"
                     className={cn("gap-1.5 text-xs", statusConfig.className)}
@@ -211,7 +215,7 @@ export function MyBookingDetailDialog({
           <div className="flex-1 overflow-y-auto px-6">
             <div className="py-6 space-y-6">
               {/* Rejection Info */}
-              {booking.status === "rejected" && booking.rejectReason && (
+              {booking.status === "REJECTED" && booking.rejectionReason && (
                 <div className="p-4 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 rounded-lg">
                   <div className="flex items-start gap-3">
                     <XCircle className="h-5 w-5 text-rose-600 dark:text-rose-400 flex-shrink-0 mt-0.5" />
@@ -220,11 +224,11 @@ export function MyBookingDetailDialog({
                         Alasan Penolakan
                       </p>
                       <p className="text-sm text-rose-700 dark:text-rose-400 mt-1">
-                        {booking.rejectReason}
+                        {booking.rejectionReason}
                       </p>
-                      {booking.adminNotes && (
+                      {booking.notes && (
                         <p className="text-xs text-rose-600 dark:text-rose-500 mt-2 italic">
-                          Catatan: {booking.adminNotes}
+                          Catatan: {booking.notes}
                         </p>
                       )}
                     </div>
@@ -233,7 +237,7 @@ export function MyBookingDetailDialog({
               )}
 
               {/* Approved Info */}
-              {booking.status === "approved" && (
+              {booking.status === "APPROVED" && (
                 <div className="p-3 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-lg">
                   <div className="flex items-start gap-3">
                     <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0 mt-0.5" />
@@ -251,7 +255,7 @@ export function MyBookingDetailDialog({
               )}
 
               {/* Cancelled Info */}
-              {booking.status === "cancelled" && (
+              {booking.status === "CANCELLED" && (
                 <div className="p-3 bg-gray-50 dark:bg-gray-950/30 border border-gray-200 dark:border-gray-800 rounded-lg">
                   <div className="flex items-start gap-3">
                     <XCircle className="h-5 w-5 text-gray-600 dark:text-gray-400 flex-shrink-0 mt-0.5" />
@@ -275,9 +279,13 @@ export function MyBookingDetailDialog({
                   <InfoBox
                     icon={Calendar}
                     label="Tanggal Pengajuan"
-                    value={format(booking.requestedAt, "dd MMM yyyy, HH:mm", {
-                      locale: id,
-                    })}
+                    value={
+                      booking?.createdAt
+                        ? format(booking.createdAt, "dd MMM yyyy, HH:mm", {
+                            locale: id,
+                          })
+                        : "-"
+                    }
                   />
                   <InfoBox
                     icon={Users}
@@ -285,21 +293,7 @@ export function MyBookingDetailDialog({
                     value={`${booking.occupants.length} Orang`}
                   />
                 </div>
-                {booking.expiresAt && booking.status === "request" && (
-                  <div className="mt-3 p-3 bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg">
-                    <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 text-sm">
-                      <AlertCircle className="h-4 w-4" />
-                      <span>
-                        Permintaan akan kedaluwarsa pada{" "}
-                        <strong>
-                          {format(booking.expiresAt, "dd MMM yyyy", {
-                            locale: id,
-                          })}
-                        </strong>
-                      </span>
-                    </div>
-                  </div>
-                )}
+                {/* Removed expire date for now as it doesn't exist in type */}
               </Section>
 
               {/* Purpose */}
@@ -333,11 +327,11 @@ export function MyBookingDetailDialog({
                 <Section title="Informasi Pendamping (PIC)" icon={Users}>
                   <CompactProfileCard
                     label="PIC"
-                    name={booking.companion.name}
+                    name={booking.companion.name || "-"}
                     identifier={booking.companion.nik || "-"}
                     company="-" // Companion info in booking request might not have company/dept yet unless updated
                     department="-"
-                    phone={booking.companion.phone}
+                    phone={booking.companion.phone || undefined}
                     variant="amber"
                   />
                 </Section>
@@ -347,8 +341,8 @@ export function MyBookingDetailDialog({
               <Section title="Daftar Penghuni" icon={Users}>
                 <div className="space-y-3">
                   {booking.occupants.map((occupant) => {
-                    const occStatusConfig = getOccupantStatusConfig(
-                      occupant.status as OccupantStatus
+                    const occStatusConfig = getOccupancyStatusConfig(
+                      occupant.status as OccupancyStatus
                     );
                     const canCancel = canCancelOccupant(occupant);
 
@@ -357,7 +351,7 @@ export function MyBookingDetailDialog({
                         key={occupant.id}
                         className={cn(
                           "p-4 rounded-lg border transition-colors",
-                          occupant.status === "cancelled"
+                          occupant.status === "CANCELLED"
                             ? "bg-gray-50 dark:bg-gray-900/30 border-gray-200 dark:border-gray-800 opacity-60"
                             : "bg-muted/50 border-transparent hover:border-border"
                         )}
@@ -500,7 +494,7 @@ export function MyBookingDetailDialog({
                             )}
 
                             {/* Cancel Reason */}
-                            {occupant.status === "cancelled" &&
+                            {occupant.status === "CANCELLED" &&
                               occupant.cancelledReason && (
                                 <div className="mt-3 p-2 bg-gray-100 dark:bg-gray-800 rounded text-xs">
                                   <p className="text-muted-foreground">
@@ -546,10 +540,10 @@ export function MyBookingDetailDialog({
                         </div>
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium truncate">
-                            {file.name}
+                            {file.fileName}
                           </p>
                           <p className="text-xs text-muted-foreground uppercase">
-                            {file.type}
+                            {file.fileType}
                           </p>
                         </div>
                       </div>
@@ -576,7 +570,7 @@ export function MyBookingDetailDialog({
                   Batalkan Permintaan
                 </Button>
               )}
-              {booking.status === "approved" && (
+              {booking.status === "APPROVED" && (
                 <Button
                   onClick={() => setDownloadDialogOpen(true)}
                   className="bg-emerald-600 hover:bg-emerald-700"

@@ -174,11 +174,11 @@ export function BookingReviewStep({
         <Section title="Informasi Pendamping (PIC)" icon={UserPlus}>
           <CompactProfileCard
             label="PIC"
-            name={companion.name}
-            identifier={companion.nik}
+            name={companion.name || "-"}
+            identifier={companion.nik || "-"}
             company={companion.company || "-"}
             department={companion.department || "-"}
-            phone={companion.phone}
+            phone={companion.phone || undefined}
             variant="amber"
           />
         </Section>

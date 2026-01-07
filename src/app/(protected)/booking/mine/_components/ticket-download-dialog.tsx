@@ -84,7 +84,7 @@ function TicketDownloadItem({
     );
   }
 
-  const fileName = `Ticket_${booking.bookingCode}_${occupant.name.replace(
+  const fileName = `Ticket_${booking.code}_${occupant.name.replace(
     /\s+/g,
     "_"
   )}.pdf`;

@@ -7,22 +7,16 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Eye, CheckCircle, XCircle, Clock, Users } from "lucide-react";
 import { cn, formatDate } from "@/lib/utils";
+import { BookingTableItem, BOOKING_STATUS_CONFIG } from "./types";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
-// Table item type that matches the transformed API data
-export interface BookingTableItem {
-  id: string;
-  bookingCode: string;
-  requesterName: string;
-  requesterCompany: string;
-  status: "request" | "approved" | "rejected" | "cancelled";
-  checkInDate: Date;
-  checkOutDate: Date;
-  occupantCount: number;
-  purpose: string;
-  areaName: string;
-  hasGuest: boolean;
-  createdAt: Date;
-}
+// Re-export for convenience
+export type { BookingTableItem };
 
 interface ColumnsProps {
   onView: (booking: BookingTableItem) => void;
@@ -53,9 +47,9 @@ export const getColumns = ({
     accessorKey: "bookingCode",
     header: "Kode Booking",
     cell: ({ row }) => (
-      <div className="font-mono text-sm font-semibold text-primary">
+      <span className="font-mono text-sm font-medium">
         {row.original.bookingCode}
-      </div>
+      </span>
     ),
   },
   {
@@ -63,35 +57,14 @@ export const getColumns = ({
     header: "Status",
     cell: ({ row }) => {
       const status = row.original.status;
-      const statusConfig = {
-        request: {
-          label: "Menunggu",
-          className:
-            "bg-yellow-100 text-yellow-800 border-yellow-300 dark:bg-yellow-900/30 dark:text-yellow-400",
-          icon: Clock,
-        },
-        approved: {
-          label: "Disetujui",
-          className:
-            "bg-blue-100 text-blue-800 border-blue-300 dark:bg-blue-900/30 dark:text-blue-400",
-          icon: CheckCircle,
-        },
-        rejected: {
-          label: "Ditolak",
-          className:
-            "bg-red-100 text-red-800 border-red-300 dark:bg-red-900/30 dark:text-red-400",
-          icon: XCircle,
-        },
-        cancelled: {
-          label: "Dibatalkan",
-          className:
-            "bg-gray-100 text-gray-800 border-gray-300 dark:bg-gray-900/30 dark:text-gray-400",
-          icon: XCircle,
-        },
-      };
+      const config = BOOKING_STATUS_CONFIG[status];
 
-      const config = statusConfig[status];
-      const Icon = config.icon;
+      const StatusIcon =
+        status === "PENDING"
+          ? Clock
+          : status === "APPROVED"
+          ? CheckCircle
+          : XCircle;
 
       return (
         <Badge
@@ -101,7 +74,7 @@ export const getColumns = ({
             config.className
           )}
         >
-          <Icon className="h-3 w-3" />
+          <StatusIcon className="h-3 w-3" />
           {config.label}
         </Badge>
       );
@@ -113,8 +86,8 @@ export const getColumns = ({
     cell: ({ row }) => {
       const booking = row.original;
       return (
-        <div className="flex flex-col space-y-0.5">
-          <span className="font-semibold text-sm">{booking.requesterName}</span>
+        <div className="flex flex-col">
+          <span className="font-medium">{booking.requesterName}</span>
           <span className="text-xs text-muted-foreground">
             {booking.requesterCompany}
           </span>
@@ -124,32 +97,19 @@ export const getColumns = ({
   },
   {
     accessorKey: "occupantCount",
-    header: "Penghuni",
+    header: () => <div className="text-center">Penghuni</div>,
     cell: ({ row }) => {
       const booking = row.original;
       return (
-        <div className="flex items-center gap-2">
+        <div className="flex items-center justify-center gap-1.5">
           <Users className="h-4 w-4 text-muted-foreground" />
-          <div className="flex flex-col">
-            <span className="font-semibold text-sm">
-              {booking.occupantCount} Orang
-            </span>
-            {booking.hasGuest && (
-              <span className="text-xs text-orange-600 dark:text-orange-400">
-                Ada tamu
-              </span>
-            )}
-          </div>
+          <span className="font-medium">{booking.occupantCount}</span>
+          {booking.hasGuest && (
+            <Badge variant="secondary" className="text-[10px] h-4 px-1">
+              Tamu
+            </Badge>
+          )}
         </div>
-      );
-    },
-  },
-  {
-    accessorKey: "areaName",
-    header: "Area",
-    cell: ({ row }) => {
-      return (
-        <span className="font-medium text-sm">{row.original.areaName}</span>
       );
     },
   },
@@ -158,6 +118,11 @@ export const getColumns = ({
     header: "Check-in",
     cell: ({ row }) => {
       const booking = row.original;
+
+      if (!booking.checkInDate || !booking.checkOutDate) {
+        return <span className="text-sm text-muted-foreground">-</span>;
+      }
+
       const nights = Math.ceil(
         (booking.checkOutDate.getTime() - booking.checkInDate.getTime()) /
           (1000 * 60 * 60 * 24)
@@ -173,45 +138,47 @@ export const getColumns = ({
   {
     accessorKey: "purpose",
     header: "Tujuan",
-    cell: ({ row }) => {
-      return (
-        <div className="max-w-[200px]">
-          <span className="text-sm font-medium truncate block">
-            {row.original.purpose}
-          </span>
-        </div>
-      );
-    },
+    cell: ({ row }) => (
+      <TooltipProvider>
+        <Tooltip delayDuration={300}>
+          <TooltipTrigger asChild>
+            <span className="text-sm line-clamp-1 max-w-[150px] cursor-help">
+              {row.original.purpose}
+            </span>
+          </TooltipTrigger>
+          <TooltipContent className="max-w-[400px] p-4 text-sm bg-popover text-popover-foreground shadow-xl">
+            <p className="whitespace-pre-wrap">{row.original.purpose}</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    ),
   },
   {
     accessorKey: "createdAt",
-    header: "Tgl Pengajuan",
-    cell: ({ row }) => {
-      return (
-        <div className="text-sm text-muted-foreground">
-          {formatDate(row.original.createdAt)}
-        </div>
-      );
-    },
+    header: "Tanggal Request",
+    cell: ({ row }) => (
+      <span className="text-sm text-muted-foreground">
+        {formatDate(row.original.createdAt)}
+      </span>
+    ),
   },
   {
     id: "actions",
-    cell: ({ row }) => {
-      const booking = row.original;
-
-      return (
-        <div className="text-right">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => onView(booking)}
-            className="h-8 px-3"
-          >
-            <Eye className="h-4 w-4 mr-1.5" />
-            Detail
-          </Button>
-        </div>
-      );
-    },
+    header: () => <div className="text-center">Aksi</div>,
+    cell: ({ row }) => (
+      <div className="flex justify-center gap-1">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8"
+          onClick={() => onView(row.original)}
+          title="Lihat Detail"
+        >
+          <Eye className="h-4 w-4" />
+        </Button>
+      </div>
+    ),
+    enableSorting: false,
+    enableHiding: false,
   },
 ];

@@ -28,8 +28,7 @@ interface BookingFiltersProps {
   setSearchQuery: (value: string) => void;
   statusFilter: string;
   setStatusFilter: (value: string) => void;
-  typeFilter: string;
-  setTypeFilter: (value: string) => void;
+
   dateRange: DateRange | undefined;
   setDateRange: (range: DateRange | undefined) => void;
   clearFilters: () => void;
@@ -41,8 +40,7 @@ export function BookingFilters({
   setSearchQuery,
   statusFilter,
   setStatusFilter,
-  typeFilter,
-  setTypeFilter,
+
   dateRange,
   setDateRange,
   clearFilters,
@@ -76,22 +74,10 @@ export function BookingFilters({
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Semua Status</SelectItem>
-            <SelectItem value="request">Menunggu</SelectItem>
-            <SelectItem value="approved">Disetujui</SelectItem>
-            <SelectItem value="rejected">Ditolak</SelectItem>
-            <SelectItem value="cancelled">Dibatalkan</SelectItem>
-          </SelectContent>
-        </Select>
-
-        <Select value={typeFilter} onValueChange={setTypeFilter}>
-          <SelectTrigger className="w-[140px] h-9 ">
-            <SelectValue placeholder="Tipe" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Semua Tipe</SelectItem>
-            <SelectItem value="employee">Karyawan</SelectItem>
-            <SelectItem value="guest">Tamu</SelectItem>
-            <SelectItem value="guest">Tamu</SelectItem>
+            <SelectItem value="PENDING">Menunggu</SelectItem>
+            <SelectItem value="APPROVED">Disetujui</SelectItem>
+            <SelectItem value="REJECTED">Ditolak</SelectItem>
+            <SelectItem value="CANCELLED">Dibatalkan</SelectItem>
           </SelectContent>
         </Select>
 
@@ -159,25 +145,10 @@ export function BookingFilters({
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Semua Status</SelectItem>
-                    <SelectItem value="request">Menunggu</SelectItem>
-                    <SelectItem value="approved">Disetujui</SelectItem>
-                    <SelectItem value="rejected">Ditolak</SelectItem>
-                    <SelectItem value="cancelled">Dibatalkan</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Tipe Pemohon</label>
-                <Select value={typeFilter} onValueChange={setTypeFilter}>
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Pilih Tipe" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">Semua Tipe</SelectItem>
-                    <SelectItem value="employee">Karyawan</SelectItem>
-                    <SelectItem value="guest">Tamu</SelectItem>
-                    <SelectItem value="guest">Tamu</SelectItem>
+                    <SelectItem value="PENDING">Menunggu</SelectItem>
+                    <SelectItem value="APPROVED">Disetujui</SelectItem>
+                    <SelectItem value="REJECTED">Ditolak</SelectItem>
+                    <SelectItem value="CANCELLED">Dibatalkan</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/auth";
 import { revalidatePath } from "next/cache";
-import {
+import type {
   ActionResponse,
   RoomAvailability,
   BedAvailability,
@@ -13,12 +13,18 @@ import {
   GetAvailableRoomsParams,
   GetBookingsParams,
   CreateBookingInput,
-  createBookingSchema,
-  BOOKING_CONSTANTS,
   AreaOption,
   BuildingOption,
 } from "./booking.types";
+
+import {
+  createBookingSchema,
+  BOOKING_CONSTANTS,
+} from "./booking.types";
 import { addDays, startOfDay, format } from "date-fns";
+
+// Re-export types for consumers
+// Re-export types removed to avoid reference errors. Import from booking.types.ts directly.
 
 // ========================================
 // HELPER: Generate Booking Code
@@ -39,6 +45,36 @@ async function generateBookingCode(): Promise<string> {
 
   const sequence = (count + 1).toString().padStart(3, "0");
   return `${prefix}${sequence}`;
+}
+
+// ========================================
+// HELPER: Calculate Booking Dates from Occupancies
+// ========================================
+
+interface OccupancyDates {
+  checkInDate: Date;
+  checkOutDate: Date | null;
+}
+
+function calculateBookingDates(occupancies: OccupancyDates[]): {
+  checkInDate: Date | null;
+  checkOutDate: Date | null;
+} {
+  if (!occupancies || occupancies.length === 0) {
+    return { checkInDate: null, checkOutDate: null };
+  }
+
+  const checkInDates = occupancies.map(o => o.checkInDate).filter(Boolean);
+  const checkOutDates = occupancies.map(o => o.checkOutDate).filter(Boolean) as Date[];
+
+  return {
+    checkInDate: checkInDates.length > 0 
+      ? new Date(Math.min(...checkInDates.map(d => d.getTime()))) 
+      : null,
+    checkOutDate: checkOutDates.length > 0 
+      ? new Date(Math.max(...checkOutDates.map(d => d.getTime()))) 
+      : null,
+  };
 }
 
 // ========================================
@@ -379,8 +415,7 @@ export async function createBookingRequest(
           companionCompany: data.companion?.company || null,
           companionDepartment: data.companion?.department || null,
           
-          checkInDate: data.checkInDate,
-          checkOutDate: data.checkOutDate,
+          // Note: checkInDate/checkOutDate are now at Occupancy level
           purpose: data.purpose || null,
           projectCode: data.projectCode || null,
           notes: data.notes || null,
@@ -445,15 +480,16 @@ export async function getMyBookings(
           id: true,
           code: true,
           status: true,
-          checkInDate: true,
-          checkOutDate: true,
           purpose: true,
           projectCode: true,
           requesterName: true,
           requesterCompany: true,
           createdAt: true,
-          _count: {
-            select: { occupancies: true },
+          occupancies: {
+            select: {
+              checkInDate: true,
+              checkOutDate: true,
+            },
           },
         },
         orderBy: { createdAt: "desc" },
@@ -463,19 +499,25 @@ export async function getMyBookings(
       prisma.booking.count({ where }),
     ]);
 
-    const result: BookingListItem[] = bookings.map((b) => ({
-      id: b.id,
-      code: b.code,
-      status: b.status as BookingListItem["status"],
-      checkInDate: b.checkInDate,
-      checkOutDate: b.checkOutDate,
-      purpose: b.purpose,
-      projectCode: b.projectCode,
-      requesterName: b.requesterName,
-      requesterCompany: b.requesterCompany,
-      occupantCount: b._count.occupancies,
-      createdAt: b.createdAt,
-    }));
+    const result: BookingListItem[] = bookings.map((b) => {
+      // Calculate dates from occupancies
+      const checkInDates = b.occupancies.map(o => o.checkInDate).filter(Boolean);
+      const checkOutDates = b.occupancies.map(o => o.checkOutDate).filter(Boolean) as Date[];
+      
+      return {
+        id: b.id,
+        code: b.code,
+        status: b.status as BookingListItem["status"],
+        checkInDate: checkInDates.length > 0 ? new Date(Math.min(...checkInDates.map(d => d.getTime()))) : null,
+        checkOutDate: checkOutDates.length > 0 ? new Date(Math.max(...checkOutDates.map(d => d.getTime()))) : null,
+        purpose: b.purpose,
+        projectCode: b.projectCode,
+        requesterName: b.requesterName,
+        requesterCompany: b.requesterCompany,
+        occupantCount: b.occupancies.length,
+        createdAt: b.createdAt,
+      };
+    });
 
     return { success: true, data: { data: result, total } };
   } catch (error) {
@@ -558,8 +600,6 @@ export async function getAllBookings(
           id: true,
           code: true,
           status: true,
-          checkInDate: true,
-          checkOutDate: true,
           purpose: true,
           projectCode: true,
           notes: true,
@@ -570,6 +610,8 @@ export async function getAllBookings(
           occupancies: {
             select: {
               id: true,
+              checkInDate: true,
+              checkOutDate: true,
               occupant: {
                 select: {
                   type: true,
@@ -609,12 +651,16 @@ export async function getAllBookings(
       // Check if any occupant is a guest
       const hasGuest = b.occupancies.some((o) => o.occupant?.type === "GUEST");
 
+      // Calculate dates from occupancies
+      const checkInDates = b.occupancies.map(o => o.checkInDate).filter(Boolean);
+      const checkOutDates = b.occupancies.map(o => o.checkOutDate).filter(Boolean) as Date[];
+
       return {
         id: b.id,
         code: b.code,
         status: b.status as BookingListItem["status"],
-        checkInDate: b.checkInDate,
-        checkOutDate: b.checkOutDate,
+        checkInDate: checkInDates.length > 0 ? new Date(Math.min(...checkInDates.map(d => d.getTime()))) : null,
+        checkOutDate: checkOutDates.length > 0 ? new Date(Math.max(...checkOutDates.map(d => d.getTime()))) : null,
         purpose: b.purpose,
         projectCode: b.projectCode,
         requesterName: b.requesterName,
@@ -702,12 +748,15 @@ export async function getBookingById(
       return { success: false, error: "Booking tidak ditemukan" };
     }
 
+    // Calculate dates from occupancies
+    const dates = calculateBookingDates(booking.occupancies);
+
     const result: BookingDetail = {
       id: booking.id,
       code: booking.code,
       status: booking.status as BookingDetail["status"],
-      checkInDate: booking.checkInDate,
-      checkOutDate: booking.checkOutDate,
+      checkInDate: dates.checkInDate,
+      checkOutDate: dates.checkOutDate,
       purpose: booking.purpose,
       projectCode: booking.projectCode,
       requesterUserId: booking.requesterUserId,
@@ -810,15 +859,16 @@ export async function getPendingBookings(
           id: true,
           code: true,
           status: true,
-          checkInDate: true,
-          checkOutDate: true,
           purpose: true,
           projectCode: true,
           requesterName: true,
           requesterCompany: true,
           createdAt: true,
-          _count: {
-            select: { occupancies: true },
+          occupancies: {
+            select: {
+              checkInDate: true,
+              checkOutDate: true,
+            },
           },
         },
         orderBy: { createdAt: "asc" }, // Oldest first for pending
@@ -828,19 +878,22 @@ export async function getPendingBookings(
       prisma.booking.count({ where }),
     ]);
 
-    const result: BookingListItem[] = bookings.map((b) => ({
-      id: b.id,
-      code: b.code,
-      status: b.status as BookingListItem["status"],
-      checkInDate: b.checkInDate,
-      checkOutDate: b.checkOutDate,
-      purpose: b.purpose,
-      projectCode: b.projectCode,
-      requesterName: b.requesterName,
-      requesterCompany: b.requesterCompany,
-      occupantCount: b._count.occupancies,
-      createdAt: b.createdAt,
-    }));
+    const result: BookingListItem[] = bookings.map((b) => {
+      const dates = calculateBookingDates(b.occupancies);
+      return {
+        id: b.id,
+        code: b.code,
+        status: b.status as BookingListItem["status"],
+        checkInDate: dates.checkInDate,
+        checkOutDate: dates.checkOutDate,
+        purpose: b.purpose,
+        projectCode: b.projectCode,
+        requesterName: b.requesterName,
+        requesterCompany: b.requesterCompany,
+        occupantCount: b.occupancies.length,
+        createdAt: b.createdAt,
+      };
+    });
 
     return { success: true, data: { data: result, total } };
   } catch (error) {
@@ -867,6 +920,9 @@ interface ApproveBookingInput {
     phone?: string;
     company?: string;
     department?: string;
+    // Each occupant has their own stay dates
+    checkInDate: Date;
+    checkOutDate: Date;
   }[];
 }
 
@@ -902,16 +958,21 @@ export async function approveBooking(
 
     // Validate all beds are still available
     const bedIds = input.occupants.map((o) => o.bedId);
+    
+    // Calculate booking range from input occupants
+    const bookingCheckIn = new Date(Math.min(...input.occupants.map(o => o.checkInDate.getTime())));
+    const bookingCheckOut = new Date(Math.max(...input.occupants.map(o => o.checkOutDate.getTime())));
+    
     const beds = await prisma.bed.findMany({
       where: { id: { in: bedIds } },
       include: {
         occupancies: {
           where: {
             AND: [
-              { checkInDate: { lt: booking.checkOutDate } },
+              { checkInDate: { lt: bookingCheckOut } },
               {
                 OR: [
-                  { checkOutDate: { gt: booking.checkInDate } },
+                  { checkOutDate: { gt: bookingCheckIn } },
                   { checkOutDate: null },
                 ],
               },
@@ -992,8 +1053,8 @@ export async function approveBooking(
             bedId: occupantData.bedId,
             occupantId: occupant.id,
             bookingId: input.bookingId,
-            checkInDate: booking.checkInDate,
-            checkOutDate: booking.checkOutDate,
+            checkInDate: occupantData.checkInDate,
+            checkOutDate: occupantData.checkOutDate,
             status: "RESERVED", // Will be CHECKED_IN when they actually arrive
             createdBy: user.id || user.sub || "system",
             createdByName: createdByName,

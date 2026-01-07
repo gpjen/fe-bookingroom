@@ -1,17 +1,11 @@
+import { BookingStatus as PrismaBookingStatus } from "@prisma/client";
 import { z } from "zod";
 
 // ========================================
 // ENUMS (Match Prisma Schema)
 // ========================================
 
-export const BookingStatus = {
-  PENDING: "PENDING",
-  APPROVED: "APPROVED",
-  REJECTED: "REJECTED",
-  CANCELLED: "CANCELLED",
-} as const;
-
-export type BookingStatus = (typeof BookingStatus)[keyof typeof BookingStatus];
+export type BookingStatus = (typeof PrismaBookingStatus)[keyof typeof PrismaBookingStatus];
 
 export const OccupantType = {
   EMPLOYEE: "EMPLOYEE",
@@ -190,8 +184,9 @@ export interface BookingListItem {
   id: string;
   code: string;
   status: BookingStatus;
-  checkInDate: Date;
-  checkOutDate: Date;
+  // Dates derived from occupancies (min checkIn, max checkOut)
+  checkInDate: Date | null;
+  checkOutDate: Date | null;
   purpose: string | null;
   projectCode: string | null;
   requesterName: string;

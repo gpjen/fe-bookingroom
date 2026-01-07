@@ -25,11 +25,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { RoomAvailabilityDialog } from "../room-availability-dialog";
 import { MOCK_EMPLOYEES } from "../constants";
-import type {
-  BookingOccupant,
-  BookingType,
-  Gender,
-} from "@/app/(protected)/booking/request/_components/types";
+import type { BookingOccupant } from "@/app/(protected)/booking/request/_components/types";
 
 interface OccupantFormProps {
   initialData?: BookingOccupant | null;
@@ -44,24 +40,31 @@ export function OccupantForm({
   onCancel,
   areaId,
 }: OccupantFormProps) {
-  const initialOccupant = useMemo(() => initialData || {
-    type: "employee" as const,
-    identifier: "",
-    name: "",
-    gender: "L" as const,
-    phone: "",
-    company: "",
-    department: "",
-    buildingId: "",
-    buildingName: "",
-    roomId: "",
-    roomCode: "",
-    bedId: "",
-    bedCode: "",
-  }, [initialData]);
+  const initialOccupant = useMemo(
+    () =>
+      initialData || {
+        type: "employee" as const,
+        identifier: "",
+        name: "",
+        gender: "L" as const,
+        phone: "",
+        company: "",
+        department: "",
+        buildingId: "",
+        buildingName: "",
+        roomId: "",
+        roomCode: "",
+        bedId: "",
+        bedCode: "",
+      },
+    [initialData]
+  );
 
-  const [occupantData, setOccupantData] = useState<Partial<BookingOccupant>>(initialOccupant);
-  const [isEmployeeLocked, setIsEmployeeLocked] = useState(initialData?.type === "employee");
+  const [occupantData, setOccupantData] =
+    useState<Partial<BookingOccupant>>(initialOccupant);
+  const [isEmployeeLocked, setIsEmployeeLocked] = useState(
+    initialData?.type === "employee"
+  );
   const [isAvailabilityOpen, setIsAvailabilityOpen] = useState(false);
 
   const handleNikLookup = () => {
@@ -78,7 +81,7 @@ export function OccupantForm({
         company: employee.company,
         department: employee.department,
         phone: employee.phone,
-        gender: employee.gender as Gender,
+        gender: employee.gender === "MALE" ? "L" : "P",
       });
       setIsEmployeeLocked(true);
       toast.success("Data karyawan ditemukan");
@@ -88,7 +91,7 @@ export function OccupantForm({
     }
   };
 
-  const handleTypeChange = (type: BookingType) => {
+  const handleTypeChange = (type: "employee" | "guest") => {
     setOccupantData({
       ...occupantData,
       type,
@@ -279,7 +282,7 @@ export function OccupantForm({
             <Label className="text-xs">Gender *</Label>
             <Select
               value={occupantData.gender}
-              onValueChange={(value: Gender) =>
+              onValueChange={(value: "L" | "P") =>
                 setOccupantData({ ...occupantData, gender: value })
               }
             >
@@ -295,7 +298,7 @@ export function OccupantForm({
           <div className="space-y-1.5">
             <Label className="text-xs">Telepon</Label>
             <Input
-              value={occupantData.phone}
+              value={occupantData.phone || ""}
               onChange={(e) =>
                 setOccupantData({ ...occupantData, phone: e.target.value })
               }
@@ -307,7 +310,7 @@ export function OccupantForm({
           <div className="space-y-1.5">
             <Label className="text-xs">Perusahaan</Label>
             <Input
-              value={occupantData.company}
+              value={occupantData.company || ""}
               onChange={(e) =>
                 setOccupantData({ ...occupantData, company: e.target.value })
               }
@@ -319,7 +322,7 @@ export function OccupantForm({
           <div className="space-y-1.5">
             <Label className="text-xs">Departemen</Label>
             <Input
-              value={occupantData.department}
+              value={occupantData.department || ""}
               onChange={(e) =>
                 setOccupantData({ ...occupantData, department: e.target.value })
               }

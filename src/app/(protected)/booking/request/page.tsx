@@ -1,8 +1,6 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { DataTable } from "@/components/ui/data-table";
-import { getColumns, BookingTableItem } from "./_components/columns";
 import { DateRange } from "react-day-picker";
 import {
   ClipboardList,
@@ -14,55 +12,44 @@ import {
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { DataTable } from "@/components/ui/data-table";
+
+// Local components & types
+import { getColumns } from "./_components/columns";
 import { BookingDetailDialog } from "./_components/booking-detail-dialog";
 import { BookingFilters } from "./_components/booking-filters";
 import {
+  BookingTableItem,
+  BookingDetailData,
+  BookingOccupant,
+  OccupancyStatus,
+} from "./_components/types";
+
+// API actions & types
+import {
   getAllBookings,
+  getBookingById,
+  approveBooking,
+  rejectBooking,
   type BookingListItemExtended,
 } from "../_actions/booking.actions";
+import { type BookingDetail } from "../_actions/booking.types";
 
-// Map database status to UI status
-function mapStatus(dbStatus: string): BookingTableItem["status"] {
-  switch (dbStatus) {
-    case "PENDING":
-      return "request";
-    case "APPROVED":
-      return "approved";
-    case "REJECTED":
-      return "rejected";
-    case "CANCELLED":
-      return "cancelled";
-    default:
-      return "request";
-  }
-}
+// ==========================================
+// TRANSFORM FUNCTIONS
+// ==========================================
 
-// Map UI status to database status
-function mapStatusToDb(uiStatus: string): string {
-  switch (uiStatus) {
-    case "request":
-      return "PENDING";
-    case "approved":
-      return "APPROVED";
-    case "rejected":
-      return "REJECTED";
-    case "cancelled":
-      return "CANCELLED";
-    default:
-      return uiStatus.toUpperCase();
-  }
-}
-
-// Transform API data to table format
-function transformBooking(booking: BookingListItemExtended): BookingTableItem {
+function transformToTableItem(
+  booking: BookingListItemExtended
+): BookingTableItem {
   return {
     id: booking.id,
     bookingCode: booking.code,
     requesterName: booking.requesterName,
     requesterCompany: booking.requesterCompany || "-",
-    status: mapStatus(booking.status),
-    checkInDate: new Date(booking.checkInDate),
-    checkOutDate: new Date(booking.checkOutDate),
+    status: booking.status,
+    checkInDate: booking.checkInDate ? new Date(booking.checkInDate) : null,
+    checkOutDate: booking.checkOutDate ? new Date(booking.checkOutDate) : null,
     occupantCount: booking.occupantCount,
     purpose: booking.purpose || "-",
     areaName: booking.areaName || "-",
@@ -71,41 +58,111 @@ function transformBooking(booking: BookingListItemExtended): BookingTableItem {
   };
 }
 
+function transformToDetailData(data: BookingDetail): BookingDetailData {
+  return {
+    id: data.id,
+    code: data.code,
+    status: data.status,
+    checkInDate: data.checkInDate ? new Date(data.checkInDate) : null,
+    checkOutDate: data.checkOutDate ? new Date(data.checkOutDate) : null,
+    requesterUserId: data.requesterUserId,
+    requesterName: data.requesterName,
+    requesterNik: data.requesterNik,
+    requesterEmail: data.requesterEmail,
+    requesterPhone: data.requesterPhone,
+    requesterCompany: data.requesterCompany,
+    requesterDepartment: data.requesterDepartment,
+    requesterPosition: data.requesterPosition,
+    companion: data.companionName
+      ? {
+          name: data.companionName,
+          nik: data.companionNik,
+          email: data.companionEmail,
+          phone: data.companionPhone,
+          company: data.companionCompany,
+          department: data.companionDepartment,
+        }
+      : null,
+    purpose: data.purpose,
+    projectCode: data.projectCode,
+    notes: data.notes,
+    approvedBy: data.approvedBy,
+    approvedAt: data.approvedAt ? new Date(data.approvedAt) : null,
+    rejectedBy: data.rejectedBy,
+    rejectedAt: data.rejectedAt ? new Date(data.rejectedAt) : null,
+    rejectionReason: data.rejectionReason,
+    cancelledBy: data.cancelledBy,
+    cancelledAt: data.cancelledAt ? new Date(data.cancelledAt) : null,
+    cancellationReason: data.cancellationReason,
+    occupants: data.occupancies.map(
+      (occ): BookingOccupant => ({
+        id: occ.id,
+        name: occ.occupant.name,
+        identifier: occ.occupant.nik || "-",
+        type: "employee",
+        gender:
+          occ.occupant.gender === "FEMALE" ? ("P" as const) : ("L" as const),
+        inDate: new Date(occ.checkInDate),
+        outDate: occ.checkOutDate ? new Date(occ.checkOutDate) : undefined,
+        status: occ.status as OccupancyStatus,
+        // buildingName: occ.bed?.room?.building?.name, // Bed might be null if not assigned
+        // roomCode: occ.bed?.room?.code,
+        // bedCode: occ.bed?.code,
+        // These are not in the default BookingDetail type from actions usually unless deeply typed
+        // We will leave them for now or assume they exist in 'occ' if we trusted the action return type fully.
+        // But let's check safety.
+        buildingName: occ.bed?.room?.building?.name,
+        roomCode: occ.bed?.room?.code,
+        bedCode: occ.bed?.code,
+      })
+    ),
+    attachments: data.attachments,
+    createdAt: new Date(data.createdAt),
+    updatedAt: new Date(data.updatedAt),
+  };
+}
+
+// ==========================================
+// MAIN COMPONENT
+// ==========================================
+
 export default function BookingRequestPage() {
+  // List state
   const [bookings, setBookings] = useState<BookingTableItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [total, setTotal] = useState(0);
 
-  // Filters
+  // Filter state
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [typeFilter, setTypeFilter] = useState<string>("all");
+
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
 
-  // Dialog states
-  const [selectedBooking, setSelectedBooking] =
-    useState<BookingTableItem | null>(null);
-  const [actionType, setActionType] = useState<
-    "view" | "approve" | "reject" | null
-  >(null);
-  const [adminNotes, setAdminNotes] = useState("");
-  const [rejectReason, setRejectReason] = useState("");
+  // Dialog state
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [bookingDetail, setBookingDetail] = useState<BookingDetailData | null>(
+    null
+  );
+  const [isLoadingDetail, setIsLoadingDetail] = useState(false);
 
-  // Fetch bookings from API
+  // ==========================================
+  // API CALLS
+  // ==========================================
+
   const fetchBookings = useCallback(async () => {
     setIsLoading(true);
     setError(null);
 
     const result = await getAllBookings({
       search: searchQuery || undefined,
-      status: statusFilter !== "all" ? mapStatusToDb(statusFilter) : undefined,
+      status: statusFilter !== "all" ? statusFilter : undefined,
       dateFrom: dateRange?.from,
       dateTo: dateRange?.to,
     });
 
     if (result.success) {
-      setBookings(result.data.data.map(transformBooking));
+      setBookings(result.data.data.map(transformToTableItem));
       setTotal(result.data.total);
     } else {
       setError(result.error);
@@ -115,30 +172,67 @@ export default function BookingRequestPage() {
     setIsLoading(false);
   }, [searchQuery, statusFilter, dateRange]);
 
-  // Initial load and refresh on filter change
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchBookings();
-    }, 300); // Debounce search
+  const fetchBookingDetail = useCallback(async (bookingId: string) => {
+    setIsLoadingDetail(true);
+    setBookingDetail(null);
 
+    const result = await getBookingById(bookingId);
+
+    if (result.success) {
+      setBookingDetail(transformToDetailData(result.data));
+    } else {
+      toast.error(result.error);
+    }
+
+    setIsLoadingDetail(false);
+  }, []);
+
+  // ==========================================
+  // EFFECTS
+  // ==========================================
+
+  useEffect(() => {
+    const timer = setTimeout(fetchBookings, 300);
     return () => clearTimeout(timer);
   }, [fetchBookings]);
 
-  const handleAction = (
-    booking: BookingTableItem,
-    type: "view" | "approve" | "reject"
-  ) => {
-    setSelectedBooking(booking);
-    setActionType(type);
+  // ==========================================
+  // HANDLERS
+  // ==========================================
+
+  const handleViewBooking = (booking: BookingTableItem) => {
+    setIsDialogOpen(true);
+    fetchBookingDetail(booking.id);
   };
 
-  const handleConfirmAction = () => {
-    // TODO: Implement approve/reject with API
-    toast.info("Fitur approve/reject akan diimplementasi");
-    setSelectedBooking(null);
-    setActionType(null);
-    setAdminNotes("");
-    setRejectReason("");
+  const handleApprove = async (bookingId: string, notes?: string) => {
+    // TODO: Implement proper bed assignment UI
+    const result = await approveBooking({
+      bookingId,
+      notes,
+      occupants: [],
+    });
+
+    if (!result.success) {
+      throw new Error(result.error);
+    }
+
+    await fetchBookings();
+  };
+
+  const handleReject = async (bookingId: string, reason: string) => {
+    const result = await rejectBooking({ bookingId, reason });
+
+    if (!result.success) {
+      throw new Error(result.error);
+    }
+
+    await fetchBookings();
+  };
+
+  const handleCloseDialog = () => {
+    setIsDialogOpen(false);
+    setBookingDetail(null);
   };
 
   const handleRefresh = () => {
@@ -155,21 +249,26 @@ export default function BookingRequestPage() {
   const clearFilters = () => {
     setSearchQuery("");
     setStatusFilter("all");
-    setTypeFilter("all");
+
     setDateRange(undefined);
     toast.info("Filter telah direset");
   };
 
   const activeFiltersCount = [
     statusFilter !== "all",
-    typeFilter !== "all",
-    searchQuery !== "",
-    dateRange?.from !== undefined || dateRange?.to !== undefined,
+
+    dateRange?.from || dateRange?.to,
+    searchQuery,
   ].filter(Boolean).length;
+
+  // ==========================================
+  // RENDER
+  // ==========================================
 
   return (
     <Card className="p-3 md:p-6 lg:p-8">
       <div className="space-y-6">
+        {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
@@ -211,14 +310,13 @@ export default function BookingRequestPage() {
           </div>
         </div>
 
+        {/* Content */}
         <div className="space-y-4">
           <BookingFilters
             searchQuery={searchQuery}
             setSearchQuery={setSearchQuery}
             statusFilter={statusFilter}
             setStatusFilter={setStatusFilter}
-            typeFilter={typeFilter}
-            setTypeFilter={setTypeFilter}
             dateRange={dateRange}
             setDateRange={setDateRange}
             clearFilters={clearFilters}
@@ -253,9 +351,7 @@ export default function BookingRequestPage() {
                 </div>
               ) : (
                 <DataTable
-                  columns={getColumns({
-                    onView: (b) => handleAction(b, "view"),
-                  })}
+                  columns={getColumns({ onView: handleViewBooking })}
                   data={bookings}
                 />
               )}
@@ -263,26 +359,15 @@ export default function BookingRequestPage() {
           )}
         </div>
 
-        {/* Keep dialog for future use - will implement detail view later */}
-        {selectedBooking && (
-          <BookingDetailDialog
-            booking={null} // Will implement proper mapping later
-            actionType={actionType}
-            adminNotes={adminNotes}
-            onAdminNotesChange={setAdminNotes}
-            rejectReason={rejectReason}
-            onRejectReasonChange={setRejectReason}
-            onConfirm={handleConfirmAction}
-            onRequestApprove={() => setActionType("approve")}
-            onRequestReject={() => setActionType("reject")}
-            onCancel={() => {
-              setSelectedBooking(null);
-              setActionType(null);
-              setAdminNotes("");
-              setRejectReason("");
-            }}
-          />
-        )}
+        {/* Detail Dialog */}
+        <BookingDetailDialog
+          booking={bookingDetail}
+          isOpen={isDialogOpen}
+          isLoading={isLoadingDetail}
+          onClose={handleCloseDialog}
+          onApprove={handleApprove}
+          onReject={handleReject}
+        />
       </div>
     </Card>
   );

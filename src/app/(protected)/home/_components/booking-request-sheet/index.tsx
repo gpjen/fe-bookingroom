@@ -82,7 +82,7 @@ export function BookingRequestSheet({
       roomCode: bed.roomCode,
       bedId: bed.bedId,
       bedCode: bed.bedCode,
-      status: "scheduled" as const,
+      status: "PENDING" as const,
     }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

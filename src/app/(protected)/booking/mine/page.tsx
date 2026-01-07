@@ -26,13 +26,9 @@ import { DataTable } from "@/components/ui/data-table";
 import { DatePickerWithRange } from "@/components/ui/date-picker-with-range";
 import { MyBookingDetailDialog } from "./_components/my-booking-detail-dialog";
 import {
-  MOCK_BOOKING_REQUESTS,
-  BUILDINGS,
-} from "@/app/(protected)/booking/request/_components/mock-data";
-import type {
   BookingRequest,
   BookingStatus,
-  OccupantStatus,
+  OccupancyStatus,
 } from "@/app/(protected)/booking/request/_components/types";
 import { ColumnDef } from "@tanstack/react-table";
 import { DateRange } from "react-day-picker";
@@ -47,7 +43,6 @@ import {
   CheckCircle,
   XCircle,
   Ban,
-  AlertCircle,
   Plus,
   RefreshCw,
 } from "lucide-react";
@@ -59,35 +54,29 @@ const getStatusConfig = (status: BookingStatus) => {
     BookingStatus,
     { label: string; className: string; icon: typeof Clock }
   > = {
-    request: {
+    PENDING: {
       label: "Menunggu",
       className:
         "bg-amber-100 text-amber-800 border-amber-300 dark:bg-amber-900/30 dark:text-amber-400",
       icon: Clock,
     },
-    approved: {
+    APPROVED: {
       label: "Disetujui",
       className:
         "bg-emerald-100 text-emerald-800 border-emerald-300 dark:bg-emerald-900/30 dark:text-emerald-400",
       icon: CheckCircle,
     },
-    rejected: {
+    REJECTED: {
       label: "Ditolak",
       className:
         "bg-rose-100 text-rose-800 border-rose-300 dark:bg-rose-900/30 dark:text-rose-400",
       icon: XCircle,
     },
-    cancelled: {
+    CANCELLED: {
       label: "Dibatalkan",
       className:
         "bg-gray-100 text-gray-800 border-gray-300 dark:bg-gray-900/30 dark:text-gray-400",
       icon: Ban,
-    },
-    expired: {
-      label: "Kedaluwarsa",
-      className:
-        "bg-orange-100 text-orange-800 border-orange-300 dark:bg-orange-900/30 dark:text-orange-400",
-      icon: AlertCircle,
     },
   };
   return config[status];
@@ -117,11 +106,11 @@ const getColumns = ({ onView }: ColumnsProps): ColumnDef<BookingRequest>[] => [
     enableHiding: false,
   },
   {
-    accessorKey: "bookingCode",
+    accessorKey: "code",
     header: "Kode Booking",
     cell: ({ row }) => (
       <div className="font-mono text-sm font-semibold text-primary">
-        {row.original.bookingCode}
+        {row.original.code}
       </div>
     ),
   },
@@ -132,7 +121,7 @@ const getColumns = ({ onView }: ColumnsProps): ColumnDef<BookingRequest>[] => [
       const status = row.original.status;
       const config = getStatusConfig(status);
       const Icon = config.icon;
-      const expiredDate = row.original.expiresAt;
+      // const expiredDate = row.original.expiresAt;
 
       return (
         <div className="flex flex-col">
@@ -146,12 +135,6 @@ const getColumns = ({ onView }: ColumnsProps): ColumnDef<BookingRequest>[] => [
             <Icon className="h-3 w-3" />
             {config.label}
           </Badge>
-
-          {expiredDate && status === "request" && (
-            <span className="text-[10px] text-muted-foreground mt-0.5 ml-1">
-              Exp: {formatDate(expiredDate)}
-            </span>
-          )}
         </div>
       );
     },
@@ -187,8 +170,8 @@ const getColumns = ({ onView }: ColumnsProps): ColumnDef<BookingRequest>[] => [
     header: "Area",
     cell: ({ row }) => {
       const booking = row.original;
-      const areaName =
-        BUILDINGS.find((b) => b.areaId === booking.areaId)?.area || "-";
+      // Use first occupant building name as area approximation
+      const areaName = booking.occupants[0]?.buildingName || "-";
 
       return (
         <div className="flex flex-col space-y-0.5">
@@ -218,10 +201,10 @@ const getColumns = ({ onView }: ColumnsProps): ColumnDef<BookingRequest>[] => [
     },
   },
   {
-    accessorKey: "requestedAt",
+    accessorKey: "createdAt",
     header: "Tgl Pengajuan",
     cell: ({ row }) => (
-      <div className="text-sm">{formatDate(row.original.requestedAt)}</div>
+      <div className="text-sm">{formatDate(row.original.createdAt)}</div>
     ),
   },
   {
@@ -247,9 +230,7 @@ const getColumns = ({ onView }: ColumnsProps): ColumnDef<BookingRequest>[] => [
 ];
 
 export default function MyBookingsPage() {
-  const [bookings, setBookings] = useState<BookingRequest[]>(
-    MOCK_BOOKING_REQUESTS
-  );
+  const [bookings, setBookings] = useState<BookingRequest[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
@@ -266,19 +247,17 @@ export default function MyBookingsPage() {
       .filter((booking) => {
         const searchLower = searchQuery.toLowerCase();
         const matchesSearch =
-          booking.bookingCode.toLowerCase().includes(searchLower) ||
-          booking.purpose.toLowerCase().includes(searchLower) ||
+          (booking.code && booking.code.toLowerCase().includes(searchLower)) ||
+          (booking.purpose &&
+            booking.purpose.toLowerCase().includes(searchLower)) ||
           booking.occupants.some((occ) =>
             occ.name.toLowerCase().includes(searchLower)
           ) ||
-          booking.occupants.some((occ) =>
-            BUILDINGS.find((b) => b.id === occ.buildingId)
-              ?.name.toLowerCase()
-              .includes(searchLower)
-          ) ||
-          BUILDINGS.find((b) => b.areaId === booking.areaId)
-            ?.area.toLowerCase()
-            .includes(searchLower);
+          booking.occupants.some(
+            (occ) =>
+              occ.buildingName?.toLowerCase().includes(searchLower) ||
+              occ.roomCode?.toLowerCase().includes(searchLower)
+          );
 
         const matchesStatus =
           statusFilter === "all" || booking.status === statusFilter;
@@ -286,8 +265,9 @@ export default function MyBookingsPage() {
         const matchesDate =
           !dateRange?.from ||
           booking.occupants.some((occ) => {
-            const checkIn = occ.inDate;
+            const checkIn = occ.inDate ? new Date(occ.inDate) : null;
             return (
+              checkIn &&
               checkIn >= dateRange.from! &&
               (!dateRange.to || checkIn <= dateRange.to)
             );
@@ -295,7 +275,10 @@ export default function MyBookingsPage() {
 
         return matchesSearch && matchesStatus && matchesDate;
       })
-      .sort((a, b) => b.requestedAt.getTime() - a.requestedAt.getTime());
+      .sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
   }, [bookings, searchQuery, statusFilter, dateRange]);
 
   const handleView = (booking: BookingRequest) => {
@@ -328,7 +311,7 @@ export default function MyBookingsPage() {
         b.id === bookingId
           ? {
               ...b,
-              status: "cancelled" as BookingStatus,
+              status: "CANCELLED" as BookingStatus,
               cancelledAt: new Date(),
               adminNotes: reason,
             }
@@ -352,7 +335,7 @@ export default function MyBookingsPage() {
                 occ.id === occupantId
                   ? {
                       ...occ,
-                      status: "cancelled" as OccupantStatus,
+                      status: "CANCELLED" as OccupancyStatus,
                       cancelledAt: new Date(),
                       cancelReason: reason,
                     }
@@ -375,9 +358,9 @@ export default function MyBookingsPage() {
   const stats = useMemo(() => {
     return {
       total: bookings.length,
-      pending: bookings.filter((r) => r.status === "request").length,
-      approved: bookings.filter((r) => r.status === "approved").length,
-      rejected: bookings.filter((r) => r.status === "rejected").length,
+      pending: bookings.filter((r) => r.status === "PENDING").length,
+      approved: bookings.filter((r) => r.status === "APPROVED").length,
+      rejected: bookings.filter((r) => r.status === "REJECTED").length,
     };
   }, [bookings]);
 

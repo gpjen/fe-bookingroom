@@ -746,9 +746,12 @@ export function OccupantDetailsForm({
                     value={companion?.nik || ""}
                     onChange={(e) =>
                       onCompanionUpdate({
-                        ...companion,
-                        nik: e.target.value,
                         name: companion?.name || "",
+                        nik: e.target.value,
+                        email: companion?.email || null,
+                        phone: companion?.phone || null,
+                        company: companion?.company || null,
+                        department: companion?.department || null,
                       })
                     }
                     placeholder="NIK Karyawan"
@@ -764,9 +767,12 @@ export function OccupantDetailsForm({
                     value={companion?.name || ""}
                     onChange={(e) =>
                       onCompanionUpdate({
-                        ...companion,
-                        nik: companion?.nik || "",
                         name: e.target.value,
+                        nik: companion?.nik || "",
+                        email: companion?.email || null,
+                        phone: companion?.phone || null,
+                        company: companion?.company || null,
+                        department: companion?.department || null,
                       })
                     }
                     placeholder="Nama lengkap"
@@ -789,10 +795,12 @@ export function OccupantDetailsForm({
                     value={companion?.email || ""}
                     onChange={(e) =>
                       onCompanionUpdate({
-                        ...companion,
-                        nik: companion?.nik || "",
                         name: companion?.name || "",
+                        nik: companion?.nik || "",
                         email: e.target.value,
+                        phone: companion?.phone || null,
+                        company: companion?.company || null,
+                        department: companion?.department || null,
                       })
                     }
                     placeholder="email@domain.com"
@@ -812,10 +820,12 @@ export function OccupantDetailsForm({
                     value={companion?.phone || ""}
                     onChange={(e) =>
                       onCompanionUpdate({
-                        ...companion,
-                        nik: companion?.nik || "",
                         name: companion?.name || "",
+                        nik: companion?.nik || "",
+                        email: companion?.email || null,
                         phone: e.target.value,
+                        company: companion?.company || null,
+                        department: companion?.department || null,
                       })
                     }
                     placeholder="08xxxxxxxxxx"
@@ -831,10 +841,12 @@ export function OccupantDetailsForm({
                     value={companion?.company || ""}
                     onChange={(e) =>
                       onCompanionUpdate({
-                        ...companion,
-                        nik: companion?.nik || "",
                         name: companion?.name || "",
+                        nik: companion?.nik || "",
+                        email: companion?.email || null,
+                        phone: companion?.phone || null,
                         company: e.target.value,
+                        department: companion?.department || null,
                       })
                     }
                     placeholder="Perusahaan"
@@ -848,9 +860,11 @@ export function OccupantDetailsForm({
                     value={companion?.department || ""}
                     onChange={(e) =>
                       onCompanionUpdate({
-                        ...companion,
-                        nik: companion?.nik || "",
                         name: companion?.name || "",
+                        nik: companion?.nik || "",
+                        email: companion?.email || null,
+                        phone: companion?.phone || null,
+                        company: companion?.company || null,
                         department: e.target.value,
                       })
                     }

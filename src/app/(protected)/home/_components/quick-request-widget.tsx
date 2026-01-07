@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import {
   Sheet,
   SheetContent,
@@ -10,53 +10,88 @@ import {
 } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { FileText, Clock, CheckCircle, ArrowRight } from "lucide-react";
-import { MOCK_BOOKING_REQUESTS } from "@/app/(protected)/booking/request/_components/mock-data";
+import {
+  FileText,
+  Clock,
+  CheckCircle,
+  ArrowRight,
+  XCircle,
+} from "lucide-react";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import Link from "next/link";
+import {
+  getMyBookings,
+  BookingListItem,
+} from "@/app/(protected)/booking/_actions/booking.actions";
 
 interface QuickRequestSheetProps {
   trigger?: React.ReactNode;
 }
 
 export function QuickRequestSheet({ trigger }: QuickRequestSheetProps) {
-  // Get recent requests (sorted by requestedAt, limit 5 for sheet)
-  const recentRequests = useMemo(() => {
-    return [...MOCK_BOOKING_REQUESTS]
-      .sort((a, b) => b.requestedAt.getTime() - a.requestedAt.getTime())
-      .slice(0, 5);
+  const [requests, setRequests] = useState<BookingListItem[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // Fetch API on mount (client side)
+  useEffect(() => {
+    // TODO: Ideally pass this data from server component or use SWR/React Query
+    const fetchData = async () => {
+      setIsLoading(true);
+      try {
+        const result = await getMyBookings();
+        if (result.success) {
+          setRequests(result.data.data.slice(0, 5)); // Limit to 5 for widget
+        }
+      } catch (error) {
+        console.error("Failed to fetch bookings", error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchData();
   }, []);
 
-  // Stats
+  // Stats calculation
   const stats = useMemo(() => {
     return {
-      pending: MOCK_BOOKING_REQUESTS.filter((r) => r.status === "request")
-        .length,
-      approved: MOCK_BOOKING_REQUESTS.filter((r) => r.status === "approved")
-        .length,
+      pending: requests.filter((r) => r.status === "PENDING").length,
+      approved: requests.filter((r) => r.status === "APPROVED").length,
     };
-  }, []);
+  }, [requests]);
 
   const getStatusBadge = (status: string) => {
     const config: Record<
       string,
       { label: string; className: string; icon: typeof Clock }
     > = {
-      request: {
+      PENDING: {
         label: "Menunggu",
         className:
           "bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400",
         icon: Clock,
       },
-      approved: {
+      APPROVED: {
         label: "Disetujui",
         className:
           "bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400",
         icon: CheckCircle,
       },
+      REJECTED: {
+        label: "Ditolak",
+        className:
+          "bg-red-100 text-red-700 border-red-200 dark:bg-red-900/30 dark:text-red-400",
+        icon: XCircle,
+      },
+      CANCELLED: {
+        label: "Batal",
+        className:
+          "bg-gray-100 text-gray-700 border-gray-200 dark:bg-gray-900/30 dark:text-gray-400",
+        icon: XCircle,
+      },
     };
-    const c = config[status] || config.request;
+    const c = config[status] || config.PENDING;
     const Icon = c.icon;
     return (
       <Badge
@@ -119,26 +154,32 @@ export function QuickRequestSheet({ trigger }: QuickRequestSheetProps) {
               </Link>
             </div>
 
-            {recentRequests.length > 0 ? (
+            {isLoading ? (
+              <div className="text-center py-8 text-muted-foreground">
+                <p className="text-sm">Memuat data...</p>
+              </div>
+            ) : requests.length > 0 ? (
               <div className="space-y-3">
-                {recentRequests.map((request) => (
+                {requests.map((request) => (
                   <div
                     key={request.id}
                     className="flex flex-col gap-2 p-3 rounded-lg border bg-card hover:bg-accent/50 transition-colors cursor-pointer"
                   >
                     <div className="flex items-center justify-between">
-                      <p className="text-sm font-semibold">
-                        {request.bookingCode}
-                      </p>
+                      <p className="text-sm font-semibold">{request.code}</p>
                       {getStatusBadge(request.status)}
                     </div>
                     <div className="flex justify-between items-end">
                       <div className="text-xs text-muted-foreground">
-                        <p>{request.occupants.length} Penghuni</p>
+                        <p>{request.occupantCount} Penghuni</p>
                         <p>
-                          {format(request.requestedAt, "dd MMM yyyy, HH:mm", {
-                            locale: localeId,
-                          })}
+                          {format(
+                            new Date(request.createdAt),
+                            "dd MMM yyyy, HH:mm",
+                            {
+                              locale: localeId,
+                            }
+                          )}
                         </p>
                       </div>
                     </div>

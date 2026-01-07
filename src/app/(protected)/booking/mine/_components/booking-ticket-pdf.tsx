@@ -244,8 +244,8 @@ export function BookingTicketPDF({
   occupant,
   qrCodeUrl,
 }: BookingTicketPDFProps) {
-  const buildingName = occupant.buildingId || "Gedung Utama";
-  const roomName = occupant.roomId || "N/A";
+  const buildingName = occupant.buildingName || "Gedung Utama";
+  const roomName = occupant.roomCode || "N/A";
 
   return (
     <Document>
@@ -264,7 +264,7 @@ export function BookingTicketPDF({
             </View>
             <View style={styles.bookingCodeContainer}>
               <Text style={styles.bookingCodeLabel}>KODE BOOKING</Text>
-              <Text style={styles.bookingCode}>{booking.bookingCode}</Text>
+              <Text style={styles.bookingCode}>{booking.code}</Text>
             </View>
           </View>
 
@@ -309,9 +309,11 @@ export function BookingTicketPDF({
                 <Text style={styles.label}>Tanggal Check-In / 检查日期</Text>
                 <View style={styles.valueRow}>
                   <Text style={styles.value}>
-                    {format(occupant.inDate, "EEEE, dd MMMM yyyy", {
-                      locale: id,
-                    })}
+                    {occupant.inDate
+                      ? format(occupant.inDate, "EEEE, dd MMMM yyyy", {
+                          locale: id,
+                        })
+                      : "-"}
                   </Text>
                 </View>
               </View>

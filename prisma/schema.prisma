@@ -642,11 +642,8 @@ model Booking {
   companionCompany    String?
   companionDepartment String?
 
-  // Booking Period (RANGE - occupants dates must be within this range)
-  checkInDate  DateTime @db.Date
-  checkOutDate DateTime @db.Date
-  purpose      String?
-  projectCode  String?
+  purpose     String?
+  projectCode String?
 
   // Status
   status BookingStatus @default(PENDING)
@@ -677,8 +674,6 @@ model Booking {
   @@index([code])
   @@index([requesterUserId])
   @@index([status])
-  @@index([checkInDate])
-  @@index([checkOutDate])
   @@map("bookings")
 }
 

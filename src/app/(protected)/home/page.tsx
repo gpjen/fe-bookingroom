@@ -1,6 +1,5 @@
 "use client";
 
-// import { QuickRequestSheet } from "./_components/quick-request-widget";
 import { RoomSearch } from "./_components/room-search";
 import { BookingGuideSheet } from "./_components/booking-guide";
 import { Button } from "@/components/ui/button";
@@ -21,17 +20,6 @@ export default function HomePage() {
         </div>
 
         <div className="flex items-center gap-2">
-          {/* Quick Request Sheet Trigger */}
-          {/* <QuickRequestSheet
-            trigger={
-              <Button variant="outline" className="gap-2">
-                <FileText className="h-4 w-4 text-primary" />
-                <span className="hidden sm:inline">Permintaan Saya</span>
-                <span className="sm:hidden">Request</span>
-              </Button>
-            }
-          /> */}
-
           {/* Booking Guide Sheet Trigger */}
           <BookingGuideSheet
             trigger={

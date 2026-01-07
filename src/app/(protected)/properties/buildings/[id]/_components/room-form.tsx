@@ -95,7 +95,7 @@ const formSchema = z.object({
   buildingId: z.string().min(1, "Building ID wajib"),
   roomTypeId: z.string().min(1, "Tipe ruangan wajib dipilih"),
   floorNumber: z.coerce.number().min(1).max(99, "Lantai 1-99"),
-  floorName: z.string().optional().nullable(),
+
   description: z.string().optional().nullable(),
   allowedOccupantType: z.enum(["EMPLOYEE_ONLY", "ALL"]),
   isBookable: z.boolean(),
@@ -146,16 +146,12 @@ const BED_STATUS_COLORS = {
   AVAILABLE: "bg-emerald-100 text-emerald-700 border-emerald-300",
   OCCUPIED: "bg-blue-100 text-blue-700 border-blue-300",
   RESERVED: "bg-amber-100 text-amber-700 border-amber-300",
-  MAINTENANCE: "bg-slate-100 text-slate-700 border-slate-300",
-  BLOCKED: "bg-red-100 text-red-700 border-red-300",
 };
 
 const BED_STATUS_LABELS = {
   AVAILABLE: "Tersedia",
   OCCUPIED: "Terisi",
   RESERVED: "Dipesan",
-  MAINTENANCE: "Maintenance",
-  BLOCKED: "Diblokir",
 };
 
 // ========================================
@@ -416,8 +412,18 @@ function BedsTabContent({ room, onBedUpdated }: BedsTabContentProps) {
       {/* Bed List */}
       <div className="space-y-2">
         {sortedBeds.map((bed, index) => {
-          const isOccupied =
-            bed.status === "OCCUPIED" || bed.status === "RESERVED";
+          // Derive status
+          const occupancies = bed.occupancies || [];
+          let status = "AVAILABLE";
+          if (occupancies.some((o) => o.status === "CHECKED_IN")) {
+            status = "OCCUPIED";
+          } else if (
+            occupancies.some((o) => ["RESERVED", "PENDING"].includes(o.status))
+          ) {
+            status = "RESERVED";
+          }
+
+          const isOccupied = status === "OCCUPIED" || status === "RESERVED";
           const canEdit = !isOccupied;
           const isEditing = editingBedId === bed.id;
           const isFirst = index === 0;
@@ -444,10 +450,16 @@ function BedsTabContent({ room, onBedUpdated }: BedsTabContentProps) {
                       variant="outline"
                       className={cn(
                         "text-[10px] ml-auto",
-                        BED_STATUS_COLORS[bed.status]
+                        BED_STATUS_COLORS[
+                          status as keyof typeof BED_STATUS_COLORS
+                        ]
                       )}
                     >
-                      {BED_STATUS_LABELS[bed.status]}
+                      {
+                        BED_STATUS_LABELS[
+                          status as keyof typeof BED_STATUS_LABELS
+                        ]
+                      }
                     </Badge>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
@@ -583,10 +595,16 @@ function BedsTabContent({ room, onBedUpdated }: BedsTabContentProps) {
                       variant="outline"
                       className={cn(
                         "text-[10px]",
-                        BED_STATUS_COLORS[bed.status]
+                        BED_STATUS_COLORS[
+                          status as keyof typeof BED_STATUS_COLORS
+                        ]
                       )}
                     >
-                      {BED_STATUS_LABELS[bed.status]}
+                      {
+                        BED_STATUS_LABELS[
+                          status as keyof typeof BED_STATUS_LABELS
+                        ]
+                      }
                     </Badge>
 
                     {/* Actions dropdown */}
@@ -696,8 +714,10 @@ export function RoomForm({
 
   // Check if room has active occupancy (OCCUPIED or RESERVED beds)
   const hasActiveOccupancy =
-    roomData?.beds.some(
-      (bed) => bed.status === "OCCUPIED" || bed.status === "RESERVED"
+    roomData?.beds.some((bed) =>
+      bed.occupancies?.some((o) =>
+        ["CHECKED_IN", "RESERVED", "PENDING"].includes(o.status)
+      )
     ) ?? false;
 
   // Sync roomData with prop when it changes
@@ -723,7 +743,7 @@ export function RoomForm({
       buildingId: buildingId,
       roomTypeId: "",
       floorNumber: defaultFloorNumber || 1,
-      floorName: "",
+      // floorName removed
       description: "",
       allowedOccupantType: "ALL",
       isBookable: true,
@@ -748,7 +768,7 @@ export function RoomForm({
         buildingId: buildingId,
         roomTypeId: "",
         floorNumber: defaultFloorNumber || 1,
-        floorName: "",
+
         description: "",
         allowedOccupantType: "ALL",
         isBookable: true,
@@ -766,7 +786,7 @@ export function RoomForm({
         buildingId: room.buildingId,
         roomTypeId: room.roomTypeId,
         floorNumber: room.floorNumber,
-        floorName: room.floorName || "",
+
         description: room.description || "",
         allowedOccupantType: room.allowedOccupantType,
         isBookable: room.isBookable,
@@ -781,7 +801,7 @@ export function RoomForm({
         buildingId: buildingId,
         roomTypeId: "",
         floorNumber: defaultFloorNumber || 1,
-        floorName: "",
+
         description: "",
         allowedOccupantType: "ALL",
         isBookable: true,
@@ -1374,29 +1394,6 @@ export function RoomForm({
                       )}
                     />
                   </div>
-
-                  {/* Floor Name */}
-                  <FormField
-                    control={form.control}
-                    name="floorName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel className="text-xs">Nama Lantai</FormLabel>
-                        <FormControl>
-                          <Input
-                            placeholder="Ground Floor (opsional)"
-                            {...field}
-                            value={field.value || ""}
-                            disabled={isPending}
-                          />
-                        </FormControl>
-                        <FormDescription className="text-[10px]">
-                          Kosongkan untuk &quot;Lantai + nomor&quot;
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
 
                   <input type="hidden" {...form.register("buildingId")} />
 

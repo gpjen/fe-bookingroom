@@ -1,4 +1,4 @@
-import { CheckCircle2, User, Clock, Wrench, Ban } from "lucide-react";
+import { CheckCircle2, User, Clock } from "lucide-react";
 
 // ========================================
 // BED STATUS CONFIG
@@ -25,20 +25,6 @@ export const bedStatusConfig = {
     color: "text-amber-600",
     bg: "bg-amber-50 dark:bg-amber-900/20",
     border: "border-amber-200 dark:border-amber-800",
-  },
-  MAINTENANCE: {
-    label: "Maintenance",
-    icon: Wrench,
-    color: "text-slate-600",
-    bg: "bg-slate-50 dark:bg-slate-900/20",
-    border: "border-slate-200 dark:border-slate-800",
-  },
-  BLOCKED: {
-    label: "Diblokir",
-    icon: Ban,
-    color: "text-red-600",
-    bg: "bg-red-50 dark:bg-red-900/20",
-    border: "border-red-200 dark:border-red-800",
   },
 } as const;
 
@@ -102,4 +88,4 @@ export const actionConfig: Record<
   },
 };
 
-export type BedStatus = keyof typeof bedStatusConfig;
+

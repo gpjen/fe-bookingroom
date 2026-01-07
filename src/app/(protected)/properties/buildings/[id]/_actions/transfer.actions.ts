@@ -78,7 +78,12 @@ export async function getBuildingsInArea(
           where: { status: "ACTIVE", deletedAt: null },
           include: {
             beds: {
-              where: { status: "AVAILABLE", deletedAt: null },
+              where: {
+                deletedAt: null,
+                occupancies: {
+                  none: { status: { in: ["PENDING", "RESERVED", "CHECKED_IN"] } },
+                },
+              },
               select: { id: true },
             },
           },
@@ -140,7 +145,10 @@ export async function getRoomsWithAvailability(
           where: { deletedAt: null },
           select: {
             id: true,
-            status: true,
+            occupancies: {
+              where: { status: { in: ["PENDING", "RESERVED", "CHECKED_IN"] } },
+              select: { id: true },
+            },
           },
         },
       },
@@ -156,7 +164,7 @@ export async function getRoomsWithAvailability(
       currentGender: r.currentGender,
       roomTypeName: r.roomType.name,
       totalBeds: r.beds.length,
-      availableBeds: r.beds.filter((b) => b.status === "AVAILABLE").length,
+      availableBeds: r.beds.filter((b) => b.occupancies.length === 0).length,
     }));
 
     // Only return rooms with available beds
@@ -186,7 +194,7 @@ export async function getBedsWithReservations(
         id: true,
         code: true,
         label: true,
-        status: true,
+
         occupancies: {
           where: {
             status: { in: ["PENDING", "RESERVED", "CHECKED_IN"] },
@@ -228,7 +236,7 @@ export async function getBedsWithReservations(
       let nextReservationStart: Date | null = null;
       let nextReservationOccupant: string | null = null;
 
-      if (bed.status === "AVAILABLE") {
+      if (!activeOccupancy) {
         if (upcomingReservation) {
           hasUpcomingReservation = true;
           nextReservationStart = upcomingReservation.checkInDate;
@@ -254,7 +262,7 @@ export async function getBedsWithReservations(
         id: bed.id,
         code: bed.code,
         label: bed.label,
-        status: bed.status,
+        status: activeOccupancy ? activeOccupancy.status : "AVAILABLE",
         availableUntil,
         hasUpcomingReservation,
         nextReservationStart,
@@ -291,14 +299,14 @@ export async function validateTransferDates(
     }
 
     // Get target bed's reservations
+    // Get target bed's reservations
     const bed = await prisma.bed.findUnique({
       where: { id: targetBedId },
       select: {
-        status: true,
         occupancies: {
           where: {
-            status: { in: ["PENDING", "RESERVED"] },
-            checkInDate: { gte: today },
+            status: { in: ["PENDING", "RESERVED", "CHECKED_IN"] },
+            OR: [{ checkOutDate: null }, { checkOutDate: { gte: today } }],
           },
           orderBy: { checkInDate: "asc" },
           select: {
@@ -318,9 +326,7 @@ export async function validateTransferDates(
       return { success: true, data: { valid: false, message: "Bed tidak ditemukan" } };
     }
 
-    if (bed.status !== "AVAILABLE") {
-      return { success: true, data: { valid: false, message: "Bed tidak tersedia" } };
-    }
+
 
     // Check for conflicts with upcoming reservations
     for (const reservation of bed.occupancies) {

@@ -106,7 +106,8 @@ function mapRoomType(typeCode: string): RoomType {
 }
 
 function mapBedStatus(bed: APIBedAvailability): BedStatus {
-  if (bed.status === "MAINTENANCE") return "maintenance";
+  // Status is now calculated from occupancies and availability flags
+  // (BedStatus enum was removed from database)
   if (!bed.isAvailable) {
     // Check if occupied or reserved based on occupancies
     const hasCheckedIn = bed.occupancies.some(
@@ -133,7 +134,9 @@ function mapRoomStatus(
 }
 
 function mapAPIToUIRoom(room: APIRoomAvailability): RoomAvailability {
-  const hasMaintenance = room.beds.some((b) => b.status === "MAINTENANCE");
+  // Maintenance is now at room level (room.status === "MAINTENANCE")
+  // BedStatus was removed from database
+  const isRoomMaintenance = room.status === "MAINTENANCE";
 
   const beds: BedAvailability[] = room.beds.map((bed) => {
     const status = mapBedStatus(bed);
@@ -180,7 +183,7 @@ function mapAPIToUIRoom(room: APIRoomAvailability): RoomAvailability {
     gender: mapGenderPolicy(room.genderPolicy),
     capacity: room.capacity,
     availableBeds: room.availableBeds,
-    status: mapRoomStatus(room.capacity, room.availableBeds, hasMaintenance),
+    status: mapRoomStatus(room.capacity, room.availableBeds, isRoomMaintenance),
     beds,
     facilities: room.facilities,
     images:

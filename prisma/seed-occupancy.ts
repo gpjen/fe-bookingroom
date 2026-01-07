@@ -17,7 +17,7 @@ async function main() {
 
   // Get beds that are available
   const beds = await prisma.bed.findMany({
-    where: { status: "AVAILABLE" },
+    where: { deletedAt: null },
     include: {
       room: {
         include: {
@@ -264,18 +264,7 @@ async function main() {
       },
     });
 
-    // Update bed status for active occupancies
-    if (occupant.status === "CHECKED_IN") {
-      await prisma.bed.update({
-        where: { id: bed.id },
-        data: { status: "OCCUPIED" },
-      });
-    } else if (occupant.status === "RESERVED" || occupant.status === "PENDING") {
-      await prisma.bed.update({
-        where: { id: bed.id },
-        data: { status: "RESERVED" },
-      });
-    }
+
 
     console.log(`   ✅ ${occupant.name} → ${bed.code} (${occupant.status})`);
     created++;

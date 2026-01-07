@@ -104,8 +104,8 @@ export async function getBuildingStats(
     }
 
     // Get bed statistics (exclude deleted)
-    const bedStats = await prisma.bed.groupBy({
-      by: ["status"],
+    // Get beds with occupancies to calculate stats
+    const beds = await prisma.bed.findMany({
       where: {
         deletedAt: null,
         room: {
@@ -113,34 +113,37 @@ export async function getBuildingStats(
           deletedAt: null,
         },
       },
-      _count: {
+      select: {
         id: true,
+        room: { select: { status: true } },
+        occupancies: {
+          where: { status: { in: ["PENDING", "RESERVED", "CHECKED_IN"] } },
+          select: { status: true },
+        },
       },
     });
 
     // Calculate bed counts
-    let totalBeds = 0;
+    const totalBeds = beds.length;
     let bedsAvailable = 0;
     let bedsOccupied = 0;
     let bedsReserved = 0;
     let bedsMaintenance = 0;
 
-    bedStats.forEach((stat) => {
-      totalBeds += stat._count.id;
-      switch (stat.status) {
-        case "AVAILABLE":
-          bedsAvailable = stat._count.id;
-          break;
-        case "OCCUPIED":
-          bedsOccupied = stat._count.id;
-          break;
-        case "RESERVED":
-          bedsReserved = stat._count.id;
-          break;
-        case "MAINTENANCE":
-        case "BLOCKED":
-          bedsMaintenance += stat._count.id;
-          break;
+    beds.forEach((bed) => {
+      // Check room maintenance first (maintenance is now room-level)
+      if (bed.room.status === "MAINTENANCE") {
+        bedsMaintenance++;
+        return;
+      }
+
+      const activeOccupancy = bed.occupancies[0]; // Assuming one active occupancy per bed
+      if (!activeOccupancy) {
+        bedsAvailable++;
+      } else if (activeOccupancy.status === "CHECKED_IN") {
+        bedsOccupied++;
+      } else {
+        bedsReserved++;
       }
     });
 
@@ -201,7 +204,7 @@ export async function getRoomsGroupedByFloor(
         code: true,
         name: true,
         floorNumber: true,
-        floorName: true,
+
         description: true,
         allowedOccupantType: true,
         isBookable: true,
@@ -230,8 +233,11 @@ export async function getRoomsGroupedByFloor(
             label: true,
             position: true,
             bedType: true,
-            status: true,
             notes: true,
+            occupancies: {
+              where: { status: { in: ["PENDING", "RESERVED", "CHECKED_IN"] } },
+              select: { status: true, checkInDate: true },
+            },
           },
         },
       },
@@ -245,12 +251,14 @@ export async function getRoomsGroupedByFloor(
       const roomData: RoomData = {
         ...room,
         pricePerBed: room.pricePerBed ? Number(room.pricePerBed) : null,
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        beds: room.beds as any,
       };
 
       if (!floorsMap.has(floorNumber)) {
         floorsMap.set(floorNumber, {
           floorNumber,
-          floorName: room.floorName,
+
           rooms: [],
           stats: {
             totalRooms: 0,
@@ -268,9 +276,10 @@ export async function getRoomsGroupedByFloor(
 
       // Count bed statuses
       room.beds.forEach((bed) => {
-        if (bed.status === "AVAILABLE") {
+        const activeOccupancy = bed.occupancies[0];
+        if (!activeOccupancy) {
           floor.stats.bedsAvailable++;
-        } else if (bed.status === "OCCUPIED") {
+        } else if (activeOccupancy.status === "CHECKED_IN") {
           floor.stats.bedsOccupied++;
         }
       });
@@ -387,10 +396,9 @@ export async function getAllBuildingPageData(
     }
 
     // Fetch stats and floors in parallel
-    const [bedStats, rooms, images] = await Promise.all([
-      // Bed statistics (exclude deleted)
-      prisma.bed.groupBy({
-        by: ["status"],
+    const [beds, rooms, images] = await Promise.all([
+      // Bed data for statistics (manual calculation)
+      prisma.bed.findMany({
         where: {
           deletedAt: null,
           room: {
@@ -398,8 +406,13 @@ export async function getAllBuildingPageData(
             deletedAt: null,
           },
         },
-        _count: {
+        select: {
           id: true,
+          room: { select: { status: true } },
+          occupancies: {
+            where: { status: { in: ["PENDING", "RESERVED", "CHECKED_IN"] } },
+            select: { status: true },
+          },
         },
       }),
       // Rooms with beds (exclude deleted)
@@ -411,7 +424,6 @@ export async function getAllBuildingPageData(
           code: true,
           name: true,
           floorNumber: true,
-          floorName: true,
           description: true,
           allowedOccupantType: true,
           isBookable: true,
@@ -440,8 +452,11 @@ export async function getAllBuildingPageData(
               label: true,
               position: true,
               bedType: true,
-              status: true,
               notes: true,
+              occupancies: {
+                where: { status: { in: ["PENDING", "RESERVED", "CHECKED_IN"] } },
+                select: { status: true, checkInDate: true },
+              },
             },
           },
         },
@@ -458,28 +473,26 @@ export async function getAllBuildingPageData(
     ]);
 
     // Calculate bed stats
-    let totalBeds = 0;
+    const totalBeds = beds.length;
     let bedsAvailable = 0;
     let bedsOccupied = 0;
     let bedsReserved = 0;
     let bedsMaintenance = 0;
 
-    bedStats.forEach((stat) => {
-      totalBeds += stat._count.id;
-      switch (stat.status) {
-        case "AVAILABLE":
-          bedsAvailable = stat._count.id;
-          break;
-        case "OCCUPIED":
-          bedsOccupied = stat._count.id;
-          break;
-        case "RESERVED":
-          bedsReserved = stat._count.id;
-          break;
-        case "MAINTENANCE":
-        case "BLOCKED":
-          bedsMaintenance += stat._count.id;
-          break;
+    beds.forEach((bed) => {
+      // Check room maintenance first
+      if (bed.room.status === "MAINTENANCE") {
+        bedsMaintenance++;
+        return;
+      }
+
+      const activeOccupancy = bed.occupancies[0];
+      if (!activeOccupancy) {
+        bedsAvailable++;
+      } else if (activeOccupancy.status === "CHECKED_IN") {
+        bedsOccupied++;
+      } else {
+        bedsReserved++;
       }
     });
 
@@ -504,15 +517,19 @@ export async function getAllBuildingPageData(
 
     rooms.forEach((room) => {
       const floorNumber = room.floorNumber;
+      
       const roomData: RoomData = {
         ...room,
         pricePerBed: room.pricePerBed ? Number(room.pricePerBed) : null,
+        // Explicitly format beds if needed, but simple assignment should work if types match
+        // Ensuring beds are included
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        beds: room.beds as any, // Temporary cast to suppress type strictness if necessary or fix the interface match
       };
 
       if (!floorsMap.has(floorNumber)) {
         floorsMap.set(floorNumber, {
           floorNumber,
-          floorName: room.floorName,
           rooms: [],
           stats: {
             totalRooms: 0,
@@ -529,9 +546,10 @@ export async function getAllBuildingPageData(
       floor.stats.totalBeds += room.beds.length;
 
       room.beds.forEach((bed) => {
-        if (bed.status === "AVAILABLE") {
+        const activeOccupancy = bed.occupancies[0];
+        if (!activeOccupancy) {
           floor.stats.bedsAvailable++;
-        } else if (bed.status === "OCCUPIED") {
+        } else if (activeOccupancy.status === "CHECKED_IN") {
           floor.stats.bedsOccupied++;
         }
       });

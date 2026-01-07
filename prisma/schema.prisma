@@ -384,14 +384,6 @@ enum GenderPolicy {
   FLEXIBLE
 }
 
-enum BedStatus {
-  AVAILABLE
-  OCCUPIED
-  RESERVED
-  MAINTENANCE
-  BLOCKED
-}
-
 enum BookingStatus {
   PENDING
   APPROVED
@@ -516,7 +508,6 @@ model Room {
   code        String  @unique
   name        String
   floorNumber Int     @default(1)
-  floorName   String?
   description String?
 
   // Access Control
@@ -594,11 +585,10 @@ model Bed {
   id     String @id @default(cuid())
   roomId String
 
-  code     String    @unique
+  code     String  @unique
   label    String
   position Int
   bedType  String?
-  status   BedStatus @default(AVAILABLE)
   notes    String?
 
   room         Room                 @relation(fields: [roomId], references: [id], onDelete: Cascade)
@@ -611,7 +601,6 @@ model Bed {
   deletedBy String? // Username who deleted
 
   @@index([roomId])
-  @@index([status])
   @@index([deletedAt])
   @@map("beds")
 }

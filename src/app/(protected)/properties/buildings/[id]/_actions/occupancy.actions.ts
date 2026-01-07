@@ -53,7 +53,7 @@ export async function getBedsWithOccupancy(
         label: true,
         position: true,
         bedType: true,
-        status: true,
+
         notes: true,
         occupancies: {
           where: {
@@ -88,7 +88,7 @@ export async function getBedsWithOccupancy(
       label: bed.label,
       position: bed.position,
       bedType: bed.bedType,
-      status: bed.status,
+
       notes: bed.notes,
       activeOccupancy: bed.occupancies[0]
         ? {
@@ -206,7 +206,7 @@ export async function assignOccupant(
       where: { id: data.bedId },
       select: {
         id: true,
-        status: true,
+
         room: {
           select: {
             id: true,
@@ -227,9 +227,7 @@ export async function assignOccupant(
       return { success: false, error: "Bed tidak ditemukan" };
     }
 
-    if (bed.status !== "AVAILABLE") {
-      return { success: false, error: "Bed tidak tersedia" };
-    }
+
 
     // Check for date conflicts with existing/future reservations on this bed
     const requestedCheckIn = new Date(data.checkInDate);
@@ -420,12 +418,6 @@ export async function assignOccupant(
         },
       });
 
-      // Update bed status
-      await tx.bed.update({
-        where: { id: data.bedId },
-        data: { status: data.autoCheckIn ? "OCCUPIED" : "RESERVED" },
-      });
-
       // Update room currentGender if FLEXIBLE
       if (room.genderPolicy === "FLEXIBLE" && !room.currentGender) {
         await tx.room.update({
@@ -506,11 +498,7 @@ export async function checkInOccupant(
         },
       });
 
-      // Update bed status
-      await tx.bed.update({
-        where: { id: occupancy.bed.id },
-        data: { status: "OCCUPIED" },
-      });
+
 
       // Create log
       await tx.occupancyLog.create({
@@ -593,11 +581,7 @@ export async function checkOutOccupant(
         },
       });
 
-      // Update bed status to available
-      await tx.bed.update({
-        where: { id: occupancy.bed.id },
-        data: { status: "AVAILABLE" },
-      });
+
 
       // Check if room has any more occupants (for FLEXIBLE gender policy)
       if (occupancy.bed.room.genderPolicy === "FLEXIBLE") {
@@ -703,7 +687,13 @@ export async function transferOccupant(
         id: true,
         code: true,
         label: true,
-        status: true,
+        occupancies: {
+          where: {
+            status: { in: ["PENDING", "RESERVED", "CHECKED_IN"] },
+            OR: [{ checkOutDate: null }, { checkOutDate: { gte: transferDateObj } }],
+          },
+          select: { id: true },
+        },
         room: {
           select: {
             id: true,
@@ -720,8 +710,8 @@ export async function transferOccupant(
       return { success: false, error: "Bed tujuan tidak ditemukan" };
     }
 
-    if (targetBed.status !== "AVAILABLE") {
-       return { success: false, error: "Bed tujuan tidak tersedia" };
+    if (targetBed.occupancies.length > 0) {
+       return { success: false, error: "Bed tujuan tidak tersedia (sedang terisi/dipesan)" };
     }
 
     // Gender Policy Checks using Occupant data
@@ -769,17 +759,7 @@ export async function transferOccupant(
         },
       });
 
-      // Old Bed -> Available
-      await tx.bed.update({
-        where: { id: oldBedId },
-        data: { status: "AVAILABLE" },
-      });
 
-      // New Bed -> Occupied/Reserved (same status as before)
-      await tx.bed.update({
-        where: { id: targetBedId },
-        data: { status: occupancy.status === "CHECKED_IN" ? "OCCUPIED" : "RESERVED" },
-      });
 
       // Log transfer
       await tx.occupancyLog.create({
@@ -894,11 +874,7 @@ export async function cancelOccupancy(
         },
       });
 
-      // Update bed status
-      await tx.bed.update({
-        where: { id: occupancy.bed.id },
-        data: { status: "AVAILABLE" },
-      });
+
 
       // Check if room has any more occupants (for FLEXIBLE gender policy)
       if (occupancy.bed.room.genderPolicy === "FLEXIBLE") {
@@ -972,8 +948,10 @@ export async function getAvailableBedsForTransfer(
     const availableBeds = await prisma.bed.findMany({
       where: {
         id: { not: currentBedId },
-        status: "AVAILABLE",
         deletedAt: null,
+        occupancies: {
+          none: { status: { in: ["PENDING", "RESERVED", "CHECKED_IN"] } },
+        },
         room: {
           status: "ACTIVE",
           deletedAt: null,

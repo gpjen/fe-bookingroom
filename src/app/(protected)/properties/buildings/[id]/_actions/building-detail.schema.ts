@@ -48,7 +48,7 @@ export interface BuildingStatsData {
 
 export interface FloorWithRooms {
   floorNumber: number;
-  floorName: string | null;
+
   rooms: RoomData[];
   stats: {
     totalRooms: number;
@@ -63,7 +63,7 @@ export interface RoomData {
   code: string;
   name: string;
   floorNumber: number;
-  floorName: string | null;
+
   description: string | null;
   allowedOccupantType: "EMPLOYEE_ONLY" | "ALL";
   isBookable: boolean;
@@ -89,8 +89,11 @@ export interface BedData {
   label: string;
   position: number;
   bedType: string | null;
-  status: "AVAILABLE" | "OCCUPIED" | "RESERVED" | "MAINTENANCE" | "BLOCKED";
   notes: string | null;
+  occupancies: {
+    status: "PENDING" | "RESERVED" | "CHECKED_IN";
+    checkInDate: Date;
+  }[];
 }
 
 // ========================================
@@ -112,7 +115,7 @@ export const roomFormSchema = z.object({
   buildingId: z.string().min(1, { message: "Building ID wajib" }),
   roomTypeId: z.string().min(1, { message: "Tipe ruangan wajib dipilih" }),
   floorNumber: z.number().min(1).max(99, { message: "Lantai 1-99" }),
-  floorName: z.string().optional().nullable(),
+
   description: z.string().optional().nullable(),
   allowedOccupantType: z.enum(["EMPLOYEE_ONLY", "ALL"]),
   isBookable: z.boolean(),

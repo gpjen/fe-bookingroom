@@ -55,7 +55,7 @@ export async function getRoomById(
         buildingId: true,
         roomTypeId: true,
         floorNumber: true,
-        floorName: true,
+
         description: true,
         allowedOccupantType: true,
         isBookable: true,
@@ -84,7 +84,7 @@ export async function getRoomById(
             label: true,
             position: true,
             bedType: true,
-            status: true,
+
             notes: true,
           },
         },
@@ -159,7 +159,7 @@ export async function createRoom(
           buildingId: data.buildingId,
           roomTypeId: data.roomTypeId,
           floorNumber: data.floorNumber,
-          floorName: data.floorName || null,
+
           description: data.description || null,
           allowedOccupantType: data.allowedOccupantType,
           isBookable: data.isBookable,
@@ -177,7 +177,6 @@ export async function createRoom(
         label: `Bed ${bedLabels[i] || (i + 1)}`,
         position: i + 1,
         bedType: roomType.defaultBedType,
-        status: "AVAILABLE" as const,
       }));
 
       await tx.bed.createMany({
@@ -251,7 +250,7 @@ export async function updateRoom(
         name: data.name,
         roomTypeId: data.roomTypeId,
         floorNumber: data.floorNumber,
-        floorName: data.floorName || null,
+
         description: data.description || null,
         allowedOccupantType: data.allowedOccupantType,
         isBookable: data.isBookable,
@@ -363,7 +362,7 @@ export async function deleteRoom(
 
 export async function getFloorNumbers(
   buildingId: string
-): Promise<ActionResponse<{ floorNumber: number; floorName: string | null }[]>> {
+): Promise<ActionResponse<{ floorNumber: number }[]>> {
   try {
     const floors = await prisma.room.findMany({
       where: { buildingId, deletedAt: null },
@@ -371,7 +370,7 @@ export async function getFloorNumbers(
       orderBy: { floorNumber: "asc" },
       select: {
         floorNumber: true,
-        floorName: true,
+
       },
     });
 
@@ -389,7 +388,6 @@ export async function getFloorNumbers(
 export interface BedUpdateInput {
   label?: string;
   bedType?: string | null;
-  status?: "AVAILABLE" | "MAINTENANCE" | "BLOCKED";
   notes?: string | null;
 }
 
@@ -403,7 +401,7 @@ export async function updateBed(
       where: { id },
       select: {
         id: true,
-        status: true,
+
         room: {
           select: {
             buildingId: true,
@@ -416,16 +414,7 @@ export async function updateBed(
       return { success: false, error: "Bed tidak ditemukan" };
     }
 
-    // Cannot change status if bed is OCCUPIED or RESERVED
-    if (
-      input.status &&
-      (bed.status === "OCCUPIED" || bed.status === "RESERVED")
-    ) {
-      return {
-        success: false,
-        error: "Tidak dapat mengubah status bed yang sedang terisi atau dipesan",
-      };
-    }
+
 
     // Update bed
     await prisma.bed.update({
@@ -433,7 +422,7 @@ export async function updateBed(
       data: {
         label: input.label,
         bedType: input.bedType,
-        status: input.status,
+
         notes: input.notes,
       },
     });
@@ -501,7 +490,7 @@ export async function addBedToRoom(
         label: input.label,
         position: nextPosition,
         bedType: input.bedType,
-        status: "AVAILABLE",
+
       },
     });
 
@@ -532,7 +521,7 @@ export async function deleteBed(
       where: { id },
       select: {
         id: true,
-        status: true,
+
         deletedAt: true,
         room: {
           select: {
@@ -556,7 +545,7 @@ export async function deleteBed(
     }
 
     // Cannot delete if has active occupancy
-    if (bed._count.occupancies > 0 || bed.status === "OCCUPIED") {
+    if (bed._count.occupancies > 0) {
       return {
         success: false,
         error: "Tidak dapat menghapus bed yang memiliki penghuni aktif",

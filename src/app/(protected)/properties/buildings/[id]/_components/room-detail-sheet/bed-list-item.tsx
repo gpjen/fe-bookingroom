@@ -11,6 +11,8 @@ import { bedStatusConfig } from "./config";
 // TYPES
 // ========================================
 
+type BedDisplayStatus = keyof typeof bedStatusConfig;
+
 export interface BedListItemProps {
   bed: BedWithOccupancy;
   onAssign: () => void;
@@ -21,10 +23,6 @@ export interface BedListItemProps {
   isLoading: boolean;
 }
 
-// ========================================
-// COMPONENT
-// ========================================
-
 export function BedListItem({
   bed,
   onAssign,
@@ -34,9 +32,19 @@ export function BedListItem({
   onTransfer,
   isLoading,
 }: BedListItemProps) {
-  const config = bedStatusConfig[bed.status];
-  const Icon = config.icon;
   const occupancy = bed.activeOccupancy;
+
+  // Derive status from occupancy for UI display
+  let displayStatus: BedDisplayStatus = "AVAILABLE";
+  if (occupancy) {
+    if (occupancy.status === "CHECKED_IN") displayStatus = "OCCUPIED";
+    else if (["RESERVED", "PENDING"].includes(occupancy.status))
+      displayStatus = "RESERVED";
+  }
+  // Note: Status is purely derived from occupancy. No DB status field used.
+
+  const config = bedStatusConfig[displayStatus];
+  const Icon = config.icon;
 
   // Format date - handle null for indefinite stays
   const formatDate = (date: Date | null) => {
@@ -109,7 +117,7 @@ export function BedListItem({
 
       {/* Actions */}
       <div className="flex gap-1.5 flex-wrap">
-        {bed.status === "AVAILABLE" && (
+        {displayStatus === "AVAILABLE" && (
           <Button
             size="sm"
             variant="outline"
@@ -122,7 +130,7 @@ export function BedListItem({
           </Button>
         )}
 
-        {bed.status === "RESERVED" && occupancy && (
+        {displayStatus === "RESERVED" && occupancy && (
           <>
             <Button
               size="sm"
@@ -147,7 +155,7 @@ export function BedListItem({
           </>
         )}
 
-        {bed.status === "OCCUPIED" && occupancy && (
+        {displayStatus === "OCCUPIED" && occupancy && (
           <>
             <Button
               size="sm"
@@ -170,12 +178,6 @@ export function BedListItem({
               Transfer
             </Button>
           </>
-        )}
-
-        {(bed.status === "MAINTENANCE" || bed.status === "BLOCKED") && (
-          <p className="text-xs text-muted-foreground italic">
-            Tidak dapat digunakan
-          </p>
         )}
       </div>
     </div>

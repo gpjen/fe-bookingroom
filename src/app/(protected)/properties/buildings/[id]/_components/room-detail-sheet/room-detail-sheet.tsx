@@ -42,7 +42,9 @@ export function RoomDetailSheet({
 }: RoomDetailSheetProps) {
   if (!room) return null;
 
-  const bedsOccupied = room.beds.filter((b) => b.status === "OCCUPIED").length;
+  const bedsOccupied = room.beds.filter((b) =>
+    b.occupancies.some((o) => o.status === "CHECKED_IN")
+  ).length;
   const totalBeds = room.beds.length;
   const hasOccupants = bedsOccupied > 0;
 

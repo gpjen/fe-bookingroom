@@ -89,7 +89,7 @@ export interface BedWithOccupancy {
   label: string;
   position: number;
   bedType: string | null;
-  status: "AVAILABLE" | "OCCUPIED" | "RESERVED" | "MAINTENANCE" | "BLOCKED";
+
   notes: string | null;
   activeOccupancy: ActiveOccupancyInfo | null;
 }

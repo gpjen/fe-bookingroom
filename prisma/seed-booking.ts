@@ -29,7 +29,7 @@ async function main() {
 
   // Get available beds
   const beds = await prisma.bed.findMany({
-    where: { status: "AVAILABLE" },
+    where: { deletedAt: null},
     take: 20,
     include: {
       room: {

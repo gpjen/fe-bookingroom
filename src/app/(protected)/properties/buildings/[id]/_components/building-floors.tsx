@@ -54,10 +54,14 @@ interface RoomCardProps {
 }
 
 function RoomCard({ room, onView, onEdit, onDelete }: RoomCardProps) {
-  const bedsOccupied = room.beds.filter((b) => b.status === "OCCUPIED").length;
-  const bedsReserved = room.beds.filter((b) => b.status === "RESERVED").length;
+  const bedsOccupied = room.beds.filter((b) =>
+    b.occupancies.some((o) => o.status === "CHECKED_IN")
+  ).length;
+  const bedsReserved = room.beds.filter((b) =>
+    b.occupancies.some((o) => ["PENDING", "RESERVED"].includes(o.status))
+  ).length;
   const bedsAvailable = room.beds.filter(
-    (b) => b.status === "AVAILABLE"
+    (b) => b.occupancies.length === 0
   ).length;
   const totalBeds = room.beds.length;
   const hasOccupants = bedsOccupied > 0;
@@ -327,7 +331,9 @@ export function BuildingFloors({
   };
 
   const handleEditRoom = async (room: RoomData) => {
-    const hasOccupants = room.beds.some((b) => b.status === "OCCUPIED");
+    const hasOccupants = room.beds.some((b) =>
+      b.occupancies.some((o) => o.status === "CHECKED_IN")
+    );
     if (hasOccupants) {
       toast.error("Tidak bisa edit ruangan yang memiliki penghuni");
       return;
@@ -344,7 +350,9 @@ export function BuildingFloors({
   };
 
   const handleDeleteRoom = (room: RoomData) => {
-    const hasOccupants = room.beds.some((b) => b.status === "OCCUPIED");
+    const hasOccupants = room.beds.some((b) =>
+      b.occupancies.some((o) => o.status === "CHECKED_IN")
+    );
     if (hasOccupants) {
       toast.error("Tidak bisa hapus ruangan yang memiliki penghuni");
       return;
@@ -447,7 +455,7 @@ export function BuildingFloors({
                         {floor.floorNumber}
                       </div>
                       <span className="font-medium text-sm">
-                        {floor.floorName || `Lantai ${floor.floorNumber}`}
+                        {`Lantai ${floor.floorNumber}`}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">

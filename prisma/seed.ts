@@ -532,9 +532,9 @@ async function main() {
 
     // Building 1 - Floor 1 Rooms
     const b1f1Rooms = [
-      { code: "A101", name: "Kamar 101", floorNumber: 1, floorName: "Lantai 1", roomTypeId: doubleRoom.id, genderPolicy: "MALE_ONLY" as const },
-      { code: "A102", name: "Kamar 102", floorNumber: 1, floorName: "Lantai 1", roomTypeId: doubleRoom.id, genderPolicy: "MALE_ONLY" as const },
-      { code: "A103", name: "Kamar 103", floorNumber: 1, floorName: "Lantai 1", roomTypeId: singleRoom.id, genderPolicy: "FLEXIBLE" as const },
+      { code: "A101", name: "Kamar 101", floorNumber: 1, roomTypeId: doubleRoom.id, genderPolicy: "MALE_ONLY" as const },
+      { code: "A102", name: "Kamar 102", floorNumber: 1, roomTypeId: doubleRoom.id, genderPolicy: "MALE_ONLY" as const },
+      { code: "A103", name: "Kamar 103", floorNumber: 1, roomTypeId: singleRoom.id, genderPolicy: "FLEXIBLE" as const },
     ];
 
     for (const roomData of b1f1Rooms) {
@@ -560,7 +560,6 @@ async function main() {
             label: `Bed ${i}`,
             position: i,
             bedType: roomType?.defaultBedType || "Single Bed",
-            status: "AVAILABLE",
             roomId: room.id,
           },
         });
@@ -595,7 +594,6 @@ async function main() {
             label: `Bed ${i}`,
             position: i,
             bedType: roomType?.defaultBedType || "Single Bed",
-            status: "AVAILABLE",
             roomId: room.id,
           },
         });
@@ -624,9 +622,9 @@ async function main() {
 
     // Building 2 - Floor 1 Rooms
     const b2f1Rooms = [
-      { code: "B101", name: "Kamar 101", floorNumber: 1, floorName: "Lantai 1", roomTypeId: singleRoom.id, genderPolicy: "MIX" as const },
-      { code: "B102", name: "Kamar 102", floorNumber: 1, floorName: "Lantai 1", roomTypeId: doubleRoom.id, genderPolicy: "FLEXIBLE" as const },
-      { code: "B103", name: "Kamar 103", floorNumber: 1, floorName: "Lantai 1", roomTypeId: doubleRoom.id, genderPolicy: "MALE_ONLY" as const },
+      { code: "B101", name: "Kamar 101", floorNumber: 1, roomTypeId: singleRoom.id, genderPolicy: "MIX" as const },
+      { code: "B102", name: "Kamar 102", floorNumber: 1, roomTypeId: doubleRoom.id, genderPolicy: "FLEXIBLE" as const },
+      { code: "B103", name: "Kamar 103", floorNumber: 1, roomTypeId: doubleRoom.id, genderPolicy: "MALE_ONLY" as const },
     ];
 
     for (const roomData of b2f1Rooms) {
@@ -651,7 +649,6 @@ async function main() {
             label: `Bed ${i}`,
             position: i,
             bedType: roomType?.defaultBedType || "Single Bed",
-            status: "AVAILABLE",
             roomId: room.id,
           },
         });
@@ -686,7 +683,6 @@ async function main() {
             label: `Bed ${i}`,
             position: i,
             bedType: roomType?.defaultBedType || "Single Bed",
-            status: "AVAILABLE",
             roomId: room.id,
           },
         });

@@ -70,7 +70,6 @@ export interface BedAvailability {
   label: string;
   position: number;
   bedType: string | null;
-  status: string; // Current bed status
   isAvailable: boolean; // Available in requested date range
   hasPendingRequest?: boolean; // Has pending booking request (not yet approved)
   occupancies: BedOccupancyInfo[]; // For timeline visualization
@@ -81,6 +80,7 @@ export interface RoomAvailability {
   code: string;
   name: string;
   floor: number;
+  status: string; // Room status (ACTIVE, MAINTENANCE, etc.)
   building: {
     id: string;
     code: string;

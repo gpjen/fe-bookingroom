@@ -15,7 +15,7 @@ export interface RoomWithBeds {
   buildingId: string;
   roomTypeId: string;
   floorNumber: number;
-  floorName: string | null;
+
   description: string | null;
   allowedOccupantType: "EMPLOYEE_ONLY" | "ALL";
   isBookable: boolean;
@@ -36,8 +36,11 @@ export interface RoomWithBeds {
     label: string;
     position: number;
     bedType: string | null;
-    status: "AVAILABLE" | "OCCUPIED" | "RESERVED" | "MAINTENANCE" | "BLOCKED";
+
     notes: string | null;
+    occupancies?: {
+      status: string;
+    }[];
   }[];
   createdAt: Date;
   updatedAt: Date;
@@ -68,7 +71,7 @@ export const roomFormSchema = z.object({
   buildingId: z.string().min(1, "Building ID wajib"),
   roomTypeId: z.string().min(1, "Tipe ruangan wajib dipilih"),
   floorNumber: z.coerce.number().min(1).max(99, "Lantai 1-99"),
-  floorName: z.string().optional().nullable(),
+
   description: z.string().optional().nullable(),
   allowedOccupantType: z.enum(["EMPLOYEE_ONLY", "ALL"]),
   isBookable: z.boolean(),

@@ -198,7 +198,7 @@ export async function getAvailableRooms(
         },
         beds: {
           where: {
-            status: { not: "BLOCKED" }, // Exclude blocked beds
+            deletedAt: null, // Only include non-deleted beds
           },
           orderBy: { position: "asc" },
           include: {
@@ -280,10 +280,9 @@ export async function getAvailableRooms(
         // A bed is available if:
         // 1. It has no overlapping approved occupancies
         // 2. It has no pending booking requests
-        // 3. It's not in MAINTENANCE status
         const hasApprovedOccupancy = bed.occupancies.length > 0;
         const hasPendingRequest = pendingBedIds.has(bed.id);
-        const isAvailable = !hasApprovedOccupancy && !hasPendingRequest && bed.status !== "MAINTENANCE";
+        const isAvailable = !hasApprovedOccupancy && !hasPendingRequest;
 
         return {
           id: bed.id,
@@ -291,7 +290,6 @@ export async function getAvailableRooms(
           label: bed.label,
           position: bed.position,
           bedType: bed.bedType,
-          status: bed.status,
           isAvailable,
           hasPendingRequest, // New field to indicate pending request
           occupancies: bed.occupancies.map((occ) => ({
@@ -311,6 +309,7 @@ export async function getAvailableRooms(
         code: room.code,
         name: room.name,
         floor: room.floorNumber,
+        status: room.status, // Room status (ACTIVE, MAINTENANCE)
         building: {
           id: room.building.id,
           code: room.building.code,
@@ -1294,14 +1293,6 @@ export async function approveBooking(
             createdByName: createdByName,
           },
         });
-
-        // Update bed status if currently AVAILABLE
-        await tx.bed.update({
-          where: { id: occupantData.bedId },
-          data: {
-            status: "RESERVED",
-          },
-        });
       }
 
       return { id: input.bookingId };
@@ -1437,31 +1428,12 @@ export async function cancelBooking(
 
       // Cancel all related occupancies (if any)
       if (booking.occupancies.length > 0) {
-        const bedIds = booking.occupancies.map((o) => o.bedId);
-
         await tx.occupancy.updateMany({
           where: { bookingId: input.bookingId },
           data: {
             status: "CANCELLED",
           },
         });
-
-        // Reset bed status to AVAILABLE (if no other active occupancies)
-        for (const bedId of bedIds) {
-          const activeOccupancies = await tx.occupancy.count({
-            where: {
-              bedId,
-              status: { in: ["PENDING", "RESERVED", "CHECKED_IN"] },
-            },
-          });
-
-          if (activeOccupancies === 0) {
-            await tx.bed.update({
-              where: { id: bedId },
-              data: { status: "AVAILABLE" },
-            });
-          }
-        }
       }
     });
 
@@ -1557,21 +1529,6 @@ export async function cancelOccupancy(
           cancelledReason: input.reason.trim(),
         },
       });
-
-      // Reset bed status to AVAILABLE if no other active occupancies
-      const activeOccupancies = await tx.occupancy.count({
-        where: {
-          bedId: occupancy.bedId,
-          status: { in: ["PENDING", "RESERVED", "CHECKED_IN"] },
-        },
-      });
-
-      if (activeOccupancies === 0) {
-        await tx.bed.update({
-          where: { id: occupancy.bedId },
-          data: { status: "AVAILABLE" },
-        });
-      }
     });
 
     revalidatePath("/booking/mine");

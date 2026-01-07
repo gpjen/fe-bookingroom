@@ -47,6 +47,7 @@ export interface BedAvailability {
   id: string;
   code: string;
   status: BedStatus;
+  hasPendingRequest?: boolean; // Bed has pending booking request
   occupantName?: string;
   occupantCheckIn?: Date;
   occupantCheckOut?: Date;
@@ -113,6 +114,10 @@ function mapBedStatus(bed: APIBedAvailability): BedStatus {
     );
     return hasCheckedIn ? "occupied" : "reserved";
   }
+  // Check for pending booking requests (not yet approved)
+  if (bed.hasPendingRequest) {
+    return "reserved"; // Show as reserved (pending approval)
+  }
   return "available";
 }
 
@@ -138,6 +143,7 @@ function mapAPIToUIRoom(room: APIRoomAvailability): RoomAvailability {
       id: bed.id,
       code: bed.code,
       status,
+      hasPendingRequest: bed.hasPendingRequest, // Pass pending request flag
       occupantName:
         status === "occupied" || status === "reserved"
           ? currentOccupancy?.occupantName

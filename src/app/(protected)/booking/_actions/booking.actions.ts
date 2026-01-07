@@ -254,11 +254,36 @@ export async function getAvailableRooms(
       ],
     });
 
+    // Get all bed IDs from the result
+    const allBedIds = rooms.flatMap((room) => room.beds.map((bed) => bed.id));
+
+    // Query pending booking request items for these beds (separate query for efficiency)
+    const pendingRequestItems = await prisma.bookingRequestItem.findMany({
+      where: {
+        bedId: { in: allBedIds },
+        checkInDate: { lt: checkOutDate },
+        checkOutDate: { gt: checkInDate },
+        booking: { status: "PENDING" },
+      },
+      select: {
+        bedId: true,
+        booking: { select: { code: true } },
+      },
+    });
+
+    // Create a Set of bed IDs that have pending requests
+    const pendingBedIds = new Set(pendingRequestItems.map((item) => item.bedId));
+
     // Transform to RoomAvailability format
     const result: RoomAvailability[] = rooms.map((room) => {
       const beds: BedAvailability[] = room.beds.map((bed) => {
-        // A bed is available if it has no overlapping occupancies
-        const isAvailable = bed.occupancies.length === 0 && bed.status !== "MAINTENANCE";
+        // A bed is available if:
+        // 1. It has no overlapping approved occupancies
+        // 2. It has no pending booking requests
+        // 3. It's not in MAINTENANCE status
+        const hasApprovedOccupancy = bed.occupancies.length > 0;
+        const hasPendingRequest = pendingBedIds.has(bed.id);
+        const isAvailable = !hasApprovedOccupancy && !hasPendingRequest && bed.status !== "MAINTENANCE";
 
         return {
           id: bed.id,
@@ -268,6 +293,7 @@ export async function getAvailableRooms(
           bedType: bed.bedType,
           status: bed.status,
           isAvailable,
+          hasPendingRequest, // New field to indicate pending request
           occupancies: bed.occupancies.map((occ) => ({
             id: occ.id,
             checkInDate: occ.checkInDate,
@@ -420,32 +446,36 @@ export async function createBookingRequest(
       return { success: false, error: `Bed ${codes} sudah terisi dalam rentang tanggal tersebut` };
     }
 
+    // CHECK FOR CONFLICTS WITH OTHER PENDING BOOKING REQUESTS (via BookingRequestItem table)
+    const pendingRequestItems = await prisma.bookingRequestItem.findMany({
+      where: {
+        bedId: { in: bedIds },
+        checkInDate: { lt: data.checkOutDate },
+        checkOutDate: { gt: data.checkInDate },
+        booking: { status: "PENDING" },
+      },
+      include: {
+        booking: { select: { code: true } },
+        bed: { select: { code: true } },
+      },
+    });
+
+    if (pendingRequestItems.length > 0) {
+      const conflictInfo = pendingRequestItems
+        .map((item) => `${item.bed.code} (Booking #${item.booking.code})`)
+        .join(", ");
+      return {
+        success: false,
+        error: `Bed sedang dalam proses booking lain: ${conflictInfo}`,
+      };
+    }
+
     // Generate booking code
     const bookingCode = await generateBookingCode();
 
     // Create booking with transaction
     const booking = await prisma.$transaction(async (tx) => {
-      // Enrich occupant data with bed/room info for display purposes
-      const enrichedOccupants = data.occupants.map((occ) => {
-        const bed = beds.find((b) => b.id === occ.bedId);
-        return {
-          bedId: occ.bedId,
-          bedCode: bed?.code || "",
-          roomId: bed?.roomId || "",
-          type: occ.type,
-          name: occ.name,
-          nik: occ.nik || null,
-          gender: occ.gender,
-          email: occ.email || null,
-          phone: occ.phone || null,
-          company: occ.company || null,
-          department: occ.department || null,
-          checkInDate: data.checkInDate,
-          checkOutDate: data.checkOutDate,
-        };
-      });
-
-      // Create booking
+      // Create booking header
       const newBooking = await tx.booking.create({
         data: {
           code: bookingCode,
@@ -470,11 +500,26 @@ export async function createBookingRequest(
           projectCode: data.projectCode || null,
           notes: data.notes || null,
           
-          // Store requested occupants as JSON (will be converted to Occupancy on approve)
-          requestedOccupants: enrichedOccupants,
-          
           status: "PENDING",
         },
+      });
+
+      // Create BookingRequestItem records (structured data for conflict checking)
+      await tx.bookingRequestItem.createMany({
+        data: data.occupants.map((occ) => ({
+          bookingId: newBooking.id,
+          bedId: occ.bedId,
+          name: occ.name,
+          nik: occ.nik || null,
+          gender: occ.gender,
+          type: occ.type,
+          email: occ.email || null,
+          phone: occ.phone || null,
+          company: occ.company || null,
+          department: occ.department || null,
+          checkInDate: data.checkInDate,
+          checkOutDate: data.checkOutDate,
+        })),
       });
 
       return newBooking;
@@ -482,6 +527,7 @@ export async function createBookingRequest(
 
     revalidatePath("/booking/mine");
     revalidatePath("/booking/admin");
+    revalidatePath("/home"); // Refresh room availability
 
     return {
       success: true,
@@ -677,7 +723,32 @@ export async function getAllBookings(
           requesterCompany: true,
           companionName: true,
           createdAt: true,
-          requestedOccupants: true,
+          // Use requestItems instead of requestedOccupants
+          requestItems: {
+            select: {
+              id: true,
+              type: true,
+              checkInDate: true,
+              checkOutDate: true,
+              bed: {
+                select: {
+                  room: {
+                    select: {
+                      building: {
+                        select: {
+                          area: {
+                            select: {
+                              name: true,
+                            },
+                          },
+                        },
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
           occupancies: {
             select: {
               id: true,
@@ -716,34 +787,32 @@ export async function getAllBookings(
     ]);
 
     const result = bookings.map((b) => {
-      // Logic dates (fallback to requestedOccupants if empty)
+      // Calculate dates - prefer occupancies, fallback to requestItems
       let dates = calculateBookingDates(b.occupancies);
       
-      if (!dates.checkInDate && b.requestedOccupants) {
-        const reqOccs = b.requestedOccupants as Array<{
-          checkInDate: string | Date;
-          checkOutDate: string | Date;
-        }>;
-        if (Array.isArray(reqOccs) && reqOccs.length > 0) {
-          dates = calculateBookingDates(
-            reqOccs.map((o) => ({
-              checkInDate: new Date(o.checkInDate),
-              checkOutDate: new Date(o.checkOutDate),
-            }))
-          );
-        }
+      if (!dates.checkInDate && b.requestItems.length > 0) {
+        dates = calculateBookingDates(
+          b.requestItems.map((ri) => ({
+            checkInDate: ri.checkInDate,
+            checkOutDate: ri.checkOutDate,
+          }))
+        );
       }
 
-      // Check has GUEST
+      // Check has GUEST - check both occupancies and requestItems
       const hasGuest =
         b.occupancies.some((o) => o.occupant.type === "GUEST") ||
-        (Array.isArray(b.requestedOccupants) &&
-          (b.requestedOccupants as Array<{ type: string }>).some(
-            (o) => o.type === "GUEST"
-          ));
+        b.requestItems.some((ri) => ri.type === "GUEST");
           
-      // Get area name (first one found)
-      const areaName = b.occupancies.find(o => o.bed?.room?.building?.area?.name)?.bed.room.building.area.name;
+      // Get area name (first one found from occupancies or requestItems)
+      const areaName = 
+        b.occupancies.find(o => o.bed?.room?.building?.area?.name)?.bed.room.building.area.name ||
+        b.requestItems.find(ri => ri.bed?.room?.building?.area?.name)?.bed.room.building.area.name;
+
+      // Occupant count - prefer occupancies, fallback to requestItems
+      const occupantCount = b.occupancies.length > 0 
+        ? b.occupancies.length 
+        : b.requestItems.length;
 
       return {
         id: b.id,
@@ -755,9 +824,7 @@ export async function getAllBookings(
         projectCode: b.projectCode,
         requesterName: b.requesterName,
         requesterCompany: b.requesterCompany,
-        occupantCount: b.occupancies.length > 0
-          ? b.occupancies.length
-          : (Array.isArray(b.requestedOccupants) ? (b.requestedOccupants as Array<{type: string}>).length : 0),
+        occupantCount,
         createdAt: b.createdAt,
         areaName,
         hasGuest,
@@ -789,6 +856,31 @@ export async function getBookingById(
     const booking = await prisma.booking.findUnique({
       where: { id },
       include: {
+        requestItems: {
+          include: {
+            bed: {
+              select: {
+                id: true,
+                code: true,
+                label: true,
+                room: {
+                  select: {
+                    id: true,
+                    code: true,
+                    name: true,
+                    building: {
+                      select: {
+                        id: true,
+                        code: true,
+                        name: true,
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
         occupancies: {
           include: {
             occupant: {
@@ -843,22 +935,16 @@ export async function getBookingById(
       return { success: false, error: "Booking tidak ditemukan" };
     }
 
-    // Calculate dates from occupancies
+    // Calculate dates from occupancies, fallback to requestItems
     let dates = calculateBookingDates(booking.occupancies);
 
-    // If dates are null (e.g. pending booking with no approved occupancies yet),
-    // try to calculate from requestedOccupants
-    if (!dates.checkInDate && booking.requestedOccupants) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const reqOccs = booking.requestedOccupants as any[];
-      if (Array.isArray(reqOccs) && reqOccs.length > 0) {
-        dates = calculateBookingDates(
-          reqOccs.map((o) => ({
-            checkInDate: new Date(o.checkInDate),
-            checkOutDate: new Date(o.checkOutDate),
-          }))
-        );
-      }
+    if (!dates.checkInDate && booking.requestItems.length > 0) {
+      dates = calculateBookingDates(
+        booking.requestItems.map((ri) => ({
+          checkInDate: ri.checkInDate,
+          checkOutDate: ri.checkOutDate,
+        }))
+      );
     }
 
     const result: BookingDetail = {
@@ -892,10 +978,38 @@ export async function getBookingById(
       cancelledBy: booking.cancelledBy,
       cancelledAt: booking.cancelledAt,
       cancellationReason: booking.cancellationReason,
-      requestedOccupants: booking.requestedOccupants,
+      requestItems: booking.requestItems.map((ri) => ({
+        id: ri.id,
+        bedId: ri.bedId,
+        name: ri.name,
+        nik: ri.nik,
+        gender: ri.gender,
+        type: ri.type,
+        email: ri.email,
+        phone: ri.phone,
+        company: ri.company,
+        department: ri.department,
+        checkInDate: ri.checkInDate,
+        checkOutDate: ri.checkOutDate,
+        bed: {
+          id: ri.bed.id,
+          code: ri.bed.code,
+          label: ri.bed.label,
+          room: {
+            id: ri.bed.room.id,
+            code: ri.bed.room.code,
+            name: ri.bed.room.name,
+            building: {
+              id: ri.bed.room.building.id,
+              code: ri.bed.room.building.code,
+              name: ri.bed.room.building.name,
+            },
+          },
+        },
+      })),
       occupantCount: booking.occupancies.length > 0 
         ? booking.occupancies.length 
-        : (Array.isArray(booking.requestedOccupants) ? booking.requestedOccupants.length : 0),
+        : booking.requestItems.length,
       occupancies: booking.occupancies.map((occ) => ({
         id: occ.id,
         status: occ.status,

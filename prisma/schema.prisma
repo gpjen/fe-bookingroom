@@ -601,8 +601,9 @@ model Bed {
   status   BedStatus @default(AVAILABLE)
   notes    String?
 
-  room        Room        @relation(fields: [roomId], references: [id], onDelete: Cascade)
-  occupancies Occupancy[]
+  room         Room                 @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  occupancies  Occupancy[]
+  requestItems BookingRequestItem[] // Pending booking requests for this bed
 
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
@@ -642,9 +643,6 @@ model Booking {
   companionCompany    String?
   companionDepartment String?
 
-  // Requested occupants (stored as JSON until approved)
-  requestedOccupants Json? // [{bedId, name, nik, gender, company, ...}]
-
   purpose     String?
   projectCode String?
 
@@ -668,8 +666,9 @@ model Booking {
   notes String?
 
   // Relations
-  occupancies Occupancy[]
-  attachments BookingAttachment[]
+  occupancies  Occupancy[]
+  requestItems BookingRequestItem[] // Structured pending request items
+  attachments  BookingAttachment[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -678,6 +677,51 @@ model Booking {
   @@index([requesterUserId])
   @@index([status])
   @@map("bookings")
+}
+
+// ==========================================
+// BOOKING REQUEST ITEM (Pending Items - Before Approval)
+// ==========================================
+// Stores individual bed requests before admin approval.
+// This table enables efficient conflict checking without
+// polluting the main Occupancy table with unconfirmed data.
+
+model BookingRequestItem {
+  id String @id @default(cuid())
+
+  // Parent Booking
+  bookingId String
+  booking   Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  // Requested Bed
+  bedId String
+  bed   Bed    @relation(fields: [bedId], references: [id])
+
+  // Occupant Data (Snapshot - not FK to Occupant table)
+  name       String
+  nik        String?
+  gender     Gender
+  type       OccupantType // EMPLOYEE | GUEST
+  email      String?
+  phone      String?
+  company    String?
+  department String?
+
+  // Requested Stay Dates
+  checkInDate  DateTime
+  checkOutDate DateTime
+
+  // Audit
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Indexes for optimal query performance
+  @@index([bookingId])
+  @@index([bedId])
+  @@index([checkInDate])
+  @@index([checkOutDate])
+  @@index([bedId, checkInDate, checkOutDate]) // Composite for conflict checking
+  @@map("booking_request_items")
 }
 
 // ==========================================

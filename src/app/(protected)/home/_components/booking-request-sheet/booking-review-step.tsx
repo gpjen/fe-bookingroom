@@ -25,7 +25,6 @@ import type {
 } from "@/app/(protected)/booking/request/_components/types";
 import type { SelectedBed, BookingAttachment } from "../booking-request-types";
 import { CompactProfileCard } from "@/components/common/compact-profile-card";
-import Image from "next/image";
 
 interface BookingReviewStepProps {
   searchParams: {
@@ -143,11 +142,10 @@ export function BookingReviewStep({
                   className="flex items-center gap-3 p-3 border rounded-lg bg-background"
                 >
                   {att.preview ? (
-                    <Image
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
                       src={att.preview}
                       alt={att.name}
-                      width={32}
-                      height={32}
                       className="w-8 h-8 object-cover rounded"
                     />
                   ) : (

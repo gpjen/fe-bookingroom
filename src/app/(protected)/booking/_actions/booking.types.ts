@@ -72,6 +72,7 @@ export interface BedAvailability {
   bedType: string | null;
   status: string; // Current bed status
   isAvailable: boolean; // Available in requested date range
+  hasPendingRequest?: boolean; // Has pending booking request (not yet approved)
   occupancies: BedOccupancyInfo[]; // For timeline visualization
 }
 
@@ -221,9 +222,36 @@ export interface BookingDetail extends BookingListItem {
   cancelledAt: Date | null;
   cancellationReason: string | null;
 
-  // Raw requested occupants (for pending bookings)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  requestedOccupants?: any;
+  // Request items (structured data for pending bookings)
+  requestItems: {
+    id: string;
+    bedId: string;
+    name: string;
+    nik: string | null;
+    gender: string;
+    type: string;
+    email: string | null;
+    phone: string | null;
+    company: string | null;
+    department: string | null;
+    checkInDate: Date;
+    checkOutDate: Date;
+    bed: {
+      id: string;
+      code: string;
+      label: string;
+      room: {
+        id: string;
+        code: string;
+        name: string;
+        building: {
+          id: string;
+          code: string;
+          name: string;
+        };
+      };
+    };
+  }[];
   
   occupancies: {
     id: string;

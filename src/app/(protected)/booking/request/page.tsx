@@ -120,26 +120,23 @@ function transformToDetailData(data: BookingDetail): BookingDetailData {
             cancelledByName: occ.cancelledByName,
             cancelledReason: occ.cancelledReason,
           }))
-        : Array.isArray(data.requestedOccupants)
-        ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (data.requestedOccupants as any[]).map((occ, idx) => ({
-            id: `req-${idx}`,
-            name: occ.name,
-            identifier: occ.nik || "-",
+        : data.requestItems.map((ri) => ({
+            id: ri.id,
+            name: ri.name,
+            identifier: ri.nik || "-",
             type:
-              occ.type === "GUEST" ? ("guest" as const) : ("employee" as const),
-            gender: occ.gender === "FEMALE" ? ("P" as const) : ("L" as const),
-            company: occ.company,
-            department: occ.department,
-            phone: occ.phone,
-            inDate: new Date(occ.checkInDate),
-            outDate: new Date(occ.checkOutDate),
+              ri.type === "GUEST" ? ("guest" as const) : ("employee" as const),
+            gender: ri.gender === "FEMALE" ? ("P" as const) : ("L" as const),
+            company: ri.company,
+            department: ri.department,
+            phone: ri.phone,
+            inDate: new Date(ri.checkInDate),
+            outDate: new Date(ri.checkOutDate),
             status: "PENDING" as OccupancyStatus,
-            buildingName: "", // Not available in JSON yet
-            roomCode: "", // Not available in JSON yet
-            bedCode: occ.bedCode, // Available
-          }))
-        : [],
+            buildingName: ri.bed?.room?.building?.name || "",
+            roomCode: ri.bed?.room?.code || "",
+            bedCode: ri.bed?.code || "",
+          })),
     attachments: data.attachments,
     createdAt: new Date(data.createdAt),
     updatedAt: new Date(data.updatedAt),

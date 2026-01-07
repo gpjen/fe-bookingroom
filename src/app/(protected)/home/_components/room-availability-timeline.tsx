@@ -93,6 +93,9 @@ export function RoomAvailabilityTimeline({
         ) {
           status = "reserved";
         }
+      } else if (bed.hasPendingRequest) {
+        // Handle pending booking requests - show as reserved
+        status = "reserved";
       }
 
       return { ...bed, currentStatus: status };
@@ -374,7 +377,18 @@ export function RoomAvailabilityTimeline({
                                             : "bg-gray-400"
                                         )}
                                       />
-                                      <span className="font-semibold">
+                                      <span
+                                        className={cn(
+                                          "font-semibold",
+                                          bed.currentStatus === "available"
+                                            ? "text-emerald-800 dark:text-emerald-300"
+                                            : bed.currentStatus === "occupied"
+                                            ? "text-rose-800 dark:text-rose-300"
+                                            : bed.currentStatus === "reserved"
+                                            ? "text-amber-800 dark:text-amber-300"
+                                            : "text-gray-800 dark:text-gray-300"
+                                        )}
+                                      >
                                         Bed {bed.code}
                                       </span>
                                     </div>

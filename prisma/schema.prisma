@@ -642,6 +642,9 @@ model Booking {
   companionCompany    String?
   companionDepartment String?
 
+  // Requested occupants (stored as JSON until approved)
+  requestedOccupants Json? // [{bedId, name, nik, gender, company, ...}]
+
   purpose     String?
   projectCode String?
 

@@ -17,6 +17,7 @@ import {
   Users,
   FileText,
   BedDouble,
+  Loader2,
 } from "lucide-react";
 import { OccupantDetailsForm } from "./occupant-details-form";
 import { BookingReviewStep } from "./booking-review-step";
@@ -31,6 +32,9 @@ import type {
 import { differenceInDays, format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
+import { createBookingRequest } from "@/app/(protected)/booking/_actions/booking.actions";
+import type { CreateBookingInput } from "@/app/(protected)/booking/_actions/booking.types";
 
 // Fallback for crypto.randomUUID (not available in all browsers)
 function generateId(): string {
@@ -95,6 +99,7 @@ export function BookingRequestSheet({
   const [companion, setCompanion] = useState<CompanionInfo | undefined>(
     undefined
   );
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const hasGuestOccupant = useMemo(() => {
     return occupants.some((occ) => occ.type === "guest");
@@ -217,7 +222,7 @@ export function BookingRequestSheet({
 
   const canProceedToStep2 = validationErrors.length === 0;
 
-  const canSubmit = canProceedToStep2;
+  const canSubmit = canProceedToStep2 && !isSubmitting;
 
   const handleOccupantUpdate = (
     index: number,
@@ -243,19 +248,66 @@ export function BookingRequestSheet({
   };
 
   const handleSubmit = async () => {
-    // TODO: Implement actual API call
-    console.log("Submitting booking request:", {
-      searchParams,
-      selectedBeds,
-      occupants,
-      purpose,
-      notes,
-      attachments,
-      companion,
-    });
+    setIsSubmitting(true);
 
-    // Close sheet
-    handleClose();
+    try {
+      // Map occupants from UI format to API format
+      const mappedOccupants: CreateBookingInput["occupants"] = occupants.map(
+        (occ) => ({
+          bedId: occ.bedId || "",
+          type: occ.type === "guest" ? "GUEST" : "EMPLOYEE",
+          name: occ.name.trim(),
+          nik: occ.identifier.trim() || undefined,
+          gender: occ.gender === "P" ? "FEMALE" : "MALE",
+          email: occ.email || undefined,
+          phone: occ.phone || undefined,
+          company: occ.company || undefined,
+          department: occ.department || undefined,
+        })
+      );
+
+      // Map companion if exists
+      const mappedCompanion: CreateBookingInput["companion"] = companion
+        ? {
+            name: companion.name || "",
+            nik: companion.nik || "",
+            email: companion.email || undefined,
+            phone: companion.phone || undefined,
+            company: companion.company || undefined,
+            department: companion.department || undefined,
+          }
+        : undefined;
+
+      // Build payload
+      const payload: CreateBookingInput = {
+        checkInDate: searchParams.startDate,
+        checkOutDate: searchParams.endDate,
+        purpose: purpose.trim() || undefined,
+        notes: notes.trim() || undefined,
+        occupants: mappedOccupants,
+        companion: mappedCompanion,
+        // attachmentIds: attachments.map(a => a.id), // TODO: Implement file upload first
+      };
+
+      // Call API
+      const result = await createBookingRequest(payload);
+
+      if (result.success) {
+        toast.success("Booking berhasil diajukan!", {
+          description: `Kode booking: ${result.data.code}`,
+        });
+        handleClose();
+      } else {
+        toast.error("Gagal mengajukan booking", {
+          description: result.error,
+        });
+      }
+    } catch (error) {
+      console.error("Submit error:", error);
+      toast.error("Terjadi kesalahan sistem");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleClose = () => {
@@ -392,11 +444,20 @@ export function BookingRequestSheet({
             ) : (
               <Button
                 onClick={handleSubmit}
-                disabled={!canSubmit}
+                disabled={!canSubmit || isSubmitting}
                 className="bg-emerald-600 hover:bg-emerald-700"
               >
-                <Check className="h-4 w-4 mr-2" />
-                Kirim Request
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Mengirim...
+                  </>
+                ) : (
+                  <>
+                    <Check className="h-4 w-4 mr-2" />
+                    Kirim Request
+                  </>
+                )}
               </Button>
             )}
           </div>

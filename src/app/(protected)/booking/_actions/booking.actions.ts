@@ -347,9 +347,40 @@ export async function createBookingRequest(
       return { success: false, error: "Tanggal check-in minimal besok" };
     }
 
-    // Get requester info from session
+    // Get requester info details
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const user = session.user as any;
+    const username = user.username || user.nik; // Try both fields
+
+    // 1. Find local user for ID reference
+    const localUser = username 
+      ? await prisma.user.findUnique({ where: { username } })
+      : null;
+
+    // 2. Find detailed profile from IAM (for department, company, etc)
+    let iamProfile = null;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const accessToken = (session as any).accessToken;
+
+    if (username && accessToken) {
+        // Dynamic import to avoid potential circular deps if any
+        const { searchFromIAM } = await import("@/lib/iam/iam.actions");
+        const sr = await searchFromIAM(username, accessToken);
+        if (sr && sr.found && sr.data) {
+            iamProfile = sr.data;
+        }
+    }
+
+    const requesterId = localUser?.id || user.id || user.sub || "unknown";
+    const requesterName = iamProfile?.name || localUser?.displayName || user.name || "Unknown";
+    const requesterNik = username || null;
+    const requesterEmail = iamProfile?.email || localUser?.email || user.email || null;
+    const requesterPhone = iamProfile?.phone || null;
+    const requesterCompany = iamProfile?.company || null;
+    const requesterDepartment = iamProfile?.department || null;
+    // IAM doesn't return value for position yet in searchEmployeeByNIK based on interface, 
+    // but let's leave it null or try to extract if available later.
+    const requesterPosition = null; 
 
     // Validate all beds are available (double-check)
     const bedIds = data.occupants.map((o) => o.bedId);
@@ -394,18 +425,38 @@ export async function createBookingRequest(
 
     // Create booking with transaction
     const booking = await prisma.$transaction(async (tx) => {
+      // Enrich occupant data with bed/room info for display purposes
+      const enrichedOccupants = data.occupants.map((occ) => {
+        const bed = beds.find((b) => b.id === occ.bedId);
+        return {
+          bedId: occ.bedId,
+          bedCode: bed?.code || "",
+          roomId: bed?.roomId || "",
+          type: occ.type,
+          name: occ.name,
+          nik: occ.nik || null,
+          gender: occ.gender,
+          email: occ.email || null,
+          phone: occ.phone || null,
+          company: occ.company || null,
+          department: occ.department || null,
+          checkInDate: data.checkInDate,
+          checkOutDate: data.checkOutDate,
+        };
+      });
+
       // Create booking
       const newBooking = await tx.booking.create({
         data: {
           code: bookingCode,
-          requesterUserId: user.id || user.sub || "unknown",
-          requesterName: user.name || "Unknown",
-          requesterNik: user.nik || null,
-          requesterEmail: user.email || null,
-          requesterPhone: null,
-          requesterCompany: null,
-          requesterDepartment: null,
-          requesterPosition: null,
+          requesterUserId: requesterId,
+          requesterName: requesterName,
+          requesterNik: requesterNik,
+          requesterEmail: requesterEmail,
+          requesterPhone: requesterPhone,
+          requesterCompany: requesterCompany,
+          requesterDepartment: requesterDepartment,
+          requesterPosition: requesterPosition,
           
           companionUserId: data.companion?.userId || null,
           companionName: data.companion?.name || null,
@@ -415,17 +466,16 @@ export async function createBookingRequest(
           companionCompany: data.companion?.company || null,
           companionDepartment: data.companion?.department || null,
           
-          // Note: checkInDate/checkOutDate are now at Occupancy level
           purpose: data.purpose || null,
           projectCode: data.projectCode || null,
           notes: data.notes || null,
           
+          // Store requested occupants as JSON (will be converted to Occupancy on approve)
+          requestedOccupants: enrichedOccupants,
+          
           status: "PENDING",
         },
       });
-
-      // Note: Occupancies will be created when booking is APPROVED
-      // For now, we just store the booking request
 
       return newBooking;
     });
@@ -627,6 +677,7 @@ export async function getAllBookings(
           requesterCompany: true,
           companionName: true,
           createdAt: true,
+          requestedOccupants: true,
           occupancies: {
             select: {
               id: true,
@@ -664,28 +715,49 @@ export async function getAllBookings(
       prisma.booking.count({ where }),
     ]);
 
-    const result: BookingListItemExtended[] = bookings.map((b) => {
-      // Get area name from first occupancy
-      const areaName = b.occupancies[0]?.bed?.room?.building?.area?.name || undefined;
+    const result = bookings.map((b) => {
+      // Logic dates (fallback to requestedOccupants if empty)
+      let dates = calculateBookingDates(b.occupancies);
       
-      // Check if any occupant is a guest
-      const hasGuest = b.occupancies.some((o) => o.occupant?.type === "GUEST");
+      if (!dates.checkInDate && b.requestedOccupants) {
+        const reqOccs = b.requestedOccupants as Array<{
+          checkInDate: string | Date;
+          checkOutDate: string | Date;
+        }>;
+        if (Array.isArray(reqOccs) && reqOccs.length > 0) {
+          dates = calculateBookingDates(
+            reqOccs.map((o) => ({
+              checkInDate: new Date(o.checkInDate),
+              checkOutDate: new Date(o.checkOutDate),
+            }))
+          );
+        }
+      }
 
-      // Calculate dates from occupancies
-      const checkInDates = b.occupancies.map(o => o.checkInDate).filter(Boolean);
-      const checkOutDates = b.occupancies.map(o => o.checkOutDate).filter(Boolean) as Date[];
+      // Check has GUEST
+      const hasGuest =
+        b.occupancies.some((o) => o.occupant.type === "GUEST") ||
+        (Array.isArray(b.requestedOccupants) &&
+          (b.requestedOccupants as Array<{ type: string }>).some(
+            (o) => o.type === "GUEST"
+          ));
+          
+      // Get area name (first one found)
+      const areaName = b.occupancies.find(o => o.bed?.room?.building?.area?.name)?.bed.room.building.area.name;
 
       return {
         id: b.id,
         code: b.code,
-        status: b.status as BookingListItem["status"],
-        checkInDate: checkInDates.length > 0 ? new Date(Math.min(...checkInDates.map(d => d.getTime()))) : null,
-        checkOutDate: checkOutDates.length > 0 ? new Date(Math.max(...checkOutDates.map(d => d.getTime()))) : null,
+        status: b.status as BookingListItemExtended["status"],
+        checkInDate: dates.checkInDate,
+        checkOutDate: dates.checkOutDate,
         purpose: b.purpose,
         projectCode: b.projectCode,
         requesterName: b.requesterName,
         requesterCompany: b.requesterCompany,
-        occupantCount: b.occupancies.length,
+        occupantCount: b.occupancies.length > 0
+          ? b.occupancies.length
+          : (Array.isArray(b.requestedOccupants) ? (b.requestedOccupants as Array<{type: string}>).length : 0),
         createdAt: b.createdAt,
         areaName,
         hasGuest,
@@ -725,6 +797,7 @@ export async function getBookingById(
                 name: true,
                 nik: true,
                 gender: true,
+                type: true,
                 company: true,
                 department: true,
                 phone: true,
@@ -771,7 +844,22 @@ export async function getBookingById(
     }
 
     // Calculate dates from occupancies
-    const dates = calculateBookingDates(booking.occupancies);
+    let dates = calculateBookingDates(booking.occupancies);
+
+    // If dates are null (e.g. pending booking with no approved occupancies yet),
+    // try to calculate from requestedOccupants
+    if (!dates.checkInDate && booking.requestedOccupants) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const reqOccs = booking.requestedOccupants as any[];
+      if (Array.isArray(reqOccs) && reqOccs.length > 0) {
+        dates = calculateBookingDates(
+          reqOccs.map((o) => ({
+            checkInDate: new Date(o.checkInDate),
+            checkOutDate: new Date(o.checkOutDate),
+          }))
+        );
+      }
+    }
 
     const result: BookingDetail = {
       id: booking.id,
@@ -804,7 +892,10 @@ export async function getBookingById(
       cancelledBy: booking.cancelledBy,
       cancelledAt: booking.cancelledAt,
       cancellationReason: booking.cancellationReason,
-      occupantCount: booking.occupancies.length,
+      requestedOccupants: booking.requestedOccupants,
+      occupantCount: booking.occupancies.length > 0 
+        ? booking.occupancies.length 
+        : (Array.isArray(booking.requestedOccupants) ? booking.requestedOccupants.length : 0),
       occupancies: booking.occupancies.map((occ) => ({
         id: occ.id,
         status: occ.status,
@@ -818,6 +909,7 @@ export async function getBookingById(
           id: occ.occupant.id,
           name: occ.occupant.name,
           nik: occ.occupant.nik,
+          type: occ.occupant.type,
           gender: occ.occupant.gender,
           company: occ.occupant.company,
           department: occ.occupant.department,

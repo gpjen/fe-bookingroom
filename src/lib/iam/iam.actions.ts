@@ -20,7 +20,7 @@ const IAM_TIMEOUT = parseInt(process.env.IAM_API_TIMEOUT || "5000", 10);
 // HELPER: Search from IAM Portal API
 // ========================================
 
-async function searchFromIAM(
+export async function searchFromIAM(
   nik: string,
   accessToken: string
 ): Promise<EmployeeSearchResult | null> {

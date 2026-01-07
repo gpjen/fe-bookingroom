@@ -103,28 +103,49 @@ function transformToDetailData(data: BookingDetail): BookingRequest {
     cancelledBy: data.cancelledBy,
     cancelledAt: data.cancelledAt ? new Date(data.cancelledAt) : null,
     cancellationReason: data.cancellationReason,
-    occupants: data.occupancies.map(
-      (occ): BookingOccupant => ({
-        id: occ.id,
-        name: occ.occupant.name,
-        identifier: occ.occupant.nik || "-",
-        type: "employee", // TODO: Retrieve from occupant type if available
-        gender:
-          occ.occupant.gender === "FEMALE" ? ("P" as const) : ("L" as const),
-        company: occ.occupant.company,
-        department: occ.occupant.department,
-        phone: occ.occupant.phone,
-        inDate: new Date(occ.checkInDate),
-        outDate: occ.checkOutDate ? new Date(occ.checkOutDate) : undefined,
-        status: occ.status as OccupancyStatus,
-        buildingName: occ.bed?.room?.building?.name,
-        roomCode: occ.bed?.room?.code,
-        bedCode: occ.bed?.code,
-        cancelledAt: occ.cancelledAt ? new Date(occ.cancelledAt) : null,
-        cancelledByName: occ.cancelledByName,
-        cancelledReason: occ.cancelledReason,
-      })
-    ),
+    occupants:
+      data.occupancies.length > 0
+        ? data.occupancies.map((occ) => ({
+            id: occ.id,
+            name: occ.occupant.name,
+            identifier: occ.occupant.nik || "-",
+            type: occ.occupant.type === "GUEST" ? "guest" : "employee",
+            gender:
+              occ.occupant.gender === "FEMALE"
+                ? ("P" as const)
+                : ("L" as const),
+            company: occ.occupant.company,
+            department: occ.occupant.department,
+            phone: occ.occupant.phone,
+            inDate: new Date(occ.checkInDate),
+            outDate: occ.checkOutDate ? new Date(occ.checkOutDate) : undefined,
+            status: occ.status as OccupancyStatus,
+            buildingName: occ.bed?.room?.building?.name,
+            roomCode: occ.bed?.room?.code,
+            bedCode: occ.bed?.code,
+            cancelledAt: occ.cancelledAt ? new Date(occ.cancelledAt) : null,
+            cancelledByName: occ.cancelledByName,
+            cancelledReason: occ.cancelledReason,
+          }))
+        : Array.isArray(data.requestedOccupants)
+        ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (data.requestedOccupants as any[]).map((occ, idx) => ({
+            id: `req-${idx}`,
+            name: occ.name,
+            identifier: occ.nik || "-",
+            type: occ.type === "GUEST" ? "guest" : "employee",
+            gender: occ.gender === "FEMALE" ? "P" : "L",
+            company: occ.company,
+            department: occ.department,
+            phone: occ.phone,
+            inDate: new Date(occ.checkInDate),
+            outDate: new Date(occ.checkOutDate),
+            status: "PENDING" as OccupancyStatus,
+            buildingName: "", // Not available in JSON
+            roomCode: "", // Not available in JSON
+            bedCode: occ.bedCode,
+          }))
+        : [],
     attachments: data.attachments,
     createdAt: new Date(data.createdAt),
     updatedAt: new Date(data.updatedAt),

@@ -220,6 +220,10 @@ export interface BookingDetail extends BookingListItem {
   cancelledBy: string | null;
   cancelledAt: Date | null;
   cancellationReason: string | null;
+
+  // Raw requested occupants (for pending bookings)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  requestedOccupants?: any;
   
   occupancies: {
     id: string;
@@ -235,6 +239,7 @@ export interface BookingDetail extends BookingListItem {
       id: string;
       name: string;
       nik: string | null;
+      type: string; // EMPLOYEE | GUEST
       gender: string | null;
       company: string | null;
       department: string | null;

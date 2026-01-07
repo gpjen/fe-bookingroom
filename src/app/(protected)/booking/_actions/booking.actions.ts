@@ -1336,8 +1336,8 @@ export async function cancelOccupancy(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const user = session.user as any;
     // Use NIK or preferred_username as identifier, fallback to sub/id
-    const userId = user.nik || user.preferred_username || user.sub || user.id || "unknown";
-    const userName = user.name || user.preferred_username || "Unknown";
+    const userId = user.username || user.email || "unknown";
+    const userName = user.name || user.given_name || "Unknown";
 
     // Cancel the occupancy
     await prisma.$transaction(async (tx) => {

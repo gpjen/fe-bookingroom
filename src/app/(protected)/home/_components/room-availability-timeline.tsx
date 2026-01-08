@@ -1,13 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import {
-  format,
-  eachDayOfInterval,
-  isWithinInterval,
-  startOfDay,
-  isBefore,
-} from "date-fns";
+import { format, eachDayOfInterval, startOfDay, isBefore } from "date-fns";
 import { id as localeId } from "date-fns/locale";
 import {
   Tooltip,
@@ -67,62 +61,68 @@ export function RoomAvailabilityTimeline({
     }
   }, [startDate, endDate]);
 
+  // Calculate per-day status for each bed in a room
   const getDayStatus = (room: RoomAvailability, date: Date) => {
     const dayStart = startOfDay(date);
 
     const bedStatuses = room.beds.map((bed) => {
-      let status: "available" | "occupied" | "reserved" | "maintenance" =
-        "available";
+      let status:
+        | "available"
+        | "occupied"
+        | "reserved"
+        | "pending"
+        | "maintenance" = "available";
 
-      if (bed.status === "maintenance") {
-        status = "maintenance";
-      } else if (bed.status === "occupied") {
-        // Occupied: has CHECKED_IN occupancy
-        // Check if the day is within the occupancy period
-        if (bed.occupantCheckOut) {
-          if (isBefore(dayStart, startOfDay(bed.occupantCheckOut))) {
-            status = "occupied";
-          }
+      // 1. Check confirmed occupancies (CHECKED_IN, RESERVED)
+      for (const occ of bed.occupancies) {
+        const occStart = startOfDay(occ.checkInDate);
+        const occEnd = occ.checkOutDate ? startOfDay(occ.checkOutDate) : null;
+
+        // Check if this date overlaps with the occupancy
+        let isOccupied = false;
+        if (occEnd === null) {
+          // Indefinite stay: occupied from checkIn onwards
+          isOccupied = !isBefore(dayStart, occStart);
         } else {
-          // No checkout date = indefinite stay, always occupied from check-in date onwards
-          if (
-            bed.occupantCheckIn &&
-            !isBefore(dayStart, startOfDay(bed.occupantCheckIn))
-          ) {
+          // Fixed period: checkIn <= date < checkOut
+          isOccupied =
+            !isBefore(dayStart, occStart) && isBefore(dayStart, occEnd);
+        }
+
+        if (isOccupied) {
+          // Determine if it's occupied (checked-in) or reserved
+          if (occ.status === "CHECKED_IN") {
             status = "occupied";
+          } else if (occ.status === "RESERVED" || occ.status === "PENDING") {
+            status = "reserved";
+          }
+          break; // One occupancy is enough to block the day
+        }
+      }
+
+      // 2. If not occupied/reserved, check pending booking requests
+      if (status === "available") {
+        for (const pr of bed.pendingRequests) {
+          const prStart = startOfDay(pr.checkInDate);
+          const prEnd = startOfDay(pr.checkOutDate);
+
+          // Check if this date is within the pending request period
+          // checkIn <= date < checkOut
+          const isPending =
+            !isBefore(dayStart, prStart) && isBefore(dayStart, prEnd);
+
+          if (isPending) {
+            status = "pending"; // Pending approval
+            break;
           }
         }
-      } else if (bed.status === "reserved") {
-        // Reserved: has PENDING/RESERVED occupancy OR has pending booking request
-        if (bed.reservedFrom) {
-          const rStart = startOfDay(bed.reservedFrom);
-          if (bed.reservedTo) {
-            const rEnd = startOfDay(bed.reservedTo);
-            if (
-              isWithinInterval(dayStart, { start: rStart, end: rEnd }) &&
-              isBefore(dayStart, rEnd)
-            ) {
-              status = "reserved";
-            }
-          } else {
-            // No end date = indefinite reservation, always reserved from start date onwards
-            if (!isBefore(dayStart, rStart)) {
-              status = "reserved";
-            }
-          }
-        } else if (bed.hasPendingRequest) {
-          // Has pending request without specific dates - treat as reserved for entire requested period
-          status = "reserved";
-        }
-      } else if (bed.hasPendingRequest) {
-        // Handle pending booking requests that aren't reflected in bed.status
-        status = "reserved";
       }
 
       return { ...bed, currentStatus: status };
     });
 
     const total = bedStatuses.length;
+    // Count available beds (not occupied, reserved, pending, or maintenance)
     const available = bedStatuses.filter(
       (b) => b.currentStatus === "available"
     ).length;
@@ -146,18 +146,35 @@ export function RoomAvailabilityTimeline({
     <div className="border rounded-lg overflow-hidden bg-background shadow-sm">
       {/* Legend */}
       <div className="px-3 py-2 border-b bg-muted/30 flex items-center justify-between gap-3 flex-wrap">
-        <div className="flex items-center gap-4 text-xs">
+        <div className="flex items-center gap-2 text-xs">
+          {/* Gradient Scale */}
+          <span className="text-muted-foreground mr-1">Ketersediaan:</span>
+          <div
+            className="flex items-center gap-0.5"
+            title="Gradasi warna berdasarkan ketersediaan"
+          >
+            <span
+              className="w-4 h-4 rounded-sm bg-emerald-200 dark:bg-emerald-800"
+              title="Semua kosong"
+            />
+            <span className="w-4 h-4 rounded-sm bg-emerald-100 dark:bg-emerald-900" />
+            <span className="w-4 h-4 rounded-sm bg-lime-100 dark:bg-lime-900" />
+            <span className="w-4 h-4 rounded-sm bg-amber-200 dark:bg-amber-800" />
+            <span className="w-4 h-4 rounded-sm bg-orange-200 dark:bg-orange-800" />
+            <span
+              className="w-4 h-4 rounded-sm bg-rose-300 dark:bg-rose-700"
+              title="Penuh"
+            />
+          </div>
+          <span className="text-muted-foreground ml-1">Penuh</span>
+
+          {/* Separator */}
+          <span className="mx-2 text-border">|</span>
+
+          {/* Bed Status */}
           <span className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded bg-emerald-500" />
-            Tersedia
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded bg-amber-500" />
-            Sebagian
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded bg-rose-500" />
-            Penuh
+            <span className="w-3 h-3 rounded bg-blue-500" />
+            Menunggu
           </span>
           <span className="flex items-center gap-1.5">
             <span className="w-3 h-3 rounded bg-gray-400" />
@@ -308,22 +325,50 @@ export function RoomAvailabilityTimeline({
                   {/* Timeline Cells */}
                   {days.map((day) => {
                     const status = getDayStatus(room, day);
-                    const allMaintenance = status.beds.every(
-                      (b) => b.currentStatus === "maintenance"
-                    );
+                    // Room-level maintenance check
+                    const isRoomMaintenance = room.status === "maintenance";
 
-                    let cellClass = "bg-emerald-100 dark:bg-emerald-900/30";
-                    let textClass = "text-emerald-700 dark:text-emerald-400";
+                    // Calculate occupancy ratio for gradient coloring
+                    const occupiedCount = status.total - status.available;
+                    const occupancyRatio =
+                      status.total > 0 ? occupiedCount / status.total : 0;
 
-                    if (allMaintenance) {
+                    // Gradient colors based on occupancy percentage
+                    // 0% occupied = bright green
+                    // 25% occupied = light green
+                    // 50% occupied = yellow/amber
+                    // 75% occupied = orange
+                    // 100% occupied = red
+                    let cellClass = "";
+                    let textClass = "";
+
+                    if (isRoomMaintenance) {
                       cellClass = "bg-gray-200 dark:bg-gray-800";
                       textClass = "text-gray-500";
-                    } else if (status.available === 0) {
-                      cellClass = "bg-rose-100 dark:bg-rose-900/30";
-                      textClass = "text-rose-700 dark:text-rose-400";
-                    } else if (status.available < status.total) {
-                      cellClass = "bg-amber-100 dark:bg-amber-900/30";
-                      textClass = "text-amber-700 dark:text-amber-400";
+                    } else if (occupancyRatio === 0) {
+                      // Fully available (0% occupied) - bright green
+                      cellClass = "bg-emerald-200 dark:bg-emerald-800/50";
+                      textClass = "text-emerald-800 dark:text-emerald-300";
+                    } else if (occupancyRatio <= 0.25) {
+                      // Up to 25% occupied - light green
+                      cellClass = "bg-emerald-100 dark:bg-emerald-900/40";
+                      textClass = "text-emerald-700 dark:text-emerald-400";
+                    } else if (occupancyRatio <= 0.5) {
+                      // 26-50% occupied - lime/yellow-green
+                      cellClass = "bg-lime-100 dark:bg-lime-900/40";
+                      textClass = "text-lime-700 dark:text-lime-400";
+                    } else if (occupancyRatio <= 0.75) {
+                      // 51-75% occupied - amber/orange
+                      cellClass = "bg-amber-200 dark:bg-amber-800/50";
+                      textClass = "text-amber-800 dark:text-amber-300";
+                    } else if (occupancyRatio < 1) {
+                      // 76-99% occupied - orange-red
+                      cellClass = "bg-orange-200 dark:bg-orange-800/50";
+                      textClass = "text-orange-800 dark:text-orange-300";
+                    } else {
+                      // Fully occupied (100%) - red
+                      cellClass = "bg-rose-300 dark:bg-rose-700/60";
+                      textClass = "text-rose-900 dark:text-rose-200";
                     }
 
                     return (
@@ -345,7 +390,7 @@ export function RoomAvailabilityTimeline({
                                   textClass
                                 )}
                               >
-                                {allMaintenance
+                                {isRoomMaintenance
                                   ? "MT"
                                   : `${status.available}/${status.total}`}
                               </span>
@@ -382,6 +427,8 @@ export function RoomAvailabilityTimeline({
                                         ? "bg-rose-50 dark:bg-rose-950/30"
                                         : bed.currentStatus === "reserved"
                                         ? "bg-amber-50 dark:bg-amber-950/30"
+                                        : bed.currentStatus === "pending"
+                                        ? "bg-blue-50 dark:bg-blue-950/30"
                                         : "bg-gray-100 dark:bg-gray-800"
                                     )}
                                   >
@@ -395,6 +442,8 @@ export function RoomAvailabilityTimeline({
                                             ? "bg-rose-500"
                                             : bed.currentStatus === "reserved"
                                             ? "bg-amber-500"
+                                            : bed.currentStatus === "pending"
+                                            ? "bg-blue-500"
                                             : "bg-gray-400"
                                         )}
                                       />
@@ -407,6 +456,8 @@ export function RoomAvailabilityTimeline({
                                             ? "text-rose-800 dark:text-rose-300"
                                             : bed.currentStatus === "reserved"
                                             ? "text-amber-800 dark:text-amber-300"
+                                            : bed.currentStatus === "pending"
+                                            ? "text-blue-800 dark:text-blue-300"
                                             : "text-gray-800 dark:text-gray-300"
                                         )}
                                       >
@@ -422,6 +473,8 @@ export function RoomAvailabilityTimeline({
                                           ? "text-rose-700 bg-rose-100 dark:bg-rose-900/50 dark:text-rose-400"
                                           : bed.currentStatus === "reserved"
                                           ? "text-amber-700 bg-amber-100 dark:bg-amber-900/50 dark:text-amber-400"
+                                          : bed.currentStatus === "pending"
+                                          ? "text-blue-700 bg-blue-100 dark:bg-blue-900/50 dark:text-blue-400"
                                           : "text-gray-600 bg-gray-200 dark:bg-gray-700 dark:text-gray-400"
                                       )}
                                     >
@@ -430,9 +483,9 @@ export function RoomAvailabilityTimeline({
                                       {bed.currentStatus === "occupied" &&
                                         "Terisi"}
                                       {bed.currentStatus === "reserved" &&
-                                        "Booked"}
-                                      {bed.currentStatus === "maintenance" &&
-                                        "Maintenance"}
+                                        "Direservasi"}
+                                      {bed.currentStatus === "pending" &&
+                                        "Menunggu"}
                                     </span>
                                   </div>
                                 ))}

@@ -1,4 +1,4 @@
-import { BookingStatus as PrismaBookingStatus } from "@prisma/client";
+import { BookingStatus as PrismaBookingStatus, AllowedOccupantType, GenderPolicy } from "@prisma/client";
 import { z } from "zod";
 
 // ========================================
@@ -64,15 +64,25 @@ export interface BedOccupancyInfo {
   occupantName?: string;
 }
 
+// Pending booking request info (before admin approval)
+export interface PendingRequestInfo {
+  id: string;
+  checkInDate: Date;
+  checkOutDate: Date;
+  bookingCode: string;
+  bookingId: string;
+}
+
 export interface BedAvailability {
   id: string;
   code: string;
   label: string;
   position: number;
   bedType: string | null;
-  isAvailable: boolean; // Available in requested date range
-  hasPendingRequest?: boolean; // Has pending booking request (not yet approved)
-  occupancies: BedOccupancyInfo[]; // For timeline visualization
+  isAvailable: boolean; // Available for the ENTIRE requested date range
+  hasPendingRequest?: boolean; // Has any pending booking request
+  occupancies: BedOccupancyInfo[]; // Confirmed occupancies (RESERVED, CHECKED_IN)
+  pendingRequests: PendingRequestInfo[]; // Pending booking requests (with dates!)
 }
 
 export interface RoomAvailability {
@@ -95,8 +105,9 @@ export interface RoomAvailability {
     code: string;
     name: string;
   };
-  genderPolicy: "MALE_ONLY" | "FEMALE_ONLY" | "MIX" | "FLEXIBLE";
+  genderPolicy: GenderPolicy;
   currentGender: string | null;
+  allowedOccupantType: AllowedOccupantType; // Room allocation type
   capacity: number;
   availableBeds: number;
   beds: BedAvailability[];
@@ -135,11 +146,21 @@ export const occupantInputSchema = z.object({
   phone: z.string().optional(),
   company: z.string().optional(),
   department: z.string().optional(),
-});
+  // Per-occupant dates (within the global booking date range)
+  checkInDate: z.coerce.date(),
+  checkOutDate: z.coerce.date(),
+}).refine(
+  (data) => data.checkOutDate > data.checkInDate,
+  {
+    message: "Tanggal check-out harus setelah check-in",
+    path: ["checkOutDate"],
+  }
+);
 
 export type OccupantInput = z.infer<typeof occupantInputSchema>;
 
 export const createBookingSchema = z.object({
+  // Global date range (for reference/display)
   checkInDate: z.coerce.date(),
   checkOutDate: z.coerce.date(),
   purpose: z.string().optional(),
@@ -166,12 +187,29 @@ export const createBookingSchema = z.object({
   }
 ).refine(
   (data) => {
-    // Check dates
+    // Check global dates
     return data.checkOutDate > data.checkInDate;
   },
   {
     message: "Tanggal check-out harus setelah check-in",
     path: ["checkOutDate"],
+  }
+).refine(
+  (data) => {
+    // Validate each occupant's dates are within global range
+    for (const occ of data.occupants) {
+      if (occ.checkInDate < data.checkInDate) {
+        return false;
+      }
+      if (occ.checkOutDate > data.checkOutDate) {
+        return false;
+      }
+    }
+    return true;
+  },
+  {
+    message: "Tanggal penghuni harus dalam rentang tanggal booking",
+    path: ["occupants"],
   }
 );
 

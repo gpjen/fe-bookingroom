@@ -268,6 +268,22 @@ export function RoomSearch() {
     setBookingSheetOpen(false);
   };
 
+  // Handle successful booking - refresh timeline data
+  const handleBookingSuccess = async () => {
+    // Clear selected beds since they're now booked
+    setSelectedBeds([]);
+
+    // Re-fetch room data to update timeline with new pending booking
+    if (startDate && endDate && selectedArea) {
+      await searchRooms({
+        areaId: selectedArea,
+        checkInDate: startDate,
+        checkOutDate: endDate,
+        includeFullRooms: showAllRooms,
+      });
+    }
+  };
+
   const addRequirement = () => {
     if (totalRoomRequested >= totalPeople) return;
     setRoomRequirements([...roomRequirements, { type: "standard", count: 1 }]);
@@ -807,6 +823,7 @@ export function RoomSearch() {
           availableRooms={filteredRooms}
           selectedBeds={selectedBeds}
           onClose={handleBookingSheetClose}
+          onSuccess={handleBookingSuccess}
         />
       )}
     </div>

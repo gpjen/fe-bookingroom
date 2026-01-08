@@ -197,26 +197,26 @@ export interface BookingOccupant {
   company?: string | null;
   department?: string | null;
   
-  // Form state fields
-  inDate?: Date;
-  outDate?: Date;
+  // Per-occupant dates (REQUIRED for booking flow)
+  inDate: Date;
+  outDate: Date;
   duration?: number;
   
   // Display/Response properties (optional)
   status?: OccupancyStatus;
+  areaId?: string;
+  areaName?: string;
+  buildingId?: string;
   buildingName?: string;
+  roomId?: string;
   roomCode?: string;
+  bedId?: string;
   bedCode?: string;
   actualCheckInAt?: Date | null;
   actualCheckOutAt?: Date | null;
   cancelledAt?: Date | null;
   cancelledByName?: string | null;
   cancelledReason?: string | null;
-  
-  // Selection IDs (for form usage)
-  buildingId?: string;
-  roomId?: string;
-  bedId?: string;
 }
 
 export type BookingRequest = BookingDetailData; 

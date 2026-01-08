@@ -27,7 +27,6 @@ import {
   Mars,
   Venus,
   Briefcase,
-  User,
   Sparkles,
   CheckCircle2,
   AlertTriangle,
@@ -81,25 +80,46 @@ export function RoomDetailDialog({
     });
 
     return room.beds.filter((bed) => {
+      // Exclude beds with pending booking requests
+      if (bed.hasPendingRequest) return false;
+
       return days.every((day) => {
         const dayStart = startOfDay(day);
 
         if (bed.status === "maintenance") return false;
 
-        if (bed.status === "occupied" && bed.occupantCheckOut) {
-          if (isBefore(dayStart, startOfDay(bed.occupantCheckOut))) {
-            return false;
+        // Handle occupied beds
+        if (bed.status === "occupied") {
+          if (bed.occupantCheckOut) {
+            if (isBefore(dayStart, startOfDay(bed.occupantCheckOut))) {
+              return false;
+            }
+          } else if (bed.occupantCheckIn) {
+            // Indefinite stay - check if day is after check-in
+            if (!isBefore(dayStart, startOfDay(bed.occupantCheckIn))) {
+              return false;
+            }
           }
         }
 
-        if (bed.status === "reserved" && bed.reservedFrom && bed.reservedTo) {
-          const rStart = startOfDay(bed.reservedFrom);
-          const rEnd = startOfDay(bed.reservedTo);
-          if (
-            isWithinInterval(dayStart, { start: rStart, end: rEnd }) &&
-            isBefore(dayStart, rEnd)
-          ) {
-            return false;
+        // Handle reserved beds
+        if (bed.status === "reserved") {
+          if (bed.reservedFrom) {
+            const rStart = startOfDay(bed.reservedFrom);
+            if (bed.reservedTo) {
+              const rEnd = startOfDay(bed.reservedTo);
+              if (
+                isWithinInterval(dayStart, { start: rStart, end: rEnd }) &&
+                isBefore(dayStart, rEnd)
+              ) {
+                return false;
+              }
+            } else {
+              // Indefinite reservation - check if day is after start
+              if (!isBefore(dayStart, rStart)) {
+                return false;
+              }
+            }
           }
         }
 
@@ -260,12 +280,12 @@ export function RoomDetailDialog({
               {room.allocation === "employee" ? (
                 <Briefcase className="h-5 w-5 text-blue-600" />
               ) : (
-                <User className="h-5 w-5 text-amber-600" />
+                <Users className="h-5 w-5 text-purple-600" />
               )}
               <div>
                 <p className="text-xs text-muted-foreground">Alokasi</p>
                 <p className="font-semibold text-sm">
-                  {room.allocation === "employee" ? "Karyawan" : "Tamu"}
+                  {room.allocation === "employee" ? "Karyawan" : "Semua"}
                 </p>
               </div>
             </div>

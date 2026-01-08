@@ -237,8 +237,7 @@ export async function getAvailableRooms(
           },
         },
         images: {
-          where: { isPrimary: true },
-          take: 1,
+          orderBy: [{ isPrimary: "desc" }, { order: "asc" }],
           select: {
             id: true,
             filePath: true,
@@ -257,7 +256,7 @@ export async function getAvailableRooms(
     // Get all bed IDs from the result
     const allBedIds = rooms.flatMap((room) => room.beds.map((bed) => bed.id));
 
-    // Query pending booking request items for these beds (separate query for efficiency)
+    // Query pending booking request items for these beds WITH DATES (for timeline)
     const pendingRequestItems = await prisma.bookingRequestItem.findMany({
       where: {
         bedId: { in: allBedIds },
@@ -266,22 +265,38 @@ export async function getAvailableRooms(
         booking: { status: "PENDING" },
       },
       select: {
+        id: true,
         bedId: true,
-        booking: { select: { code: true } },
+        checkInDate: true,
+        checkOutDate: true,
+        booking: { 
+          select: { 
+            id: true,
+            code: true,
+          } 
+        },
       },
     });
 
-    // Create a Set of bed IDs that have pending requests
-    const pendingBedIds = new Set(pendingRequestItems.map((item) => item.bedId));
+    // Group pending requests by bedId for efficient lookup
+    const pendingByBed = new Map<string, typeof pendingRequestItems>();
+    for (const item of pendingRequestItems) {
+      const existing = pendingByBed.get(item.bedId) || [];
+      existing.push(item);
+      pendingByBed.set(item.bedId, existing);
+    }
 
     // Transform to RoomAvailability format
     const result: RoomAvailability[] = rooms.map((room) => {
       const beds: BedAvailability[] = room.beds.map((bed) => {
-        // A bed is available if:
+        // Get pending requests for this bed
+        const bedPendingRequests = pendingByBed.get(bed.id) || [];
+        const hasPendingRequest = bedPendingRequests.length > 0;
+
+        // A bed is available for the ENTIRE range if:
         // 1. It has no overlapping approved occupancies
         // 2. It has no pending booking requests
         const hasApprovedOccupancy = bed.occupancies.length > 0;
-        const hasPendingRequest = pendingBedIds.has(bed.id);
         const isAvailable = !hasApprovedOccupancy && !hasPendingRequest;
 
         return {
@@ -291,13 +306,22 @@ export async function getAvailableRooms(
           position: bed.position,
           bedType: bed.bedType,
           isAvailable,
-          hasPendingRequest, // New field to indicate pending request
+          hasPendingRequest,
+          // Confirmed occupancies (RESERVED, CHECKED_IN)
           occupancies: bed.occupancies.map((occ) => ({
             id: occ.id,
             checkInDate: occ.checkInDate,
             checkOutDate: occ.checkOutDate,
             status: occ.status,
-            occupantName: occ.occupant?.name,
+            occupantName: occ.occupant?.name || "",
+          })),
+          // Pending booking requests with dates
+          pendingRequests: bedPendingRequests.map((pr) => ({
+            id: pr.id,
+            checkInDate: pr.checkInDate,
+            checkOutDate: pr.checkOutDate,
+            bookingCode: pr.booking.code,
+            bookingId: pr.booking.id,
           })),
         };
       });
@@ -324,8 +348,9 @@ export async function getAvailableRooms(
           code: room.roomType.code,
           name: room.roomType.name,
         },
-        genderPolicy: room.genderPolicy as "MALE_ONLY" | "FEMALE_ONLY" | "MIX" | "FLEXIBLE",
+        genderPolicy: room.genderPolicy,
         currentGender: room.currentGender,
+        allowedOccupantType: room.allowedOccupantType,
         capacity: room.beds.length,
         availableBeds,
         beds,
@@ -412,24 +437,28 @@ export async function createBookingRequest(
     // Validate all beds are available (double-check)
     const bedIds = data.occupants.map((o) => o.bedId);
     const beds = await prisma.bed.findMany({
-      where: { id: { in: bedIds } },
+      where: { id: { in: bedIds }, deletedAt: null },
       include: {
+        room: {
+          select: {
+            id: true,
+            code: true,
+            genderPolicy: true,
+            currentGender: true,
+            allowedOccupantType: true,
+          },
+        },
         occupancies: {
           where: {
-            AND: [
-              { checkInDate: { lt: data.checkOutDate } },
-              {
-                OR: [
-                  { checkOutDate: { gt: data.checkInDate } },
-                  { checkOutDate: null },
-                ],
-              },
-              {
-                status: {
-                  in: ["PENDING", "RESERVED", "CHECKED_IN"],
-                },
-              },
-            ],
+            status: {
+              in: ["PENDING", "RESERVED", "CHECKED_IN"],
+            },
+          },
+          select: {
+            id: true,
+            checkInDate: true,
+            checkOutDate: true,
+            status: true,
           },
         },
       },
@@ -440,34 +469,118 @@ export async function createBookingRequest(
       return { success: false, error: "Beberapa bed tidak ditemukan" };
     }
 
-    // Check if any bed has conflicts
-    const conflictedBeds = beds.filter((b) => b.occupancies.length > 0);
-    if (conflictedBeds.length > 0) {
-      const codes = conflictedBeds.map((b) => b.code).join(", ");
-      return { success: false, error: `Bed ${codes} sudah terisi dalam rentang tanggal tersebut` };
+    // Create a map for quick lookup
+    const bedMap = new Map(beds.map((b) => [b.id, b]));
+
+    // SERVER-SIDE VALIDATION: Gender Policy & Allocation per occupant
+    for (const occ of data.occupants) {
+      const bed = bedMap.get(occ.bedId);
+      if (!bed) continue;
+
+      const room = bed.room;
+
+      // 1. Validate gender policy
+      const genderPolicy = room.genderPolicy;
+      const occGender = occ.gender; // "MALE" | "FEMALE"
+
+      if (genderPolicy === "MALE_ONLY" && occGender === "FEMALE") {
+        return {
+          success: false,
+          error: `Kamar ${room.code} khusus PRIA. ${occ.name} (perempuan) tidak dapat ditempatkan.`,
+        };
+      }
+      if (genderPolicy === "FEMALE_ONLY" && occGender === "MALE") {
+        return {
+          success: false,
+          error: `Kamar ${room.code} khusus WANITA. ${occ.name} (laki-laki) tidak dapat ditempatkan.`,
+        };
+      }
+      // For FLEXIBLE rooms, check if there's already a different gender in the same room
+      if (genderPolicy === "FLEXIBLE" && room.currentGender) {
+        if (
+          (room.currentGender === "MALE" && occGender === "FEMALE") ||
+          (room.currentGender === "FEMALE" && occGender === "MALE")
+        ) {
+          return {
+            success: false,
+            error: `Kamar ${room.code} sedang dihuni gender ${room.currentGender === "MALE" ? "pria" : "wanita"}. ${occ.name} tidak dapat ditempatkan.`,
+          };
+        }
+      }
+
+      // 2. Validate room allocation (employee only vs all)
+      if (room.allowedOccupantType === "EMPLOYEE_ONLY" && occ.type === "GUEST") {
+        return {
+          success: false,
+          error: `Kamar ${room.code} khusus KARYAWAN. Tamu ${occ.name} tidak dapat ditempatkan.`,
+        };
+      }
     }
 
-    // CHECK FOR CONFLICTS WITH OTHER PENDING BOOKING REQUESTS (via BookingRequestItem table)
-    const pendingRequestItems = await prisma.bookingRequestItem.findMany({
-      where: {
-        bedId: { in: bedIds },
-        checkInDate: { lt: data.checkOutDate },
-        checkOutDate: { gt: data.checkInDate },
-        booking: { status: "PENDING" },
-      },
-      include: {
-        booking: { select: { code: true } },
-        bed: { select: { code: true } },
-      },
-    });
+    // CHECK CONFLICTS: Per-occupant date checking for each bed
+    const conflictErrors: string[] = [];
 
-    if (pendingRequestItems.length > 0) {
-      const conflictInfo = pendingRequestItems
-        .map((item) => `${item.bed.code} (Booking #${item.booking.code})`)
-        .join(", ");
+    for (const occ of data.occupants) {
+      const bed = bedMap.get(occ.bedId);
+      if (!bed) continue;
+
+      // Check occupancy conflicts with this occupant's specific dates
+      const hasOccupancyConflict = bed.occupancies.some((existing) => {
+        // Overlap check: occ.checkIn < existing.checkOut AND occ.checkOut > existing.checkIn
+        const existingCheckOut = existing.checkOutDate;
+        // If existingCheckOut is null, treat as indefinite (always conflicts with future dates)
+        if (existingCheckOut === null) {
+          return occ.checkInDate >= existing.checkInDate;
+        }
+        return (
+          occ.checkInDate < existingCheckOut &&
+          occ.checkOutDate > existing.checkInDate
+        );
+      });
+
+      if (hasOccupancyConflict) {
+        conflictErrors.push(`Bed ${bed.code}`);
+      }
+    }
+
+    if (conflictErrors.length > 0) {
       return {
         success: false,
-        error: `Bed sedang dalam proses booking lain: ${conflictInfo}`,
+        error: `${conflictErrors.join(", ")} sudah terisi dalam rentang tanggal tersebut`,
+      };
+    }
+
+    // CHECK FOR CONFLICTS WITH OTHER PENDING BOOKING REQUESTS (per occupant dates)
+    const pendingConflicts: string[] = [];
+
+    for (const occ of data.occupants) {
+      const pendingItems = await prisma.bookingRequestItem.findMany({
+        where: {
+          bedId: occ.bedId,
+          checkInDate: { lt: occ.checkOutDate },
+          checkOutDate: { gt: occ.checkInDate },
+          booking: { status: "PENDING" },
+        },
+        include: {
+          booking: { select: { code: true } },
+          bed: { select: { code: true } },
+        },
+      });
+
+      if (pendingItems.length > 0) {
+        pendingConflicts.push(
+          ...pendingItems.map(
+            (item) => `${item.bed.code} (Booking #${item.booking.code})`
+          )
+        );
+      }
+    }
+
+    if (pendingConflicts.length > 0) {
+      const uniqueConflicts = [...new Set(pendingConflicts)];
+      return {
+        success: false,
+        error: `Bed sedang dalam proses booking lain: ${uniqueConflicts.join(", ")}`,
       };
     }
 
@@ -505,7 +618,7 @@ export async function createBookingRequest(
         },
       });
 
-      // Create BookingRequestItem records (structured data for conflict checking)
+      // Create BookingRequestItem records with PER-OCCUPANT DATES
       await tx.bookingRequestItem.createMany({
         data: data.occupants.map((occ) => ({
           bookingId: newBooking.id,
@@ -518,8 +631,9 @@ export async function createBookingRequest(
           phone: occ.phone || null,
           company: occ.company || null,
           department: occ.department || null,
-          checkInDate: data.checkInDate,
-          checkOutDate: data.checkOutDate,
+          // USE PER-OCCUPANT DATES instead of global dates
+          checkInDate: occ.checkInDate,
+          checkOutDate: occ.checkOutDate,
         })),
       });
 

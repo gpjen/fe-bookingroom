@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { AllowedOccupantType, GenderPolicy, RoomStatus } from "@prisma/client";
 
 // ========================================
 // BUILDING DETAIL RESPONSE TYPES
@@ -66,12 +67,12 @@ export interface RoomData {
   floorNumber: number;
 
   description: string | null;
-  allowedOccupantType: "EMPLOYEE_ONLY" | "ALL";
+  allowedOccupantType: AllowedOccupantType;
   isBookable: boolean;
-  genderPolicy: "MALE_ONLY" | "FEMALE_ONLY" | "MIX" | "FLEXIBLE";
+  genderPolicy: GenderPolicy;
   currentGender: string | null;
   pricePerBed: number | null;
-  status: "ACTIVE" | "INACTIVE" | "MAINTENANCE";
+  status: RoomStatus;
   roomType: {
     id: string;
     code: string;

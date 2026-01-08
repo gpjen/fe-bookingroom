@@ -369,9 +369,9 @@ export function OccupantDetailsForm({
                           (Kamar Karyawan)
                         </span>
                       )}
-                      {bed.roomAllocation === "guest" && (
+                      {bed.roomAllocation === "all" && (
                         <span className="text-xs text-emerald-600 ml-1">
-                          (Kamar Tamu - bebas)
+                          (Semua - Karyawan/Tamu)
                         </span>
                       )}
                     </Label>

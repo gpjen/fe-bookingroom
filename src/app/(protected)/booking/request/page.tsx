@@ -111,7 +111,9 @@ function transformToDetailData(data: BookingDetail): BookingDetailData {
             department: occ.occupant.department,
             phone: occ.occupant.phone,
             inDate: new Date(occ.checkInDate),
-            outDate: occ.checkOutDate ? new Date(occ.checkOutDate) : undefined,
+            outDate: occ.checkOutDate
+              ? new Date(occ.checkOutDate)
+              : new Date(occ.checkInDate),
             status: occ.status as OccupancyStatus,
             buildingName: occ.bed?.room?.building?.name,
             roomCode: occ.bed?.room?.code,

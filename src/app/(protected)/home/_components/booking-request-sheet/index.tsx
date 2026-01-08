@@ -58,6 +58,7 @@ export function BookingRequestSheet({
   searchParams,
   selectedBeds,
   onClose,
+  onSuccess,
 }: BookingRequestSheetProps) {
   const [open, setOpen] = useState(true);
   const [step, setStep] = useState<1 | 2>(1);
@@ -73,7 +74,7 @@ export function BookingRequestSheet({
       id: generateId(),
       name: "",
       identifier: "",
-      type: bed.roomAllocation === "guest" ? "guest" : ("employee" as const),
+      type: bed.roomAllocation === "all" ? "guest" : ("employee" as const),
       gender: bed.roomGender === "female" ? "P" : ("L" as const),
       inDate: searchParams.startDate,
       outDate: searchParams.endDate,
@@ -263,6 +264,9 @@ export function BookingRequestSheet({
           phone: occ.phone || undefined,
           company: occ.company || undefined,
           department: occ.department || undefined,
+          // PER-OCCUPANT DATES - use individual dates, fallback to global if undefined
+          checkInDate: occ.inDate ?? searchParams.startDate,
+          checkOutDate: occ.outDate ?? searchParams.endDate,
         })
       );
 
@@ -296,6 +300,7 @@ export function BookingRequestSheet({
         toast.success("Booking berhasil diajukan!", {
           description: `Kode booking: ${result.data.code}`,
         });
+        onSuccess?.(); // Trigger timeline refresh
         handleClose();
       } else {
         toast.error("Gagal mengajukan booking", {

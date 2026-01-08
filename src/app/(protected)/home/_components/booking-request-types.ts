@@ -36,4 +36,5 @@ export interface BookingRequestSheetProps {
   availableRooms: RoomAvailability[];
   selectedBeds: SelectedBed[];
   onClose?: () => void;
+  onSuccess?: () => void; // Called after booking is successfully created
 }

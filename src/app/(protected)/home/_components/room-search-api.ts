@@ -19,13 +19,14 @@ import type {
   RoomAvailability as APIRoomAvailability,
   BedAvailability as APIBedAvailability,
 } from "@/app/(protected)/booking/_actions/booking.types";
+import { AllowedOccupantType } from "@prisma/client";
 
 // ========================================
 // TYPES (UI Format - compatible with existing UI)
 // ========================================
 
 export type RoomType = "standard" | "vip" | "vvip";
-export type RoomAllocation = "employee" | "guest";
+export type RoomAllocation = "employee" | "all"; // employee = EMPLOYEE_ONLY, all = ALL (includes guests)
 export type RoomGender = "male" | "female" | "mix" | "flexible";
 export type RoomStatus = "available" | "partial" | "full" | "maintenance";
 export type BedStatus = "available" | "occupied" | "reserved" | "maintenance";
@@ -43,16 +44,38 @@ export interface Building {
   areaName: string;
 }
 
+// Per-day occupancy info for timeline
+export interface BedOccupancyInfo {
+  id: string;
+  checkInDate: Date;
+  checkOutDate: Date | null;
+  status: string; // RESERVED, CHECKED_IN, etc.
+  occupantName?: string;
+}
+
+// Pending booking request info for timeline
+export interface BedPendingRequest {
+  id: string;
+  checkInDate: Date;
+  checkOutDate: Date;
+  bookingCode: string;
+  bookingId: string;
+}
+
 export interface BedAvailability {
   id: string;
   code: string;
   status: BedStatus;
-  hasPendingRequest?: boolean; // Bed has pending booking request
+  hasPendingRequest?: boolean;
+  // For display in current view
   occupantName?: string;
   occupantCheckIn?: Date;
   occupantCheckOut?: Date;
   reservedFrom?: Date;
   reservedTo?: Date;
+  // For per-day timeline rendering
+  occupancies: BedOccupancyInfo[];
+  pendingRequests: BedPendingRequest[];
 }
 
 export interface RoomAvailability {
@@ -64,7 +87,7 @@ export interface RoomAvailability {
   areaName: string;
   floor: number;
   type: RoomType;
-  allocation: "employee" | "guest";
+  allocation: RoomAllocation;
   gender: RoomGender;
   capacity: number;
   availableBeds: number;
@@ -105,6 +128,10 @@ function mapRoomType(typeCode: string): RoomType {
   return "standard";
 }
 
+function mapAllowedOccupantType(type: AllowedOccupantType): RoomAllocation {
+  return type === AllowedOccupantType.EMPLOYEE_ONLY ? "employee" : "all";
+}
+
 function mapBedStatus(bed: APIBedAvailability): BedStatus {
   // Status is now calculated from occupancies and availability flags
   // (BedStatus enum was removed from database)
@@ -135,23 +162,22 @@ function mapRoomStatus(
 
 function mapAPIToUIRoom(room: APIRoomAvailability): RoomAvailability {
   // Maintenance is now at room level (room.status === "MAINTENANCE")
-  // BedStatus was removed from database
   const isRoomMaintenance = room.status === "MAINTENANCE";
 
   const beds: BedAvailability[] = room.beds.map((bed) => {
     const status = mapBedStatus(bed);
-    const currentOccupancy = bed.occupancies[0]; // Most recent
+    const currentOccupancy = bed.occupancies[0]; // Most recent for display
 
     return {
       id: bed.id,
       code: bed.code,
       status,
-      hasPendingRequest: bed.hasPendingRequest, // Pass pending request flag
+      hasPendingRequest: bed.hasPendingRequest,
+      // For current display
       occupantName:
         status === "occupied" || status === "reserved"
           ? currentOccupancy?.occupantName
           : undefined,
-      // Always set checkIn/checkOut for occupied or reserved beds
       occupantCheckIn:
         (status === "occupied" || status === "reserved") && currentOccupancy?.checkInDate
           ? new Date(currentOccupancy.checkInDate)
@@ -168,6 +194,21 @@ function mapAPIToUIRoom(room: APIRoomAvailability): RoomAvailability {
         status === "reserved" && currentOccupancy?.checkOutDate
           ? new Date(currentOccupancy.checkOutDate)
           : undefined,
+      // For per-day timeline rendering
+      occupancies: bed.occupancies.map((occ) => ({
+        id: occ.id,
+        checkInDate: new Date(occ.checkInDate),
+        checkOutDate: occ.checkOutDate ? new Date(occ.checkOutDate) : null,
+        status: occ.status,
+        occupantName: occ.occupantName,
+      })),
+      pendingRequests: bed.pendingRequests.map((pr) => ({
+        id: pr.id,
+        checkInDate: new Date(pr.checkInDate),
+        checkOutDate: new Date(pr.checkOutDate),
+        bookingCode: pr.bookingCode,
+        bookingId: pr.bookingId,
+      })),
     };
   });
 
@@ -180,19 +221,14 @@ function mapAPIToUIRoom(room: APIRoomAvailability): RoomAvailability {
     areaName: room.area.name,
     floor: room.floor,
     type: mapRoomType(room.roomType.code),
-    allocation: "employee", // Default, can be extended
+    allocation: mapAllowedOccupantType(room.allowedOccupantType),
     gender: mapGenderPolicy(room.genderPolicy),
     capacity: room.capacity,
     availableBeds: room.availableBeds,
     status: mapRoomStatus(room.capacity, room.availableBeds, isRoomMaintenance),
     beds,
     facilities: room.facilities,
-    images:
-      room.images.length > 0
-        ? room.images.map((img) => img.filePath)
-        : [
-            "https://images.unsplash.com/photo-1590490360182-c33d57733427?w=800&q=80",
-          ],
+    images: room.images.map((img) => img.filePath),
   };
 }
 

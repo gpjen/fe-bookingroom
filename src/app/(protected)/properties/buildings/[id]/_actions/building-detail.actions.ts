@@ -104,7 +104,7 @@ export async function getBuildingStats(
     }
 
     // Get bed statistics (exclude deleted)
-    // Get beds with occupancies to calculate stats
+    // Get beds with occupancies and pending requests to calculate stats
     const beds = await prisma.bed.findMany({
       where: {
         deletedAt: null,
@@ -120,6 +120,12 @@ export async function getBuildingStats(
           where: { status: { in: ["PENDING", "RESERVED", "CHECKED_IN"] } },
           select: { status: true },
         },
+        requestItems: {
+          where: {
+            booking: { status: "PENDING" },
+          },
+          select: { id: true },
+        },
       },
     });
 
@@ -129,6 +135,7 @@ export async function getBuildingStats(
     let bedsOccupied = 0;
     let bedsReserved = 0;
     let bedsMaintenance = 0;
+    let bedsPendingRequest = 0;
 
     beds.forEach((bed) => {
       // Check room maintenance first (maintenance is now room-level)
@@ -138,8 +145,14 @@ export async function getBuildingStats(
       }
 
       const activeOccupancy = bed.occupancies[0]; // Assuming one active occupancy per bed
+      const hasPendingRequest = bed.requestItems.length > 0;
+      
       if (!activeOccupancy) {
-        bedsAvailable++;
+        if (hasPendingRequest) {
+          bedsPendingRequest++;
+        } else {
+          bedsAvailable++;
+        }
       } else if (activeOccupancy.status === "CHECKED_IN") {
         bedsOccupied++;
       } else {
@@ -159,6 +172,7 @@ export async function getBuildingStats(
         bedsOccupied,
         bedsReserved,
         bedsMaintenance,
+        bedsPendingRequest,
         totalImages: building._count.images,
         totalPIC: building._count.userBuildings,
         occupancyRate,
@@ -237,6 +251,12 @@ export async function getRoomsGroupedByFloor(
             occupancies: {
               where: { status: { in: ["PENDING", "RESERVED", "CHECKED_IN"] } },
               select: { status: true, checkInDate: true },
+            },
+            requestItems: {
+              where: {
+                booking: { status: "PENDING" },
+              },
+              select: { id: true, bookingId: true },
             },
           },
         },
@@ -413,6 +433,12 @@ export async function getAllBuildingPageData(
             where: { status: { in: ["PENDING", "RESERVED", "CHECKED_IN"] } },
             select: { status: true },
           },
+          requestItems: {
+            where: {
+              booking: { status: "PENDING" },
+            },
+            select: { id: true },
+          },
         },
       }),
       // Rooms with beds (exclude deleted)
@@ -457,6 +483,12 @@ export async function getAllBuildingPageData(
                 where: { status: { in: ["PENDING", "RESERVED", "CHECKED_IN"] } },
                 select: { status: true, checkInDate: true },
               },
+              requestItems: {
+                where: {
+                  booking: { status: "PENDING" },
+                },
+                select: { id: true, bookingId: true },
+              },
             },
           },
         },
@@ -478,6 +510,7 @@ export async function getAllBuildingPageData(
     let bedsOccupied = 0;
     let bedsReserved = 0;
     let bedsMaintenance = 0;
+    let bedsPendingRequest = 0;
 
     beds.forEach((bed) => {
       // Check room maintenance first
@@ -487,8 +520,14 @@ export async function getAllBuildingPageData(
       }
 
       const activeOccupancy = bed.occupancies[0];
+      const hasPendingRequest = bed.requestItems.length > 0;
+      
       if (!activeOccupancy) {
-        bedsAvailable++;
+        if (hasPendingRequest) {
+          bedsPendingRequest++;
+        } else {
+          bedsAvailable++;
+        }
       } else if (activeOccupancy.status === "CHECKED_IN") {
         bedsOccupied++;
       } else {
@@ -506,6 +545,7 @@ export async function getAllBuildingPageData(
       bedsOccupied,
       bedsReserved,
       bedsMaintenance,
+      bedsPendingRequest,
       totalImages: building._count.images,
       totalPIC: building._count.userBuildings,
       occupancyRate,

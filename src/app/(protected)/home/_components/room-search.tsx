@@ -31,6 +31,7 @@ import {
   X,
   AlertCircle,
   Loader2,
+  Eye,
 } from "lucide-react";
 import {
   useAreas,
@@ -114,6 +115,7 @@ export function RoomSearch() {
   const [selectedArea, setSelectedArea] = useState<string>("");
   const [hasSearched, setHasSearched] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
+  const [showAllRooms, setShowAllRooms] = useState(false); // Show all rooms including full ones
 
   const [selectedBuilding, setSelectedBuilding] = useState<string>("all");
   const [roomRequirements, setRoomRequirements] = useState<
@@ -174,7 +176,7 @@ export function RoomSearch() {
 
     let result = clientFilterRooms({
       buildingId: selectedBuilding === "all" ? undefined : selectedBuilding,
-      onlyAvailable: true,
+      onlyAvailable: !showAllRooms, // When showAllRooms is true, don't filter by availability
     });
 
     // Filter by Room Requirements (Types) - using APPLIED requirements
@@ -191,6 +193,7 @@ export function RoomSearch() {
     selectedBuilding,
     appliedRoomRequirements,
     clientFilterRooms,
+    showAllRooms,
   ]);
 
   const handleSearch = async () => {
@@ -204,6 +207,7 @@ export function RoomSearch() {
       areaId: selectedArea,
       checkInDate: startDate,
       checkOutDate: endDate,
+      includeFullRooms: showAllRooms,
     });
 
     if (success) {
@@ -702,6 +706,33 @@ export function RoomSearch() {
                   <X className="h-3 w-3" />
                 </Button>
               )}
+
+              {/* Toggle to show all rooms */}
+              <div className="flex items-center gap-2 ml-auto">
+                <Button
+                  variant={showAllRooms ? "secondary" : "ghost"}
+                  size="sm"
+                  onClick={async () => {
+                    const newValue = !showAllRooms;
+                    setShowAllRooms(newValue);
+                    // Re-search with new value
+                    if (startDate && endDate && selectedArea) {
+                      setIsSearching(true);
+                      await searchRooms({
+                        areaId: selectedArea,
+                        checkInDate: startDate,
+                        checkOutDate: endDate,
+                        includeFullRooms: newValue,
+                      });
+                      setIsSearching(false);
+                    }
+                  }}
+                  className="h-7 px-2 text-xs gap-1.5"
+                >
+                  <Eye className="h-3 w-3" />
+                  {showAllRooms ? "Semua" : "Tersedia"}
+                </Button>
+              </div>
             </div>
           </div>
 

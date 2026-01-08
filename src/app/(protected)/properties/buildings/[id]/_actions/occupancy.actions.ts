@@ -79,6 +79,31 @@ export async function getBedsWithOccupancy(
             },
           },
         },
+        // Include pending booking requests (PENDING status bookings)
+        requestItems: {
+          where: {
+            booking: {
+              status: "PENDING", // Only pending bookings
+            },
+          },
+          orderBy: { createdAt: "desc" },
+          take: 1,
+          select: {
+            id: true,
+            bookingId: true,
+            name: true,
+            gender: true,
+            type: true,
+            checkInDate: true,
+            checkOutDate: true,
+            createdAt: true,
+            booking: {
+              select: {
+                code: true,
+              },
+            },
+          },
+        },
       },
     });
 
@@ -105,6 +130,19 @@ export async function getBedsWithOccupancy(
             checkOutDate: bed.occupancies[0].checkOutDate,
             actualCheckIn: bed.occupancies[0].actualCheckIn,
             status: bed.occupancies[0].status,
+          }
+        : null,
+      pendingRequest: bed.requestItems[0]
+        ? {
+            id: bed.requestItems[0].id,
+            bookingId: bed.requestItems[0].bookingId,
+            bookingCode: bed.requestItems[0].booking.code,
+            name: bed.requestItems[0].name,
+            gender: bed.requestItems[0].gender,
+            type: bed.requestItems[0].type,
+            checkInDate: bed.requestItems[0].checkInDate,
+            checkOutDate: bed.requestItems[0].checkOutDate,
+            createdAt: bed.requestItems[0].createdAt,
           }
         : null,
     }));
@@ -286,6 +324,45 @@ export async function assignOccupant(
       return { 
         success: false, 
         error: `Bed sudah direservasi oleh ${existing.occupant.name} untuk periode ${dateInfo}` 
+      };
+    }
+
+    // Check for pending booking requests (race condition prevention)
+    const pendingBookingRequests = await prisma.bookingRequestItem.findMany({
+      where: {
+        bedId: data.bedId,
+        booking: {
+          status: "PENDING", // Only pending bookings
+        },
+        // Check date overlap
+        OR: [
+          // Request ends after our checkin AND starts before our checkout
+          {
+            checkOutDate: { gt: requestedCheckIn },
+            checkInDate: requestedCheckOut 
+              ? { lt: requestedCheckOut }
+              : { lte: requestedCheckIn },
+          },
+        ],
+      },
+      include: {
+        booking: {
+          select: { code: true },
+        },
+      },
+      take: 1,
+    });
+
+    if (pendingBookingRequests.length > 0) {
+      const pending = pendingBookingRequests[0];
+      const pendingCheckIn = new Date(pending.checkInDate);
+      const pendingCheckOut = new Date(pending.checkOutDate);
+      
+      const dateInfo = `${pendingCheckIn.toLocaleDateString('id-ID')} - ${pendingCheckOut.toLocaleDateString('id-ID')}`;
+      
+      return { 
+        success: false, 
+        error: `Bed memiliki booking request pending (${pending.booking.code}) untuk ${pending.name} periode ${dateInfo}. Silakan approve/reject booking terlebih dahulu.` 
       };
     }
 

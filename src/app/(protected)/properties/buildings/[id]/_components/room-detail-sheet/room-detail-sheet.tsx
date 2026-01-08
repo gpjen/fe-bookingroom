@@ -62,30 +62,31 @@ export function RoomDetailSheet({
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full sm:max-w-md p-0 flex flex-col">
         {/* Header */}
-        <SheetHeader className="px-5 pt-5 pb-4 text-left flex-shrink-0 border-b">
+        <SheetHeader className="px-5 pt-12 pb-4 text-left flex-shrink-0 border-b">
           <div className="flex items-start justify-between">
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 flex-1">
               <div className="p-2.5 rounded-lg bg-primary/10">
                 <DoorOpen className="h-5 w-5 text-primary" />
               </div>
-              <div>
+              <div className="flex-1">
                 <SheetTitle className="text-lg">{room.name}</SheetTitle>
                 <SheetDescription className="font-mono text-xs">
                   {room.code}
                 </SheetDescription>
               </div>
             </div>
+
+            {/* Edit Button */}
             {onEdit && (
               <Button
-                variant="outline"
-                size="sm"
-                className="gap-1.5"
+                variant="ghost"
+                size="icon"
+                className="h-8 w-8"
                 onClick={onEdit}
                 disabled={hasOccupants}
                 title={hasOccupants ? "Ada penghuni aktif" : "Edit ruangan"}
               >
                 <Edit className="h-3.5 w-3.5" />
-                Edit
               </Button>
             )}
           </div>
@@ -96,7 +97,7 @@ export function RoomDetailSheet({
             <Badge
               variant="outline"
               className={cn(
-                "text-xs",
+                "text-xs px-2 py-1",
                 bedsOccupied === 0
                   ? "border-emerald-500 text-emerald-600"
                   : bedsOccupied === totalBeds
@@ -109,17 +110,17 @@ export function RoomDetailSheet({
             </Badge>
 
             {/* Room Type */}
-            <Badge variant="secondary" className="text-xs">
+            <Badge variant="secondary" className="text-xs px-2 py-1">
               {room.roomType.name}
             </Badge>
 
             {/* Gender */}
-            <Badge variant="outline" className="text-xs">
+            <Badge variant="outline" className="text-xs px-2 py-1">
               {genderLabel}
             </Badge>
 
             {/* Floor */}
-            <Badge variant="outline" className="text-xs">
+            <Badge variant="outline" className="text-xs px-2 py-1">
               Lt. {room.floorNumber}
             </Badge>
 
@@ -128,7 +129,7 @@ export function RoomDetailSheet({
               <Badge
                 variant="outline"
                 className={cn(
-                  "text-xs",
+                  "text-xs px-2 py-1",
                   room.status === "MAINTENANCE"
                     ? "border-amber-500 text-amber-600"
                     : "border-slate-400 text-slate-600"

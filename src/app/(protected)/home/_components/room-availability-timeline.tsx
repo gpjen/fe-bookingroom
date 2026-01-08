@@ -76,25 +76,46 @@ export function RoomAvailabilityTimeline({
 
       if (bed.status === "maintenance") {
         status = "maintenance";
-      } else if (bed.status === "occupied" && bed.occupantCheckOut) {
-        if (isBefore(dayStart, startOfDay(bed.occupantCheckOut))) {
-          status = "occupied";
+      } else if (bed.status === "occupied") {
+        // Occupied: has CHECKED_IN occupancy
+        // Check if the day is within the occupancy period
+        if (bed.occupantCheckOut) {
+          if (isBefore(dayStart, startOfDay(bed.occupantCheckOut))) {
+            status = "occupied";
+          }
+        } else {
+          // No checkout date = indefinite stay, always occupied from check-in date onwards
+          if (
+            bed.occupantCheckIn &&
+            !isBefore(dayStart, startOfDay(bed.occupantCheckIn))
+          ) {
+            status = "occupied";
+          }
         }
-      } else if (
-        bed.status === "reserved" &&
-        bed.reservedFrom &&
-        bed.reservedTo
-      ) {
-        const rStart = startOfDay(bed.reservedFrom);
-        const rEnd = startOfDay(bed.reservedTo);
-        if (
-          isWithinInterval(dayStart, { start: rStart, end: rEnd }) &&
-          isBefore(dayStart, rEnd)
-        ) {
+      } else if (bed.status === "reserved") {
+        // Reserved: has PENDING/RESERVED occupancy OR has pending booking request
+        if (bed.reservedFrom) {
+          const rStart = startOfDay(bed.reservedFrom);
+          if (bed.reservedTo) {
+            const rEnd = startOfDay(bed.reservedTo);
+            if (
+              isWithinInterval(dayStart, { start: rStart, end: rEnd }) &&
+              isBefore(dayStart, rEnd)
+            ) {
+              status = "reserved";
+            }
+          } else {
+            // No end date = indefinite reservation, always reserved from start date onwards
+            if (!isBefore(dayStart, rStart)) {
+              status = "reserved";
+            }
+          }
+        } else if (bed.hasPendingRequest) {
+          // Has pending request without specific dates - treat as reserved for entire requested period
           status = "reserved";
         }
       } else if (bed.hasPendingRequest) {
-        // Handle pending booking requests - show as reserved
+        // Handle pending booking requests that aren't reflected in bed.status
         status = "reserved";
       }
 

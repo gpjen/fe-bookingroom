@@ -7,6 +7,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 
 import {
   Sheet,
+  SheetClose,
   SheetContent,
   SheetDescription,
   SheetFooter,
@@ -30,7 +31,7 @@ import {
 } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Loader2, Building2, MapPin, Globe } from "lucide-react";
+import { Loader2, Building2, MapPin, Globe, XIcon } from "lucide-react";
 import { toast } from "sonner";
 import { createBuilding, updateBuilding } from "../_actions/buildings.actions";
 import {
@@ -243,6 +244,12 @@ export function BuildingsForm({
               </SheetDescription>
             </div>
           </div>
+
+          <SheetClose asChild>
+            <button className="absolute cursor-pointer top-4 right-4 p-2 rounded-full bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 backdrop-blur-sm transition-all duration-200 hover:scale-110 active:scale-95 opacity-90 hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring">
+              <XIcon className="size-4" />
+            </button>
+          </SheetClose>
         </SheetHeader>
 
         <Form {...form}>

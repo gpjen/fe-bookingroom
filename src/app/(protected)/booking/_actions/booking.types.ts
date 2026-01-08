@@ -313,6 +313,7 @@ export interface GetAvailableRoomsParams {
   checkOutDate: Date;
   roomTypeIds?: string[];
   genderPolicy?: string;
+  includeFullRooms?: boolean; // If true, include rooms with no available beds
 }
 
 export interface GetBookingsParams {

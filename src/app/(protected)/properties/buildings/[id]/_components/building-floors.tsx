@@ -60,13 +60,17 @@ function RoomCard({ room, onView, onEdit, onDelete }: RoomCardProps) {
   const bedsReserved = room.beds.filter((b) =>
     b.occupancies.some((o) => ["PENDING", "RESERVED"].includes(o.status))
   ).length;
+  // Beds with pending booking requests (no occupancy but has requestItems)
+  const bedsPendingRequest = room.beds.filter(
+    (b) => b.occupancies.length === 0 && (b.requestItems?.length ?? 0) > 0
+  ).length;
   const bedsAvailable = room.beds.filter(
-    (b) => b.occupancies.length === 0
+    (b) => b.occupancies.length === 0 && (b.requestItems?.length ?? 0) === 0
   ).length;
   const totalBeds = room.beds.length;
   const hasOccupants = bedsOccupied > 0;
   const isFull = bedsOccupied === totalBeds && totalBeds > 0;
-  const hasPendingCheckIns = bedsReserved > 0;
+  const hasPendingCheckIns = bedsReserved > 0 || bedsPendingRequest > 0;
 
   // Status color for occupancy indicator
   const getIndicatorColor = () => {
@@ -102,8 +106,8 @@ function RoomCard({ room, onView, onEdit, onDelete }: RoomCardProps) {
       {/* Pending check-in indicator */}
       {hasPendingCheckIns && (
         <div className="absolute -top-2 -right-2 z-10">
-          <Badge className="h-5 px-1.5 text-[10px] bg-blue-500 hover:bg-blue-500 text-white shadow-sm animate-pulse">
-            {bedsReserved} pending
+          <Badge className="h-5 px-1.5 text-[10px] bg-orange-500 hover:bg-orange-500 text-white shadow-sm animate-pulse">
+            {bedsReserved + bedsPendingRequest} pending
           </Badge>
         </div>
       )}
@@ -234,9 +238,15 @@ function RoomCard({ room, onView, onEdit, onDelete }: RoomCardProps) {
                     {bedsReserved}
                   </span>
                 )}
-                {bedsOccupied > 0 && (
+                {bedsPendingRequest > 0 && (
                   <span className="flex items-center gap-0.5">
                     <div className="w-1.5 h-1.5 rounded-full bg-orange-500" />
+                    {bedsPendingRequest}
+                  </span>
+                )}
+                {bedsOccupied > 0 && (
+                  <span className="flex items-center gap-0.5">
+                    <div className="w-1.5 h-1.5 rounded-full bg-red-500" />
                     {bedsOccupied}
                   </span>
                 )}

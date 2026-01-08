@@ -83,6 +83,19 @@ export interface ActiveOccupancyInfo {
   status: OccupancyStatus;
 }
 
+// Pending booking request info (before admin approval)
+export interface PendingRequestInfo {
+  id: string;
+  bookingId: string;
+  bookingCode: string;
+  name: string;
+  gender: Gender;
+  type: OccupantType;
+  checkInDate: Date;
+  checkOutDate: Date;
+  createdAt: Date;
+}
+
 export interface BedWithOccupancy {
   id: string;
   code: string;
@@ -92,6 +105,7 @@ export interface BedWithOccupancy {
 
   notes: string | null;
   activeOccupancy: ActiveOccupancyInfo | null;
+  pendingRequest: PendingRequestInfo | null; // Booking request waiting for approval
 }
 
 // ========================================

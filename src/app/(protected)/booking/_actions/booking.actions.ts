@@ -137,7 +137,7 @@ export async function getAvailableRooms(
   params: GetAvailableRoomsParams
 ): Promise<ActionResponse<RoomAvailability[]>> {
   try {
-    const { areaId, buildingId, checkInDate, checkOutDate, roomTypeIds, genderPolicy } = params;
+    const { areaId, buildingId, checkInDate, checkOutDate, roomTypeIds, genderPolicy, includeFullRooms } = params;
 
     // Validate dates
     const tomorrow = startOfDay(addDays(new Date(), BOOKING_CONSTANTS.MIN_DAYS_AHEAD));
@@ -334,10 +334,12 @@ export async function getAvailableRooms(
       };
     });
 
-    // Filter rooms that have at least one available bed
-    const availableRooms = result.filter((r) => r.availableBeds > 0);
+    // Filter rooms based on includeFullRooms parameter
+    const finalRooms = includeFullRooms 
+      ? result // Return all rooms including full ones
+      : result.filter((r) => r.availableBeds > 0); // Only rooms with available beds
 
-    return { success: true, data: availableRooms };
+    return { success: true, data: finalRooms };
   } catch (error) {
     console.error("[GET_AVAILABLE_ROOMS_ERROR]", error);
     return { success: false, error: "Gagal mengambil data ketersediaan kamar" };

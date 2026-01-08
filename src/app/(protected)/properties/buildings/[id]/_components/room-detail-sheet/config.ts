@@ -1,4 +1,4 @@
-import { CheckCircle2, User, Clock } from "lucide-react";
+import { CheckCircle2, User, Clock, AlertCircle } from "lucide-react";
 
 // ========================================
 // BED STATUS CONFIG
@@ -25,6 +25,13 @@ export const bedStatusConfig = {
     color: "text-amber-600",
     bg: "bg-amber-50 dark:bg-amber-900/20",
     border: "border-amber-200 dark:border-amber-800",
+  },
+  PENDING_REQUEST: {
+    label: "Menunggu Konfirmasi",
+    icon: AlertCircle,
+    color: "text-orange-600",
+    bg: "bg-orange-50 dark:bg-orange-900/20",
+    border: "border-orange-200 dark:border-orange-800",
   },
 } as const;
 

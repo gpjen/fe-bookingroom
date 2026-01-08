@@ -33,15 +33,18 @@ export function BedListItem({
   isLoading,
 }: BedListItemProps) {
   const occupancy = bed.activeOccupancy;
+  const pendingRequest = bed.pendingRequest;
 
-  // Derive status from occupancy for UI display
+  // Derive status from occupancy and pending requests for UI display
   let displayStatus: BedDisplayStatus = "AVAILABLE";
   if (occupancy) {
     if (occupancy.status === "CHECKED_IN") displayStatus = "OCCUPIED";
     else if (["RESERVED", "PENDING"].includes(occupancy.status))
       displayStatus = "RESERVED";
+  } else if (pendingRequest) {
+    // No active occupancy but has pending booking request
+    displayStatus = "PENDING_REQUEST";
   }
-  // Note: Status is purely derived from occupancy. No DB status field used.
 
   const config = bedStatusConfig[displayStatus];
   const Icon = config.icon;
@@ -111,6 +114,31 @@ export function BedListItem({
             ) : (
               <span className="italic">Belum ditentukan</span>
             )}
+          </p>
+        </div>
+      )}
+
+      {/* Pending Request Info */}
+      {pendingRequest && !occupancy && (
+        <div className="mb-2 p-2 rounded bg-orange-50 dark:bg-orange-900/20 border border-dashed border-orange-300">
+          <div className="flex items-center gap-2">
+            <User className="h-3.5 w-3.5 text-orange-600" />
+            <span className="text-sm font-medium text-orange-700 dark:text-orange-400">
+              {pendingRequest.name}
+            </span>
+            <Badge
+              variant="outline"
+              className="text-[9px] ml-auto border-orange-400 text-orange-600"
+            >
+              {pendingRequest.bookingCode}
+            </Badge>
+          </div>
+          <p className="text-[10px] text-orange-600 dark:text-orange-400 mt-1 ml-5">
+            Request: {formatDate(pendingRequest.checkInDate)} -{" "}
+            {formatDate(pendingRequest.checkOutDate)}
+          </p>
+          <p className="text-[9px] text-muted-foreground mt-0.5 ml-5 italic">
+            Menunggu konfirmasi admin
           </p>
         </div>
       )}

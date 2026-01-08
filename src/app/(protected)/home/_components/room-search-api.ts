@@ -151,8 +151,9 @@ function mapAPIToUIRoom(room: APIRoomAvailability): RoomAvailability {
         status === "occupied" || status === "reserved"
           ? currentOccupancy?.occupantName
           : undefined,
+      // Always set checkIn/checkOut for occupied or reserved beds
       occupantCheckIn:
-        currentOccupancy?.checkInDate
+        (status === "occupied" || status === "reserved") && currentOccupancy?.checkInDate
           ? new Date(currentOccupancy.checkInDate)
           : undefined,
       occupantCheckOut:
@@ -286,6 +287,7 @@ export function useRoomAvailability() {
       checkInDate: Date;
       checkOutDate: Date;
       roomTypeIds?: string[];
+      includeFullRooms?: boolean;
     }) => {
       setIsLoading(true);
       setError(null);
@@ -296,6 +298,7 @@ export function useRoomAvailability() {
         checkInDate: params.checkInDate,
         checkOutDate: params.checkOutDate,
         roomTypeIds: params.roomTypeIds,
+        includeFullRooms: params.includeFullRooms,
       });
 
       if (result.success) {

@@ -64,11 +64,17 @@ export function BuildingStats({ initialData: data }: BuildingStatsProps) {
           <div className="text-2xl font-bold text-emerald-600">
             {data.bedsAvailable}
           </div>
-          <div className="flex gap-2 text-xs text-muted-foreground">
+          <div className="flex gap-2 text-xs text-muted-foreground flex-wrap">
             <span className="flex items-center gap-1">
               <div className="h-2 w-2 rounded-full bg-amber-500" />
               {data.bedsReserved} reserved
             </span>
+            {data.bedsPendingRequest > 0 && (
+              <span className="flex items-center gap-1">
+                <div className="h-2 w-2 rounded-full bg-orange-500" />
+                {data.bedsPendingRequest} pending
+              </span>
+            )}
             <span className="flex items-center gap-1">
               <div className="h-2 w-2 rounded-full bg-slate-400" />
               {data.bedsMaintenance} maintenance

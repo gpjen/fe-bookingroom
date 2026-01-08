@@ -40,6 +40,7 @@ export interface BuildingStatsData {
   bedsOccupied: number;
   bedsReserved: number;
   bedsMaintenance: number;
+  bedsPendingRequest: number; // Beds with pending booking requests
   totalImages: number;
   totalPIC: number;
   occupancyRate: number; // Percentage
@@ -93,6 +94,10 @@ export interface BedData {
   occupancies: {
     status: "PENDING" | "RESERVED" | "CHECKED_IN";
     checkInDate: Date;
+  }[];
+  requestItems?: {
+    id: string;
+    bookingId: string;
   }[];
 }
 

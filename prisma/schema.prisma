@@ -635,19 +635,14 @@ model Booking {
   purpose     String?
   projectCode String?
 
-  // Status
+  // Status (computed from BookingRequestItem states)
+  // PENDING: Some items not yet decided
+  // APPROVED: All items approved
+  // REJECTED: Any item rejected
+  // CANCELLED: User cancelled the booking
   status BookingStatus @default(PENDING)
 
-  // Approval
-  approvedBy String?
-  approvedAt DateTime?
-
-  // Rejection
-  rejectedBy      String?
-  rejectedAt      DateTime?
-  rejectionReason String?
-
-  // Cancellation
+  // Cancellation (by requester - applies to entire booking)
   cancelledBy        String?
   cancelledAt        DateTime?
   cancellationReason String?
@@ -777,6 +772,11 @@ model Occupancy {
   // Audit - Created (for direct placement)
   createdBy     String?
   createdByName String?
+
+  // Approval Info (copied from BookingRequestItem when approved)
+  approvedByNik  String?
+  approvedByName String?
+  approvedAt     DateTime?
 
   // Transfer Info (for tracking bed changes within same stay)
   transferredFromBedId String?

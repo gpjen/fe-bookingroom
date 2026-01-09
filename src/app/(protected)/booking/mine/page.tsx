@@ -95,11 +95,7 @@ function transformToDetailData(data: BookingDetail): BookingRequest {
     purpose: data.purpose,
     projectCode: data.projectCode,
     notes: data.notes,
-    approvedBy: data.approvedBy,
-    approvedAt: data.approvedAt ? new Date(data.approvedAt) : null,
-    rejectedBy: data.rejectedBy,
-    rejectedAt: data.rejectedAt ? new Date(data.rejectedAt) : null,
-    rejectionReason: data.rejectionReason,
+    // Cancellation only (approval/rejection now at item level)
     cancelledBy: data.cancelledBy,
     cancelledAt: data.cancelledAt ? new Date(data.cancelledAt) : null,
     cancellationReason: data.cancellationReason,
@@ -125,6 +121,13 @@ function transformToDetailData(data: BookingDetail): BookingRequest {
             buildingName: occ.bed?.room?.building?.name,
             roomCode: occ.bed?.room?.code,
             bedCode: occ.bed?.code,
+            // Approval tracking
+            approvedAt: occ.approvedAt ? new Date(occ.approvedAt) : null,
+            approvedByName: occ.approvedByName,
+            rejectedAt: null,
+            rejectedByName: null,
+            rejectedReason: null,
+            // Cancellation
             cancelledAt: occ.cancelledAt ? new Date(occ.cancelledAt) : null,
             cancelledByName: occ.cancelledByName,
             cancelledReason: occ.cancelledReason,

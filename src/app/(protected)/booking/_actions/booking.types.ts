@@ -251,11 +251,7 @@ export interface BookingDetail extends BookingListItem {
   
   notes: string | null;
   
-  approvedBy: string | null;
-  approvedAt: Date | null;
-  rejectedBy: string | null;
-  rejectedAt: Date | null;
-  rejectionReason: string | null;
+  // Cancellation only (approval/rejection now at item level)
   cancelledBy: string | null;
   cancelledAt: Date | null;
   cancellationReason: string | null;
@@ -304,6 +300,10 @@ export interface BookingDetail extends BookingListItem {
     status: string;
     checkInDate: Date;
     checkOutDate: Date | null;
+    // Approval tracking
+    approvedByNik: string | null;
+    approvedByName: string | null;
+    approvedAt: Date | null;
     // Cancellation info
     cancelledAt: Date | null;
     cancelledBy: string | null;

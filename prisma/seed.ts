@@ -568,8 +568,8 @@ async function main() {
 
     // Building 1 - Floor 2 Rooms
     const b1f2Rooms = [
-      { code: "A201", name: "Kamar 201", floorNumber: 2, floorName: "Lantai 2", roomTypeId: dormRoom.id, genderPolicy: "MALE_ONLY" as const },
-      { code: "A202", name: "Kamar 202", floorNumber: 2, floorName: "Lantai 2", roomTypeId: doubleRoom.id, genderPolicy: "FEMALE_ONLY" as const },
+      { code: "A201", name: "Kamar 201", floorNumber: 2, roomTypeId: dormRoom.id, genderPolicy: "MALE_ONLY" as const },
+      { code: "A202", name: "Kamar 202", floorNumber: 2, roomTypeId: doubleRoom.id, genderPolicy: "FEMALE_ONLY" as const },
     ];
 
     for (const roomData of b1f2Rooms) {
@@ -657,8 +657,8 @@ async function main() {
 
     // Building 2 - Floor 2 Rooms
     const b2f2Rooms = [
-      { code: "B201", name: "Kamar 201", floorNumber: 2, floorName: "Lantai 2", roomTypeId: dormRoom.id, genderPolicy: "FEMALE_ONLY" as const },
-      { code: "B202", name: "Kamar 202", floorNumber: 2, floorName: "Lantai 2", roomTypeId: singleRoom.id, genderPolicy: "MALE_ONLY" as const },
+      { code: "B201", name: "Kamar 201", floorNumber: 2, roomTypeId: dormRoom.id, genderPolicy: "FEMALE_ONLY" as const },
+      { code: "B202", name: "Kamar 202", floorNumber: 2, roomTypeId: singleRoom.id, genderPolicy: "MALE_ONLY" as const },
     ];
 
     for (const roomData of b2f2Rooms) {

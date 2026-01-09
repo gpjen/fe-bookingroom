@@ -232,17 +232,18 @@ export function MyBookingDetailDialog({
           {/* Content */}
           <div className="flex-1 overflow-y-auto px-6">
             <div className="py-6 space-y-6">
-              {/* Rejection Info */}
-              {booking.status === "REJECTED" && booking.rejectionReason && (
+              {/* Rejection Info - Now shows per-item rejection info */}
+              {booking.status === "REJECTED" && (
                 <div className="p-4 bg-rose-50 dark:bg-rose-950/30 border border-rose-200 dark:border-rose-800 rounded-lg">
                   <div className="flex items-start gap-3">
                     <XCircle className="h-5 w-5 text-rose-600 dark:text-rose-400 flex-shrink-0 mt-0.5" />
                     <div>
                       <p className="font-semibold text-rose-800 dark:text-rose-300 text-sm">
-                        Alasan Penolakan
+                        Permintaan Ditolak
                       </p>
                       <p className="text-sm text-rose-700 dark:text-rose-400 mt-1">
-                        {booking.rejectionReason}
+                        Satu atau lebih item dalam permintaan ini telah ditolak.
+                        Lihat detail per penghuni di bawah.
                       </p>
                       {booking.notes && (
                         <p className="text-xs text-rose-600 dark:text-rose-500 mt-2 italic">
@@ -254,18 +255,18 @@ export function MyBookingDetailDialog({
                 </div>
               )}
 
-              {/* Approved Info */}
+              {/* Approved Info - Show a general message since per-item approval info is in occupants */}
               {booking.status === "APPROVED" && (
                 <div className="p-3 bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 rounded-lg">
                   <div className="flex items-start gap-3">
                     <CheckCircle2 className="h-5 w-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0 mt-0.5" />
                     <div>
                       <p className="font-semibold text-emerald-800 dark:text-emerald-300 text-sm">
-                        Disetujui oleh {booking.approvedBy || "Admin"}
+                        Permintaan Disetujui
                       </p>
                       <p className="text-xs text-emerald-600 dark:text-emerald-500 mt-1">
-                        {booking.approvedAt &&
-                          formatDateTime(booking.approvedAt)}
+                        Semua item telah disetujui. Lihat detail per penghuni di
+                        bawah.
                       </p>
                     </div>
                   </div>

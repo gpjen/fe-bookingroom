@@ -165,11 +165,7 @@ export interface BookingDetailData {
   projectCode: string | null;
   notes: string | null;
   
-  approvedBy: string | null;
-  approvedAt: Date | null;
-  rejectedBy: string | null;
-  rejectedAt: Date | null;
-  rejectionReason: string | null;
+  // Cancellation only (approval/rejection now at item level)
   cancelledBy: string | null;
   cancelledAt: Date | null;
   cancellationReason: string | null;

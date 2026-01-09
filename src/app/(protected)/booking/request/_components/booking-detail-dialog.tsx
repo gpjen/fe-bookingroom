@@ -137,13 +137,22 @@ export function BookingDetailDialog({
   const isPending = booking.status === "PENDING";
   const statusConfig = BOOKING_STATUS_CONFIG[booking.status];
 
-  // Calculate duration from occupancies
   // Calculate duration from occupants
   const dateRange = getDateRange(booking.occupants);
   const duration =
     dateRange.checkIn && dateRange.checkOut
       ? differenceInDays(dateRange.checkOut, dateRange.checkIn)
       : null;
+
+  // Calculate how many items admin can approve/reject
+  const approvableItems = booking.occupants.filter(
+    (occ) => occ.canApprove && !occ.approvedAt && !occ.rejectedAt
+  );
+  const approvedItems = booking.occupants.filter((occ) => occ.approvedAt);
+  const rejectedItems = booking.occupants.filter((occ) => occ.rejectedAt);
+  const pendingItems = booking.occupants.filter(
+    (occ) => !occ.approvedAt && !occ.rejectedAt
+  );
 
   return (
     <Sheet open={isOpen} onOpenChange={handleClose}>
@@ -241,6 +250,53 @@ export function BookingDetailDialog({
                 title={`Penghuni (${booking.occupants.length} orang)`}
                 icon={Users}
               >
+                {/* Approval Status Summary */}
+                {isPending && (
+                  <div className="mb-4 p-3 bg-muted/50 rounded-lg border">
+                    <div className="flex flex-wrap gap-3 text-xs">
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-2 h-2 rounded-full bg-amber-500" />
+                        <span className="text-muted-foreground">Menunggu:</span>
+                        <span className="font-medium">
+                          {pendingItems.length}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <div className="w-2 h-2 rounded-full bg-green-500" />
+                        <span className="text-muted-foreground">
+                          Disetujui:
+                        </span>
+                        <span className="font-medium">
+                          {approvedItems.length}
+                        </span>
+                      </div>
+                      {rejectedItems.length > 0 && (
+                        <div className="flex items-center gap-1.5">
+                          <div className="w-2 h-2 rounded-full bg-red-500" />
+                          <span className="text-muted-foreground">
+                            Ditolak:
+                          </span>
+                          <span className="font-medium">
+                            {rejectedItems.length}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                    {approvableItems.length > 0 && (
+                      <p className="text-xs text-blue-600 dark:text-blue-400 font-medium mt-2">
+                        ✓ Anda dapat menyetujui/menolak {approvableItems.length}{" "}
+                        item
+                      </p>
+                    )}
+                    {approvableItems.length === 0 &&
+                      pendingItems.length > 0 && (
+                        <p className="text-xs text-muted-foreground mt-2">
+                          Item yang tersisa menunggu approval dari admin gedung
+                          lain
+                        </p>
+                      )}
+                  </div>
+                )}
                 <div className="space-y-3">
                   {booking.occupants.map((occ) => (
                     <OccupancyCard key={occ.id} occupancy={occ} />
@@ -307,56 +363,7 @@ export function BookingDetailDialog({
                 </Section>
               )}
 
-              {/* Approvals/Rejections History */}
-              {booking.status !== "PENDING" && (
-                <Section title="Riwayat Persetujuan" icon={CheckCircle2}>
-                  <div className="bg-muted/30 rounded-lg p-4 text-sm space-y-3">
-                    {booking.approvedBy && (
-                      <div className="flex gap-3">
-                        <CheckCircle2 className="h-4 w-4 text-green-600 mt-0.5" />
-                        <div>
-                          <p className="font-medium text-green-700">
-                            Disetujui oleh {booking.approvedBy}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {booking.approvedAt
-                              ? format(
-                                  new Date(booking.approvedAt),
-                                  "dd MMM yyyy, HH:mm",
-                                  { locale: localeId }
-                                )
-                              : "-"}
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                    {booking.rejectedBy && (
-                      <div className="flex gap-3">
-                        <XCircle className="h-4 w-4 text-red-600 mt-0.5" />
-                        <div>
-                          <p className="font-medium text-red-700">
-                            Ditolak oleh {booking.rejectedBy}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {booking.rejectedAt
-                              ? format(
-                                  new Date(booking.rejectedAt),
-                                  "dd MMM yyyy, HH:mm",
-                                  { locale: localeId }
-                                )
-                              : "-"}
-                          </p>
-                          {booking.rejectionReason && (
-                            <p className="mt-1 text-red-600/80 italic">
-                              &quot;{booking.rejectionReason}&quot;
-                            </p>
-                          )}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </Section>
-              )}
+              {/* Note: Approval/Rejection history is now shown per-item in OccupancyCard */}
 
               {/* Admin Action Section */}
               {actionMode !== "view" && (
@@ -406,17 +413,17 @@ export function BookingDetailDialog({
           {actionMode === "view" ? (
             /* View Mode Actions */
             <div className="flex flex-wrap gap-2">
-              {isPending && onApprove && (
+              {isPending && onApprove && approvableItems.length > 0 && (
                 <Button
                   onClick={() => setActionMode("approve")}
                   className="flex-1 bg-green-600 hover:bg-green-700"
                   size="sm"
                 >
                   <CheckCircle2 className="h-4 w-4 mr-2" />
-                  Setujui
+                  Setujui ({approvableItems.length} item)
                 </Button>
               )}
-              {isPending && onReject && (
+              {isPending && onReject && approvableItems.length > 0 && (
                 <Button
                   onClick={() => setActionMode("reject")}
                   variant="destructive"
@@ -424,10 +431,15 @@ export function BookingDetailDialog({
                   size="sm"
                 >
                   <XCircle className="h-4 w-4 mr-2" />
-                  Tolak
+                  Tolak ({approvableItems.length} item)
                 </Button>
               )}
-              {!isPending && (
+              {isPending && approvableItems.length === 0 && (
+                <p className="text-sm text-muted-foreground w-full text-center py-2">
+                  Tidak ada item yang bisa Anda proses di gedung Anda
+                </p>
+              )}
+              {(!isPending || approvableItems.length === 0) && (
                 <Button
                   variant="outline"
                   onClick={handleClose}

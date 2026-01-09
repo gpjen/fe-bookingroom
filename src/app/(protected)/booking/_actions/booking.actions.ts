@@ -1122,11 +1122,7 @@ export async function getBookingById(
       companionCompany: booking.companionCompany,
       companionDepartment: booking.companionDepartment,
       notes: booking.notes,
-      approvedBy: booking.approvedBy,
-      approvedAt: booking.approvedAt,
-      rejectedBy: booking.rejectedBy,
-      rejectedAt: booking.rejectedAt,
-      rejectionReason: booking.rejectionReason,
+      // Cancellation only (approval/rejection now at item level)
       cancelledBy: booking.cancelledBy,
       cancelledAt: booking.cancelledAt,
       cancellationReason: booking.cancellationReason,
@@ -1175,6 +1171,11 @@ export async function getBookingById(
         status: occ.status,
         checkInDate: occ.checkInDate,
         checkOutDate: occ.checkOutDate,
+        // Approval tracking
+        approvedByNik: occ.approvedByNik,
+        approvedByName: occ.approvedByName,
+        approvedAt: occ.approvedAt,
+        // Cancellation
         cancelledAt: occ.cancelledAt,
         cancelledBy: occ.cancelledBy,
         cancelledByName: occ.cancelledByName,
@@ -1404,13 +1405,11 @@ export async function approveBookingItems(
 
       // 3. If all approved, update booking status and create occupancies
       if (allApproved && !anyRejected) {
-        // Update booking status
+        // Update booking status (no approval fields on Booking anymore)
         await tx.booking.update({
           where: { id: input.bookingId },
           data: {
             status: "APPROVED",
-            approvedBy: `${adminName} (${adminNik})`, // Store both name and NIK
-            approvedAt: new Date(),
             notes: input.notes || updatedBooking!.notes,
           },
         });
@@ -1453,7 +1452,7 @@ export async function approveBookingItems(
             });
           }
 
-          // Create occupancy
+          // Create occupancy with approval info from the item
           await tx.occupancy.create({
             data: {
               bedId: ri.bedId,
@@ -1464,6 +1463,10 @@ export async function approveBookingItems(
               status: "RESERVED",
               createdBy: user.id || user.sub || "system",
               createdByName: adminName,
+              // Copy approval info from BookingRequestItem
+              approvedByNik: ri.approvedByNik,
+              approvedByName: ri.approvedByName,
+              approvedAt: ri.approvedAt,
             },
           });
         }
@@ -1480,6 +1483,125 @@ export async function approveBookingItems(
   } catch (error) {
     console.error("[APPROVE_BOOKING_ITEMS_ERROR]", error);
     return { success: false, error: "Gagal menyetujui booking items" };
+  }
+}
+
+// ========================================
+// ADMIN: REJECT BOOKING ITEMS (Per-Building)
+// ========================================
+
+interface RejectBookingItemsInput {
+  bookingId: string;
+  itemIds: string[]; // IDs of BookingRequestItems to reject
+  buildingIds: string[]; // Admin's accessible buildings (for validation)
+  reason: string; // Required rejection reason
+  notes?: string;
+}
+
+export async function rejectBookingItems(
+  input: RejectBookingItemsInput
+): Promise<ActionResponse<{ id: string }>> {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const user = session.user as any;
+    const adminNik = user.username || user.nik || user.sub;
+    const adminName = user.name || user.preferred_username || "Admin";
+
+    // Validate reason is provided
+    if (!input.reason?.trim()) {
+      return { success: false, error: "Alasan penolakan wajib diisi" };
+    }
+
+    // Get booking with request items
+    const booking = await prisma.booking.findUnique({
+      where: { id: input.bookingId },
+      include: {
+        requestItems: {
+          include: {
+            bed: {
+              select: {
+                id: true,
+                room: {
+                  select: {
+                    buildingId: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!booking) {
+      return { success: false, error: "Booking tidak ditemukan" };
+    }
+
+    if (booking.status !== "PENDING") {
+      return { success: false, error: `Booking sudah ${booking.status}` };
+    }
+
+    // Validate that admin has access to reject these items
+    for (const itemId of input.itemIds) {
+      const item = booking.requestItems.find((ri) => ri.id === itemId);
+      if (!item) {
+        return { success: false, error: `Item ${itemId} tidak ditemukan` };
+      }
+
+      const itemBuildingId = item.bed?.room?.buildingId;
+      if (!itemBuildingId || !input.buildingIds.includes(itemBuildingId)) {
+        return {
+          success: false,
+          error: `Anda tidak memiliki akses untuk menolak item di gedung ini`,
+        };
+      }
+
+      if (item.rejectedAt) {
+        return {
+          success: false,
+          error: `Item untuk ${item.name} sudah ditolak sebelumnya`,
+        };
+      }
+    }
+
+    // Reject items in transaction
+    await prisma.$transaction(async (tx) => {
+      // 1. Update request items with rejection info
+      await tx.bookingRequestItem.updateMany({
+        where: {
+          id: { in: input.itemIds },
+        },
+        data: {
+          rejectedByNik: adminNik,
+          rejectedByName: adminName,
+          rejectedAt: new Date(),
+          rejectedReason: input.reason.trim(),
+        },
+      });
+
+      // 2. When any item is rejected, entire booking becomes REJECTED
+      await tx.booking.update({
+        where: { id: input.bookingId },
+        data: {
+          status: "REJECTED",
+          notes: input.notes || booking.notes,
+        },
+      });
+    });
+
+    revalidatePath("/booking/request");
+    revalidatePath("/booking/mine");
+    revalidatePath("/properties/buildings");
+
+    return { success: true, data: { id: input.bookingId } };
+  } catch (error) {
+    console.error("[REJECT_BOOKING_ITEMS_ERROR]", error);
+    return { success: false, error: "Gagal menolak booking items" };
   }
 }
 
@@ -1576,13 +1698,11 @@ export async function approveBooking(
 
     // Approve booking and create occupancies
     const result = await prisma.$transaction(async (tx) => {
-      // Update booking status
+      // Update booking status (no approval fields on Booking anymore)
       await tx.booking.update({
         where: { id: input.bookingId },
         data: {
           status: "APPROVED",
-          approvedBy: user.name || user.preferred_username || "Admin",
-          approvedAt: new Date(),
           notes: input.notes || booking.notes,
         },
       });
@@ -1678,8 +1798,7 @@ export async function rejectBooking(
       return { success: false, error: "Alasan penolakan wajib diisi" };
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const user = session.user as any;
+    // const user = session.user as any;
 
     // Get booking
     const booking = await prisma.booking.findUnique({
@@ -1694,14 +1813,14 @@ export async function rejectBooking(
       return { success: false, error: `Booking sudah ${booking.status}` };
     }
 
-    // Reject booking
+    // TODO: In the new flow, rejection should be per-item via rejectBookingItems
+    // This legacy function now only updates status
     await prisma.booking.update({
       where: { id: input.bookingId },
       data: {
         status: "REJECTED",
-        rejectedBy: user.name || user.preferred_username || "Admin",
-        rejectedAt: new Date(),
-        rejectionReason: input.reason.trim(),
+        // Note: rejection details are now tracked at BookingRequestItem level
+        // This function is kept for backward compatibility
       },
     });
 

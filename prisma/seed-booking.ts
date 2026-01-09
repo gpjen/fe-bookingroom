@@ -120,8 +120,6 @@ async function main() {
       checkInDate: addDays(new Date(), 1),
       checkOutDate: addDays(new Date(), 4),
       companionName: "Budi Santoso",
-      approvedBy: "Admin System",
-      approvedAt: new Date(),
       occupantIndices: [3, 4], // David (Guest), Eko
     },
     {
@@ -133,9 +131,7 @@ async function main() {
       checkInDate: addDays(new Date(), 2),
       checkOutDate: addDays(new Date(), 5),
       companionName: "Siti Rahayu",
-      rejectedBy: "Admin System",
-      rejectedAt: new Date(),
-      rejectionReason: "Kapasitas penuh untuk tanggal tersebut. Silakan pilih tanggal lain.",
+      // Note: rejection info is now at BookingRequestItem level
       occupantIndices: [6], // George (Guest)
     },
     {
@@ -199,12 +195,7 @@ async function main() {
         // Status
         status: data.status,
         
-        // Status metadata
-        approvedBy: "approvedBy" in data ? data.approvedBy : null,
-        approvedAt: "approvedAt" in data ? data.approvedAt : null,
-        rejectedBy: "rejectedBy" in data ? data.rejectedBy : null,
-        rejectedAt: "rejectedAt" in data ? data.rejectedAt : null,
-        rejectionReason: "rejectionReason" in data ? data.rejectionReason : null,
+        // Cancellation only (approval/rejection now at item level)
         cancelledBy: "cancelledBy" in data ? data.cancelledBy : null,
         cancelledAt: "cancelledAt" in data ? data.cancelledAt : null,
         cancellationReason: "cancellationReason" in data ? data.cancellationReason : null,

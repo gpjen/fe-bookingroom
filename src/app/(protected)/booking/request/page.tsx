@@ -30,7 +30,7 @@ import {
   getAllBookings,
   getBookingById,
   approveBookingItems,
-  rejectBooking,
+  rejectBookingItems,
   type BookingListItemExtended,
 } from "../_actions/booking.actions";
 import { type BookingDetail } from "../_actions/booking.types";
@@ -59,21 +59,6 @@ function transformToTableItem(
 }
 
 function transformToDetailData(data: BookingDetail): BookingDetailData {
-  // DEBUG: Log raw data from API
-  console.log("=== DEBUG transformToDetailData ===");
-  console.log(
-    "Raw requestItems from API:",
-    data.requestItems?.map((ri) => ({
-      name: ri.name,
-      bedId: ri.bedId,
-      bed: ri.bed,
-      "ri.bed?.room": ri.bed?.room,
-      "ri.bed?.room?.building": ri.bed?.room?.building,
-      "ri.bed?.room?.building?.id": ri.bed?.room?.building?.id,
-    }))
-  );
-  console.log("===================================");
-
   return {
     id: data.id,
     code: data.code,
@@ -101,84 +86,77 @@ function transformToDetailData(data: BookingDetail): BookingDetailData {
     purpose: data.purpose,
     projectCode: data.projectCode,
     notes: data.notes,
-    approvedBy: data.approvedBy,
-    approvedAt: data.approvedAt ? new Date(data.approvedAt) : null,
-    rejectedBy: data.rejectedBy,
-    rejectedAt: data.rejectedAt ? new Date(data.rejectedAt) : null,
-    rejectionReason: data.rejectionReason,
+    // Cancellation only (approval/rejection now at item level)
     cancelledBy: data.cancelledBy,
     cancelledAt: data.cancelledAt ? new Date(data.cancelledAt) : null,
     cancellationReason: data.cancellationReason,
-    occupants: (() => {
-      console.log(
-        "DEBUG: occupancies.length =",
-        data.occupancies.length,
-        "requestItems.length =",
-        data.requestItems.length
-      );
-      console.log(
-        "DEBUG: Using",
-        data.occupancies.length > 0 ? "OCCUPANCIES" : "REQUEST_ITEMS",
-        "path"
-      );
-      return data.occupancies.length > 0;
-    })()
-      ? data.occupancies.map((occ) => ({
-          id: occ.id,
-          name: occ.occupant.name,
-          identifier: occ.occupant.nik || "-",
-          type:
-            occ.occupant.type === "GUEST"
-              ? ("guest" as const)
-              : ("employee" as const),
-          gender:
-            occ.occupant.gender === "FEMALE" ? ("P" as const) : ("L" as const),
-          company: occ.occupant.company,
-          department: occ.occupant.department,
-          phone: occ.occupant.phone,
-          inDate: new Date(occ.checkInDate),
-          outDate: occ.checkOutDate
-            ? new Date(occ.checkOutDate)
-            : new Date(occ.checkInDate),
-          status: occ.status as OccupancyStatus,
-          buildingId: occ.bed?.room?.building?.id || "",
-          buildingName: occ.bed?.room?.building?.name,
-          roomCode: occ.bed?.room?.code,
-          bedCode: occ.bed?.code,
-          bedId: occ.bed?.id,
-          cancelledAt: occ.cancelledAt ? new Date(occ.cancelledAt) : null,
-          cancelledByName: occ.cancelledByName,
-          cancelledReason: occ.cancelledReason,
-        }))
-      : data.requestItems.map((ri) => ({
-          id: ri.id,
-          name: ri.name,
-          identifier: ri.nik || "-",
-          type:
-            ri.type === "GUEST" ? ("guest" as const) : ("employee" as const),
-          gender: ri.gender === "FEMALE" ? ("P" as const) : ("L" as const),
-          company: ri.company,
-          department: ri.department,
-          phone: ri.phone,
-          inDate: new Date(ri.checkInDate),
-          outDate: new Date(ri.checkOutDate),
-          status: (ri.approvedAt
-            ? "RESERVED"
-            : ri.rejectedAt
-            ? "CANCELLED"
-            : "PENDING") as OccupancyStatus,
-          buildingId: ri.bed?.room?.building?.id || "",
-          buildingName: ri.bed?.room?.building?.name || "",
-          roomCode: ri.bed?.room?.code || "",
-          bedCode: ri.bed?.code || "",
-          bedId: ri.bedId,
-          // Approval tracking
-          approvedAt: ri.approvedAt ? new Date(ri.approvedAt) : null,
-          approvedByName: ri.approvedByName,
-          rejectedAt: ri.rejectedAt ? new Date(ri.rejectedAt) : null,
-          rejectedByName: ri.rejectedByName,
-          rejectedReason: ri.rejectedReason,
-        })),
+    occupants:
+      data.occupancies.length > 0
+        ? data.occupancies.map((occ) => ({
+            id: occ.id,
+            name: occ.occupant.name,
+            identifier: occ.occupant.nik || "-",
+            type:
+              occ.occupant.type === "GUEST"
+                ? ("guest" as const)
+                : ("employee" as const),
+            gender:
+              occ.occupant.gender === "FEMALE"
+                ? ("P" as const)
+                : ("L" as const),
+            company: occ.occupant.company,
+            department: occ.occupant.department,
+            phone: occ.occupant.phone,
+            inDate: new Date(occ.checkInDate),
+            outDate: occ.checkOutDate
+              ? new Date(occ.checkOutDate)
+              : new Date(occ.checkInDate),
+            status: occ.status as OccupancyStatus,
+            buildingId: occ.bed?.room?.building?.id || "",
+            buildingName: occ.bed?.room?.building?.name,
+            roomCode: occ.bed?.room?.code,
+            bedCode: occ.bed?.code,
+            bedId: occ.bed?.id,
+            // Approval tracking
+            approvedAt: occ.approvedAt ? new Date(occ.approvedAt) : null,
+            approvedByName: occ.approvedByName,
+            rejectedAt: null, // Occupancies don't have rejection (they're already approved)
+            rejectedByName: null,
+            rejectedReason: null,
+            // Cancellation
+            cancelledAt: occ.cancelledAt ? new Date(occ.cancelledAt) : null,
+            cancelledByName: occ.cancelledByName,
+            cancelledReason: occ.cancelledReason,
+          }))
+        : data.requestItems.map((ri) => ({
+            id: ri.id,
+            name: ri.name,
+            identifier: ri.nik || "-",
+            type:
+              ri.type === "GUEST" ? ("guest" as const) : ("employee" as const),
+            gender: ri.gender === "FEMALE" ? ("P" as const) : ("L" as const),
+            company: ri.company,
+            department: ri.department,
+            phone: ri.phone,
+            inDate: new Date(ri.checkInDate),
+            outDate: new Date(ri.checkOutDate),
+            status: (ri.approvedAt
+              ? "RESERVED"
+              : ri.rejectedAt
+              ? "CANCELLED"
+              : "PENDING") as OccupancyStatus,
+            buildingId: ri.bed?.room?.building?.id || "",
+            buildingName: ri.bed?.room?.building?.name || "",
+            roomCode: ri.bed?.room?.code || "",
+            bedCode: ri.bed?.code || "",
+            bedId: ri.bedId,
+            // Approval tracking
+            approvedAt: ri.approvedAt ? new Date(ri.approvedAt) : null,
+            approvedByName: ri.approvedByName,
+            rejectedAt: ri.rejectedAt ? new Date(ri.rejectedAt) : null,
+            rejectedByName: ri.rejectedByName,
+            rejectedReason: ri.rejectedReason,
+          })),
     attachments: data.attachments,
     createdAt: new Date(data.createdAt),
     updatedAt: new Date(data.updatedAt),
@@ -190,9 +168,16 @@ function transformToDetailData(data: BookingDetail): BookingDetailData {
 // ==========================================
 
 export default function BookingRequestPage() {
-  // Get user's accessible buildings
-  const { buildings, isLoading: permissionsLoading } = usePermissions();
+  // Get user's accessible buildings and permissions
+  const {
+    buildings,
+    isLoading: permissionsLoading,
+    hasPermission,
+  } = usePermissions();
   const buildingIds = buildings.map((b) => b.id);
+
+  // Check if user can approve/reject bookings
+  const canApproveBookings = hasPermission(["booking-request:approve"]);
 
   // List state
   const [bookings, setBookings] = useState<BookingTableItem[]>([]);
@@ -262,18 +247,6 @@ export default function BookingRequestPage() {
         // Transform and add canApprove flag based on buildingIds
         const detailData = transformToDetailData(result.data);
 
-        // DEBUG: Log building access
-        console.log("=== DEBUG canApprove ===");
-        console.log("User's buildingIds:", buildingIds);
-        console.log(
-          "Occupants buildingIds:",
-          detailData.occupants.map((o) => ({
-            name: o.name,
-            buildingId: o.buildingId,
-            buildingName: o.buildingName,
-          }))
-        );
-
         // Mark which items admin can approve
         detailData.occupants = detailData.occupants.map((occ) => ({
           ...occ,
@@ -281,15 +254,6 @@ export default function BookingRequestPage() {
             ? buildingIds.includes(occ.buildingId)
             : false,
         }));
-
-        console.log(
-          "canApprove results:",
-          detailData.occupants.map((o) => ({
-            name: o.name,
-            canApprove: o.canApprove,
-          }))
-        );
-        console.log("========================");
 
         setBookingDetail(detailData);
       } else {
@@ -322,20 +286,6 @@ export default function BookingRequestPage() {
   const handleApprove = async (bookingId: string, notes?: string) => {
     if (!bookingDetail) return;
 
-    // DEBUG: Log current state
-    console.log("=== DEBUG handleApprove ===");
-    console.log("Current buildingIds:", buildingIds);
-    console.log(
-      "Occupants:",
-      bookingDetail.occupants.map((o) => ({
-        id: o.id,
-        name: o.name,
-        buildingId: o.buildingId,
-        approvedAt: o.approvedAt,
-        rejectedAt: o.rejectedAt,
-      }))
-    );
-
     // Compute which items admin can approve NOW (using current buildingIds)
     const itemsToApprove = bookingDetail.occupants
       .filter((occ) => {
@@ -344,15 +294,9 @@ export default function BookingRequestPage() {
           : false;
         const notApproved = !occ.approvedAt;
         const notRejected = !occ.rejectedAt;
-        console.log(
-          `Item ${occ.name}: buildingId=${occ.buildingId}, hasAccess=${hasAccess}, notApproved=${notApproved}, notRejected=${notRejected}`
-        );
         return hasAccess && notApproved && notRejected;
       })
       .map((occ) => occ.id);
-
-    console.log("Items to approve:", itemsToApprove);
-    console.log("===========================");
 
     if (itemsToApprove.length === 0) {
       toast.error("Tidak ada item yang bisa Anda approve");
@@ -382,12 +326,37 @@ export default function BookingRequestPage() {
   };
 
   const handleReject = async (bookingId: string, reason: string) => {
-    const result = await rejectBooking({ bookingId, reason });
+    if (!bookingDetail) return;
+
+    // Get items that admin can reject (in their buildings & not already decided)
+    const itemsToReject = bookingDetail.occupants
+      .filter((occ) => {
+        const hasAccess = occ.buildingId
+          ? buildingIds.includes(occ.buildingId)
+          : false;
+        const notApproved = !occ.approvedAt;
+        const notRejected = !occ.rejectedAt;
+        return hasAccess && notApproved && notRejected;
+      })
+      .map((occ) => occ.id);
+
+    if (itemsToReject.length === 0) {
+      toast.error("Tidak ada item yang bisa Anda tolak");
+      return;
+    }
+
+    const result = await rejectBookingItems({
+      bookingId,
+      itemIds: itemsToReject,
+      buildingIds,
+      reason,
+    });
 
     if (!result.success) {
       throw new Error(result.error);
     }
 
+    toast.success("Booking berhasil ditolak");
     await fetchBookings();
   };
 
@@ -526,8 +495,8 @@ export default function BookingRequestPage() {
           isOpen={isDialogOpen}
           isLoading={isLoadingDetail}
           onClose={handleCloseDialog}
-          onApprove={handleApprove}
-          onReject={handleReject}
+          onApprove={canApproveBookings ? handleApprove : undefined}
+          onReject={canApproveBookings ? handleReject : undefined}
         />
       </div>
     </Card>

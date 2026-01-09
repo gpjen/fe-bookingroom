@@ -274,6 +274,14 @@ export interface BookingDetail extends BookingListItem {
     department: string | null;
     checkInDate: Date;
     checkOutDate: Date;
+    // Per-item approval tracking
+    approvedByNik: string | null;
+    approvedByName: string | null;
+    approvedAt: Date | null;
+    rejectedByNik: string | null;
+    rejectedByName: string | null;
+    rejectedAt: Date | null;
+    rejectedReason: string | null;
     bed: {
       id: string;
       code: string;

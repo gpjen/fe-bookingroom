@@ -768,6 +768,7 @@ export interface GetAllBookingsParams {
   dateTo?: Date;
   page?: number;
   limit?: number;
+  buildingIds?: string[]; // Filter by user's accessible buildings
 }
 
 export interface BookingListItemExtended extends BookingListItem {
@@ -821,6 +822,42 @@ export async function getAllBookings(
         { purpose: { contains: searchTerm, mode: "insensitive" } },
         { projectCode: { contains: searchTerm, mode: "insensitive" } },
         { companionName: { contains: searchTerm, mode: "insensitive" } },
+      ];
+    }
+
+    // Building access filter - only show bookings for accessible buildings
+    if (params?.buildingIds && params.buildingIds.length > 0) {
+      // Filter bookings where at least one requestItem OR occupancy is in accessible buildings
+      where.AND = [
+        ...(where.AND || []),
+        {
+          OR: [
+            // Check requestItems (pending bookings)
+            {
+              requestItems: {
+                some: {
+                  bed: {
+                    room: {
+                      buildingId: { in: params.buildingIds },
+                    },
+                  },
+                },
+              },
+            },
+            // Check occupancies (approved bookings)
+            {
+              occupancies: {
+                some: {
+                  bed: {
+                    room: {
+                      buildingId: { in: params.buildingIds },
+                    },
+                  },
+                },
+              },
+            },
+          ],
+        },
       ];
     }
 
@@ -1106,6 +1143,14 @@ export async function getBookingById(
         department: ri.department,
         checkInDate: ri.checkInDate,
         checkOutDate: ri.checkOutDate,
+        // Per-item approval tracking
+        approvedByNik: ri.approvedByNik,
+        approvedByName: ri.approvedByName,
+        approvedAt: ri.approvedAt,
+        rejectedByNik: ri.rejectedByNik,
+        rejectedByName: ri.rejectedByName,
+        rejectedAt: ri.rejectedAt,
+        rejectedReason: ri.rejectedReason,
         bed: {
           id: ri.bed.id,
           code: ri.bed.code,
@@ -1252,8 +1297,194 @@ export async function getPendingBookings(
 }
 
 // ========================================
-// ADMIN: APPROVE BOOKING
+// ADMIN: APPROVE BOOKING ITEMS (Per-Building)
 // ========================================
+
+interface ApproveBookingItemsInput {
+  bookingId: string;
+  itemIds: string[]; // IDs of BookingRequestItems to approve
+  buildingIds: string[]; // Admin's accessible buildings (for validation)
+  notes?: string;
+}
+
+export async function approveBookingItems(
+  input: ApproveBookingItemsInput
+): Promise<ActionResponse<{ id: string; allApproved: boolean }>> {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return { success: false, error: "Unauthorized" };
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const user = session.user as any;
+    const adminNik = user.username || user.nik || user.sub;
+    const adminName = user.name || user.preferred_username || "Admin";
+
+    // Get booking with request items
+    const booking = await prisma.booking.findUnique({
+      where: { id: input.bookingId },
+      include: {
+        requestItems: {
+          include: {
+            bed: {
+              select: {
+                id: true,
+                room: {
+                  select: {
+                    buildingId: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!booking) {
+      return { success: false, error: "Booking tidak ditemukan" };
+    }
+
+    if (booking.status !== "PENDING") {
+      return { success: false, error: `Booking sudah ${booking.status}` };
+    }
+
+    // Validate items exist and admin has access to their buildings
+    const itemsToApprove = booking.requestItems.filter((ri) => 
+      input.itemIds.includes(ri.id)
+    );
+
+    if (itemsToApprove.length === 0) {
+      return { success: false, error: "Tidak ada item yang bisa di-approve" };
+    }
+
+    // Check building access for each item
+    for (const item of itemsToApprove) {
+      const itemBuildingId = item.bed.room.buildingId;
+      if (!input.buildingIds.includes(itemBuildingId)) {
+        return { 
+          success: false, 
+          error: `Anda tidak memiliki akses ke gedung untuk item ${item.name}` 
+        };
+      }
+      // Check if already approved
+      if (item.approvedAt) {
+        return { 
+          success: false, 
+          error: `Item ${item.name} sudah di-approve sebelumnya` 
+        };
+      }
+    }
+
+    // Approve items in transaction
+    const result = await prisma.$transaction(async (tx) => {
+      // 1. Update request items
+      await tx.bookingRequestItem.updateMany({
+        where: { id: { in: input.itemIds } },
+        data: {
+          approvedByNik: adminNik,
+          approvedByName: adminName,
+          approvedAt: new Date(),
+        },
+      });
+
+      // 2. Check if ALL items are now approved
+      const updatedBooking = await tx.booking.findUnique({
+        where: { id: input.bookingId },
+        include: { requestItems: true },
+      });
+
+      const allApproved = updatedBooking!.requestItems.every(
+        (ri) => ri.approvedAt !== null
+      );
+      const anyRejected = updatedBooking!.requestItems.some(
+        (ri) => ri.rejectedAt !== null
+      );
+
+      // 3. If all approved, update booking status and create occupancies
+      if (allApproved && !anyRejected) {
+        // Update booking status
+        await tx.booking.update({
+          where: { id: input.bookingId },
+          data: {
+            status: "APPROVED",
+            approvedBy: `${adminName} (${adminNik})`, // Store both name and NIK
+            approvedAt: new Date(),
+            notes: input.notes || updatedBooking!.notes,
+          },
+        });
+
+        // Create occupancies from request items
+        for (const ri of updatedBooking!.requestItems) {
+          // NIK is required - generate temp if not provided
+          const occupantNik = ri.nik || `TEMP-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`;
+
+          // Find or create occupant
+          let occupant = ri.nik
+            ? await tx.occupant.findUnique({ where: { nik: ri.nik } })
+            : null;
+
+          if (!occupant) {
+            occupant = await tx.occupant.create({
+              data: {
+                name: ri.name,
+                nik: occupantNik,
+                gender: ri.gender,
+                email: ri.email || null,
+                phone: ri.phone || null,
+                company: ri.company || null,
+                department: ri.department || null,
+                type: ri.type,
+              },
+            });
+          } else {
+            // Update existing occupant with latest data
+            occupant = await tx.occupant.update({
+              where: { id: occupant.id },
+              data: {
+                name: ri.name,
+                gender: ri.gender,
+                email: ri.email || occupant.email,
+                phone: ri.phone || occupant.phone,
+                company: ri.company || occupant.company,
+                department: ri.department || occupant.department,
+              },
+            });
+          }
+
+          // Create occupancy
+          await tx.occupancy.create({
+            data: {
+              bedId: ri.bedId,
+              occupantId: occupant.id,
+              bookingId: input.bookingId,
+              checkInDate: ri.checkInDate,
+              checkOutDate: ri.checkOutDate,
+              status: "RESERVED",
+              createdBy: user.id || user.sub || "system",
+              createdByName: adminName,
+            },
+          });
+        }
+      }
+
+      return { id: input.bookingId, allApproved };
+    });
+
+    revalidatePath("/booking/request");
+    revalidatePath("/booking/mine");
+    revalidatePath("/properties/buildings");
+
+    return { success: true, data: result };
+  } catch (error) {
+    console.error("[APPROVE_BOOKING_ITEMS_ERROR]", error);
+    return { success: false, error: "Gagal menyetujui booking items" };
+  }
+}
+
+// ========================================
+// ADMIN: APPROVE BOOKING (Legacy - Full Approval)
 
 interface ApproveBookingInput {
   bookingId: string;

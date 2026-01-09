@@ -257,7 +257,6 @@ export function DataTable<TData, TValue>({
           {/* Info & Page Size */}
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-4">
             <div className="text-sm text-muted-foreground">
-              Menampilkan{" "}
               <span className="font-medium text-foreground">
                 {(table.getFilteredRowModel().rows?.length || 0) > 0
                   ? table.getState().pagination.pageIndex *

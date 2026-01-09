@@ -700,6 +700,19 @@ model BookingRequestItem {
   checkInDate  DateTime
   checkOutDate DateTime
 
+  // ⭐ Per-Item Approval (by building admin)
+  // NULL = belum di-approve, NOT NULL = sudah approved
+  approvedByNik  String? // NIK admin yang approve
+  approvedByName String? // Display name admin
+  approvedAt     DateTime? // Waktu approval
+
+  // ⭐ Per-Item Rejection (by building admin)
+  // NULL = tidak rejected, NOT NULL = rejected
+  rejectedByNik  String?
+  rejectedByName String?
+  rejectedAt     DateTime?
+  rejectedReason String?
+
   // Audit
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -710,6 +723,7 @@ model BookingRequestItem {
   @@index([checkInDate])
   @@index([checkOutDate])
   @@index([bedId, checkInDate, checkOutDate]) // Composite for conflict checking
+  @@index([approvedAt]) // For filtering pending items
   @@map("booking_request_items")
 }
 

@@ -217,6 +217,14 @@ export interface BookingOccupant {
   cancelledAt?: Date | null;
   cancelledByName?: string | null;
   cancelledReason?: string | null;
+  
+  // Per-item approval tracking
+  approvedAt?: Date | null;
+  approvedByName?: string | null;
+  rejectedAt?: Date | null;
+  rejectedByName?: string | null;
+  rejectedReason?: string | null;
+  canApprove?: boolean; // True if admin has building access
 }
 
 export type BookingRequest = BookingDetailData; 

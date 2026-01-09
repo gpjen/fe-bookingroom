@@ -684,7 +684,14 @@ function OccupancyCard({ occupancy }: { occupancy: BookingOccupant }) {
       : null;
 
   return (
-    <div className="p-4 bg-muted/50 rounded-lg border hover:border-primary/30 transition-colors">
+    <div
+      className={cn(
+        "p-4 bg-muted/50 rounded-lg border transition-colors",
+        occ.canApprove && !occ.approvedAt && !occ.rejectedAt
+          ? "border-blue-500 bg-blue-50/30 dark:bg-blue-950/20"
+          : "hover:border-primary/30"
+      )}
+    >
       {/* Header */}
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
@@ -794,6 +801,71 @@ function OccupancyCard({ occupancy }: { occupancy: BookingOccupant }) {
             )}
           </div>
         </>
+      )}
+
+      {/* Per-Item Approval Info */}
+      {occ.approvedAt && (
+        <>
+          <Separator className="my-3" />
+          <div className="p-3 bg-green-50 dark:bg-green-900/20 rounded-lg text-xs space-y-1">
+            <p className="font-medium text-green-700 dark:text-green-300">
+              ✅ Sudah Disetujui
+            </p>
+            <p className="text-muted-foreground">
+              Waktu:{" "}
+              <span className="text-foreground">
+                {format(new Date(occ.approvedAt), "dd MMM yyyy, HH:mm", {
+                  locale: localeId,
+                })}
+              </span>
+            </p>
+            {occ.approvedByName && (
+              <p className="text-muted-foreground">
+                Oleh:{" "}
+                <span className="text-foreground">{occ.approvedByName}</span>
+              </p>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* Rejection Info */}
+      {occ.rejectedAt && (
+        <>
+          <Separator className="my-3" />
+          <div className="p-3 bg-red-50 dark:bg-red-900/20 rounded-lg text-xs space-y-1">
+            <p className="font-medium text-red-700 dark:text-red-300">
+              ❌ Ditolak
+            </p>
+            <p className="text-muted-foreground">
+              Waktu:{" "}
+              <span className="text-foreground">
+                {format(new Date(occ.rejectedAt), "dd MMM yyyy, HH:mm", {
+                  locale: localeId,
+                })}
+              </span>
+            </p>
+            {occ.rejectedByName && (
+              <p className="text-muted-foreground">
+                Oleh:{" "}
+                <span className="text-foreground">{occ.rejectedByName}</span>
+              </p>
+            )}
+            {occ.rejectedReason && (
+              <p className="text-muted-foreground">
+                Alasan:{" "}
+                <span className="text-foreground">{occ.rejectedReason}</span>
+              </p>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* Can Approve Indicator */}
+      {occ.canApprove && !occ.approvedAt && !occ.rejectedAt && (
+        <div className="mt-3 text-xs text-blue-600 dark:text-blue-400 font-medium">
+          ✓ Anda dapat menyetujui item ini
+        </div>
       )}
     </div>
   );

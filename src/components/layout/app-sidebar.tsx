@@ -506,7 +506,7 @@ export function AppSidebar({ userName, email }: AppSidebarProps) {
                     width={40}
                     height={40}
                     priority
-                    className="w-auto h-auto"
+                    className="object-contain"
                   />
                 </div>
                 <div className="grid flex-1 text-left text-sm leading-tight">

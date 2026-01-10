@@ -10,6 +10,7 @@ module.exports = {
       env: {
         NODE_ENV: "production",
         NODE_TLS_REJECT_UNAUTHORIZED: "0",
+        PORT: 3031,
 
         // WAJIB & HARUS BENAR
         NEXTAUTH_URL: "http://192.168.130.105:3031",
@@ -28,6 +29,11 @@ module.exports = {
         // DB
         DATABASE_URL:
           "postgresql://it-apps:TempPass123!@192.168.130.105:5433/booking-room?schema=public",
+
+        // Portal API form get user data
+        IAM_PORTAL_API_URL:"https://portal.obi.com/api",
+        IAM_API_TIMEOUT:"5000"
+      
       },
     },
   ],

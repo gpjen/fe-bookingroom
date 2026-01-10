@@ -32,6 +32,7 @@ import {
   Loader2,
   Download,
   Paperclip,
+  ExternalLink,
 } from "lucide-react";
 import { format, differenceInDays } from "date-fns";
 import { id as localeId } from "date-fns/locale";
@@ -332,33 +333,68 @@ export function BookingDetailDialog({
               {booking.attachments.length > 0 && (
                 <Section title="Lampiran" icon={Paperclip}>
                   <div className="grid gap-2">
-                    {booking.attachments.map((att) => (
-                      <div
-                        key={att.id}
-                        className="flex items-center justify-between p-3 border rounded-lg bg-background group hover:border-primary/50 transition-colors"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 bg-primary/10 rounded-md text-primary">
-                            <FileText className="h-4 w-4" />
+                    {booking.attachments.map((att) => {
+                      const isImage = isImageFile(att.fileType);
+                      const isPdf = isPdfFile(att.fileType);
+
+                      return (
+                        <div
+                          key={att.id}
+                          onClick={() =>
+                            handleAttachmentClick(
+                              att.filePath,
+                              att.fileName,
+                              att.fileType
+                            )
+                          }
+                          className="flex items-center justify-between p-3 border rounded-lg bg-background group hover:border-primary/50 hover:bg-muted/50 transition-colors cursor-pointer"
+                        >
+                          <div className="flex items-center gap-3">
+                            {/* Thumbnail for images, icon for others */}
+                            {isImage ? (
+                              <div className="w-12 h-12 rounded-md overflow-hidden border bg-muted flex-shrink-0">
+                                <img
+                                  src={att.filePath}
+                                  alt={att.fileName}
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+                            ) : (
+                              <div
+                                className={cn(
+                                  "p-2 rounded-md flex-shrink-0",
+                                  isPdf
+                                    ? "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400"
+                                    : "bg-primary/10 text-primary"
+                                )}
+                              >
+                                {isPdf ? (
+                                  <FileText className="h-5 w-5" />
+                                ) : (
+                                  <FileText className="h-5 w-5" />
+                                )}
+                              </div>
+                            )}
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium line-clamp-1">
+                                {att.fileName}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {formatFileSize(att.fileSize)} •{" "}
+                                {isImage ? "Gambar" : isPdf ? "PDF" : "Dokumen"}
+                              </p>
+                            </div>
                           </div>
-                          <div>
-                            <p className="text-sm font-medium line-clamp-1">
-                              {att.fileName}
-                            </p>
-                            <p className="text-xs text-muted-foreground uppercase">
-                              {formatFileSize(att.fileSize)}
-                            </p>
+                          <div className="flex items-center gap-1 text-muted-foreground group-hover:text-primary">
+                            {isImage || isPdf ? (
+                              <ExternalLink className="h-4 w-4" />
+                            ) : (
+                              <Download className="h-4 w-4" />
+                            )}
                           </div>
                         </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-muted-foreground hover:text-primary"
-                        >
-                          <Download className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </Section>
               )}
@@ -516,6 +552,33 @@ function formatFileSize(bytes: number): string {
   if (bytes < 1024) return bytes + " B";
   if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
   return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+}
+
+function isImageFile(mimeType: string): boolean {
+  return mimeType.startsWith("image/");
+}
+
+function isPdfFile(mimeType: string): boolean {
+  return mimeType === "application/pdf";
+}
+
+function handleAttachmentClick(
+  filePath: string,
+  fileName: string,
+  fileType: string
+) {
+  if (isImageFile(fileType) || isPdfFile(fileType)) {
+    // Open images and PDFs in new tab
+    window.open(filePath, "_blank");
+  } else {
+    // Download other files (DOC, DOCX, etc.)
+    const link = document.createElement("a");
+    link.href = filePath;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
 }
 
 // ==========================================

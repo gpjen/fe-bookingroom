@@ -38,6 +38,8 @@ import {
   UserX,
   Download,
   LayoutGrid,
+  ExternalLink,
+  Paperclip,
 } from "lucide-react";
 import { format, differenceInCalendarDays, startOfDay } from "date-fns";
 import { id } from "date-fns/locale";
@@ -583,26 +585,66 @@ export function MyBookingDetailDialog({
 
               {/* Attachments */}
               {booking.attachments && booking.attachments.length > 0 && (
-                <Section title="Lampiran" icon={FileText}>
+                <Section title="Lampiran" icon={Paperclip}>
                   <div className="grid grid-cols-1 gap-2">
-                    {booking.attachments.map((file) => (
-                      <div
-                        key={file.id}
-                        className="flex items-center gap-3 p-3 border rounded-lg bg-background hover:bg-muted/50 transition-colors cursor-pointer"
-                      >
-                        <div className="h-8 w-8 rounded bg-primary/10 flex items-center justify-center text-primary">
-                          <FileText className="h-4 w-4" />
+                    {booking.attachments.map((file) => {
+                      const isImage = isImageFile(file.fileType);
+                      const isPdf = isPdfFile(file.fileType);
+
+                      return (
+                        <div
+                          key={file.id}
+                          onClick={() =>
+                            handleAttachmentClick(
+                              file.filePath,
+                              file.fileName,
+                              file.fileType
+                            )
+                          }
+                          className="flex items-center gap-3 p-3 border rounded-lg bg-background hover:bg-muted/50 hover:border-primary/50 transition-colors cursor-pointer group"
+                        >
+                          {/* Thumbnail for images, icon for others */}
+                          {isImage ? (
+                            <div className="w-10 h-10 rounded overflow-hidden border bg-muted flex-shrink-0">
+                              <img
+                                src={file.filePath}
+                                alt={file.fileName}
+                                className="w-full h-full object-cover"
+                              />
+                            </div>
+                          ) : (
+                            <div
+                              className={cn(
+                                "h-10 w-10 rounded flex items-center justify-center flex-shrink-0",
+                                isPdf
+                                  ? "bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400"
+                                  : "bg-primary/10 text-primary"
+                              )}
+                            >
+                              <FileText className="h-5 w-5" />
+                            </div>
+                          )}
+
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium truncate group-hover:text-primary transition-colors">
+                              {file.fileName}
+                            </p>
+                            <p className="text-xs text-muted-foreground">
+                              {formatFileSize(file.fileSize)} •{" "}
+                              {isImage ? "Gambar" : isPdf ? "PDF" : "Dokumen"}
+                            </p>
+                          </div>
+
+                          <div className="text-muted-foreground group-hover:text-primary">
+                            {isImage || isPdf ? (
+                              <ExternalLink className="h-4 w-4" />
+                            ) : (
+                              <Download className="h-4 w-4" />
+                            )}
+                          </div>
                         </div>
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium truncate">
-                            {file.fileName}
-                          </p>
-                          <p className="text-xs text-muted-foreground uppercase">
-                            {file.fileType}
-                          </p>
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </Section>
               )}
@@ -776,6 +818,40 @@ export function MyBookingDetailDialog({
       />
     </>
   );
+}
+
+// Helper Functions
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return bytes + " B";
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " KB";
+  return (bytes / (1024 * 1024)).toFixed(1) + " MB";
+}
+
+function isImageFile(mimeType: string): boolean {
+  return mimeType.startsWith("image/");
+}
+
+function isPdfFile(mimeType: string): boolean {
+  return mimeType === "application/pdf";
+}
+
+function handleAttachmentClick(
+  filePath: string,
+  fileName: string,
+  fileType: string
+) {
+  if (isImageFile(fileType) || isPdfFile(fileType)) {
+    // Open images and PDFs in new tab
+    window.open(filePath, "_blank");
+  } else {
+    // Download other files
+    const link = document.createElement("a");
+    link.href = filePath;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
 }
 
 // Helper Components

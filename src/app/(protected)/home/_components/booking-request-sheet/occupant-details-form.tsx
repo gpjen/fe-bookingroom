@@ -38,6 +38,7 @@ import {
   AlertCircle,
   CheckCircle2,
   CalendarIcon,
+  Lock,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { format, differenceInDays, addDays } from "date-fns";
@@ -393,9 +394,9 @@ export function OccupantDetailsForm({
                         <span className="text-sm font-medium">Karyawan</span>
                         <Badge
                           variant="outline"
-                          className="text-[10px] ml-auto"
+                          className="text-[10px] ml-auto border-none"
                         >
-                          Terkunci
+                          <Lock className="h-3 w-3" />
                         </Badge>
                       </div>
                     ) : (
@@ -465,9 +466,9 @@ export function OccupantDetailsForm({
                         </span>
                         <Badge
                           variant="outline"
-                          className="text-[10px] ml-auto"
+                          className="text-[10px] ml-auto border-none"
                         >
-                          Terkunci
+                          <Lock className="h-3 w-3" />
                         </Badge>
                       </div>
                     ) : (

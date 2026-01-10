@@ -107,7 +107,7 @@ export interface CompanionInfo {
 export interface BookingAttachment {
   id: string;
   fileName: string;
-  fileUrl: string;
+  filePath: string;
   fileType: string;
   fileSize: number;
   description: string | null;

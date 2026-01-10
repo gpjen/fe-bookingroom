@@ -1105,7 +1105,7 @@ export async function getBookingById(
           select: {
             id: true,
             fileName: true,
-            fileUrl: true,
+            filePath: true,
             fileType: true,
             fileSize: true,
             description: true,

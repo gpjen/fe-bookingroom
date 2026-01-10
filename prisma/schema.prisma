@@ -724,26 +724,39 @@ model BookingRequestItem {
 
 // ==========================================
 // BOOKING ATTACHMENT
+// Supports uploading files before booking is created.
+// Orphan attachments (without bookingId) can be cleaned up periodically.
 // ==========================================
 
 model BookingAttachment {
-  id        String @id @default(cuid())
-  bookingId String
+  id String @id @default(cuid())
 
-  fileName    String
-  fileUrl     String
-  fileType    String
-  fileSize    Int
-  description String?
+  // Booking relation - OPTIONAL to allow pre-upload before booking creation
+  bookingId String?
+  booking   Booking? @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
-  uploadedBy     String
-  uploadedByName String
+  // File information
+  fileName String // Original filename
+  filePath String // Stored path: /uploads/bookings/{booking_code}_{unique}.{ext}
+  fileType String // MIME type: image/jpeg, application/pdf, etc.
+  fileSize Int // Size in bytes
 
-  booking Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  description String? // Optional description/caption
+
+  // Uploader info (captured at upload time)
+  uploadedBy     String // NIK of uploader
+  uploadedByName String // Name of uploader
+
+  // Status for orphan management
+  // PENDING: Uploaded but not yet linked to booking
+  // LINKED: Successfully linked to a booking
+  status String @default("PENDING")
 
   createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([bookingId])
+  @@index([status, createdAt]) // For orphan cleanup: find PENDING older than X days
   @@map("booking_attachments")
 }
 

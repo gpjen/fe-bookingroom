@@ -34,6 +34,11 @@ import { id as localeId } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { createBookingRequest } from "@/app/(protected)/booking/_actions/booking.actions";
+import {
+  uploadBookingAttachment,
+  linkAttachmentsToBooking,
+  deleteBookingAttachment,
+} from "@/app/(protected)/booking/_actions/attachment.actions";
 import type { CreateBookingInput } from "@/app/(protected)/booking/_actions/booking.types";
 
 // Fallback for crypto.randomUUID (not available in all browsers)
@@ -101,6 +106,11 @@ export function BookingRequestSheet({
     undefined
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [uploadingFiles, setUploadingFiles] = useState<Set<string>>(new Set());
+  // Track server-side uploaded attachment IDs (from database)
+  const [uploadedAttachmentIds, setUploadedAttachmentIds] = useState<string[]>(
+    []
+  );
 
   const hasGuestOccupant = useMemo(() => {
     return occupants.some((occ) => occ.type === "guest");
@@ -248,7 +258,94 @@ export function BookingRequestSheet({
     }
   };
 
+  // Handle attachment change with server upload
+  const handleAttachmentsChange = async (
+    newAttachments: BookingAttachment[]
+  ) => {
+    // Find newly added files (files that have File object but no serverId)
+    const currentIds = new Set(attachments.map((a) => a.id));
+    const addedAttachments = newAttachments.filter(
+      (a) => !currentIds.has(a.id) && a.file
+    );
+
+    // Find removed attachments
+    const newIds = new Set(newAttachments.map((a) => a.id));
+    const removedAttachments = attachments.filter((a) => !newIds.has(a.id));
+
+    // Update local state immediately for UI
+    setAttachments(newAttachments);
+
+    // Upload new files to server
+    for (const att of addedAttachments) {
+      setUploadingFiles((prev) => new Set([...prev, att.id]));
+
+      try {
+        const formData = new FormData();
+        formData.append("file", att.file);
+
+        const result = await uploadBookingAttachment(formData);
+
+        if (result.success && result.data) {
+          // Store server attachment ID
+          setUploadedAttachmentIds((prev) => [...prev, result.data!.id]);
+          // Update attachment with server info
+          setAttachments((prev) =>
+            prev.map((a) =>
+              a.id === att.id
+                ? {
+                    ...a,
+                    serverId: result.data!.id,
+                    serverPath: result.data!.filePath,
+                  }
+                : a
+            )
+          );
+        } else {
+          toast.error(`Gagal upload ${att.name}`, {
+            description: result.error,
+          });
+          // Remove failed upload from list
+          setAttachments((prev) => prev.filter((a) => a.id !== att.id));
+        }
+      } catch (error) {
+        console.error("Upload error:", error);
+        toast.error(`Gagal upload ${att.name}`);
+        setAttachments((prev) => prev.filter((a) => a.id !== att.id));
+      } finally {
+        setUploadingFiles((prev) => {
+          const next = new Set(prev);
+          next.delete(att.id);
+          return next;
+        });
+      }
+    }
+
+    // Delete removed attachments from server
+    for (const att of removedAttachments) {
+      const serverAtt = attachments.find((a) => a.id === att.id);
+      // Check if attachment has serverId (was uploaded)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const serverId = (serverAtt as any)?.serverId;
+      if (serverId) {
+        try {
+          await deleteBookingAttachment(serverId);
+          setUploadedAttachmentIds((prev) =>
+            prev.filter((id) => id !== serverId)
+          );
+        } catch (error) {
+          console.error("Delete error:", error);
+        }
+      }
+    }
+  };
+
   const handleSubmit = async () => {
+    // Check if any files are still uploading
+    if (uploadingFiles.size > 0) {
+      toast.error("Tunggu upload file selesai");
+      return;
+    }
+
     setIsSubmitting(true);
 
     try {
@@ -290,13 +387,23 @@ export function BookingRequestSheet({
         notes: notes.trim() || undefined,
         occupants: mappedOccupants,
         companion: mappedCompanion,
-        // attachmentIds: attachments.map(a => a.id), // TODO: Implement file upload first
       };
 
-      // Call API
+      // Call API to create booking
       const result = await createBookingRequest(payload);
 
       if (result.success) {
+        // Link uploaded attachments to the new booking
+        if (uploadedAttachmentIds.length > 0) {
+          const linkResult = await linkAttachmentsToBooking(
+            result.data.id,
+            uploadedAttachmentIds
+          );
+          if (!linkResult.success) {
+            console.warn("Failed to link some attachments:", linkResult.error);
+          }
+        }
+
         toast.success("Booking berhasil diajukan!", {
           description: `Kode booking: ${result.data.code}`,
         });
@@ -411,7 +518,7 @@ export function BookingRequestSheet({
               notes={notes}
               onNotesChange={setNotes}
               attachments={attachments}
-              onAttachmentsChange={setAttachments}
+              onAttachmentsChange={handleAttachmentsChange}
               filterStartDate={searchParams.startDate}
               filterEndDate={searchParams.endDate}
             />

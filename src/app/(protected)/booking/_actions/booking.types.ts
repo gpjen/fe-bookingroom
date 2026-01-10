@@ -339,7 +339,7 @@ export interface BookingDetail extends BookingListItem {
   attachments: {
     id: string;
     fileName: string;
-    fileUrl: string;
+    filePath: string;
     fileType: string;
     fileSize: number;
     description: string | null;

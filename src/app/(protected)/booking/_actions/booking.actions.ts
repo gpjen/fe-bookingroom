@@ -130,6 +130,37 @@ export async function getBuildingsByArea(
 }
 
 // ========================================
+// GET ROOM TYPES (for filter dropdown)
+// ========================================
+
+export interface RoomTypeOption {
+  id: string;
+  code: string;
+  name: string;
+  description?: string | null;
+}
+
+export async function getRoomTypesForBooking(): Promise<ActionResponse<RoomTypeOption[]>> {
+  try {
+    const roomTypes = await prisma.roomType.findMany({
+      where: { status: true },
+      select: {
+        id: true,
+        code: true,
+        name: true,
+        description: true,
+      },
+      orderBy: { name: "asc" },
+    });
+
+    return { success: true, data: roomTypes };
+  } catch (error) {
+    console.error("[GET_ROOM_TYPES_ERROR]", error);
+    return { success: false, error: "Gagal mengambil data tipe kamar" };
+  }
+}
+
+// ========================================
 // GET AVAILABLE ROOMS
 // ========================================
 

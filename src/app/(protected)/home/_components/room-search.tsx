@@ -37,7 +37,7 @@ import {
   useAreas,
   useBuildings,
   useRoomAvailability,
-  ROOM_TYPES,
+  useRoomTypes,
   type RoomAvailability,
 } from "./room-search-api";
 import type { SelectedBed } from "./booking-request-types";
@@ -101,6 +101,7 @@ function DatePicker({
 export function RoomSearch() {
   // API Hooks for real data
   const { areas } = useAreas();
+  const { roomTypes } = useRoomTypes();
   const {
     rooms,
     error: roomsError,
@@ -286,7 +287,8 @@ export function RoomSearch() {
 
   const addRequirement = () => {
     if (totalRoomRequested >= totalPeople) return;
-    setRoomRequirements([...roomRequirements, { type: "standard", count: 1 }]);
+    const defaultType = roomTypes.length > 0 ? roomTypes[0].code : "";
+    setRoomRequirements([...roomRequirements, { type: defaultType, count: 1 }]);
     setHasSearched(false);
   };
 
@@ -547,13 +549,13 @@ export function RoomSearch() {
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
-                                  {ROOM_TYPES.map((t) => (
+                                  {roomTypes.map((t) => (
                                     <SelectItem
-                                      key={t.value}
-                                      value={t.value}
+                                      key={t.id}
+                                      value={t.code}
                                       className="text-xs"
                                     >
-                                      {t.label}
+                                      {t.name}
                                     </SelectItem>
                                   ))}
                                 </SelectContent>

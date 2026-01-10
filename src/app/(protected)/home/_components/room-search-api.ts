@@ -12,6 +12,7 @@ import {
   getAreasForBooking,
   getBuildingsByArea,
   getAvailableRooms,
+  getRoomTypesForBooking,
 } from "@/app/(protected)/booking/_actions/booking.actions";
 import type {
   AreaOption,
@@ -97,6 +98,17 @@ export interface RoomAvailability {
   images: string[];
 }
 
+// Room type item from database
+export interface RoomTypeItem {
+  id: string;
+  code: string;
+  name: string;
+  description?: string | null;
+}
+
+/**
+ * @deprecated Use useRoomTypes() hook instead for dynamic data from database
+ */
 export const ROOM_TYPES: { value: RoomType; label: string }[] = [
   { value: "standard", label: "Standard" },
   { value: "vip", label: "VIP" },
@@ -262,6 +274,28 @@ export function useAreas() {
   }, []);
 
   return { areas, isLoading, error };
+}
+
+export function useRoomTypes() {
+  const [roomTypes, setRoomTypes] = useState<RoomTypeItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function fetch() {
+      setIsLoading(true);
+      const result = await getRoomTypesForBooking();
+      if (result.success) {
+        setRoomTypes(result.data);
+      } else {
+        setError(result.error);
+      }
+      setIsLoading(false);
+    }
+    fetch();
+  }, []);
+
+  return { roomTypes, isLoading, error };
 }
 
 export function useBuildings(areaId: string | undefined) {

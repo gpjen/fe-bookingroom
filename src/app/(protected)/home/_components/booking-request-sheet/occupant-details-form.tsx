@@ -683,35 +683,56 @@ export function OccupantDetailsForm({
                   </div>
                 </div>
 
-                {occupant.type === "employee" && (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor={`company-${index}`}>Perusahaan</Label>
-                      <Input
-                        id={`company-${index}`}
-                        value={occupant.company || ""}
-                        onChange={(e) =>
-                          onOccupantUpdate(index, { company: e.target.value })
-                        }
-                        placeholder="Nama perusahaan"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor={`department-${index}`}>Departemen</Label>
-                      <Input
-                        id={`department-${index}`}
-                        value={occupant.department || ""}
-                        onChange={(e) =>
-                          onOccupantUpdate(index, {
-                            department: e.target.value,
-                          })
-                        }
-                        placeholder="Departemen/Divisi"
-                      />
-                    </div>
+                {/* Company & Department - Show for all types */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor={`company-${index}`}>
+                      Perusahaan
+                      {occupant.type === "guest" && (
+                        <span className="text-xs text-muted-foreground ml-1">
+                          (Opsional)
+                        </span>
+                      )}
+                    </Label>
+                    <Input
+                      id={`company-${index}`}
+                      value={occupant.company || ""}
+                      onChange={(e) =>
+                        onOccupantUpdate(index, { company: e.target.value })
+                      }
+                      placeholder={
+                        occupant.type === "guest"
+                          ? "Perusahaan tamu (opsional)"
+                          : "Nama perusahaan"
+                      }
+                    />
                   </div>
-                )}
+
+                  <div className="space-y-2">
+                    <Label htmlFor={`department-${index}`}>
+                      Departemen
+                      {occupant.type === "guest" && (
+                        <span className="text-xs text-muted-foreground ml-1">
+                          (Opsional)
+                        </span>
+                      )}
+                    </Label>
+                    <Input
+                      id={`department-${index}`}
+                      value={occupant.department || ""}
+                      onChange={(e) =>
+                        onOccupantUpdate(index, {
+                          department: e.target.value,
+                        })
+                      }
+                      placeholder={
+                        occupant.type === "guest"
+                          ? "Departemen tamu (opsional)"
+                          : "Departemen/Divisi"
+                      }
+                    />
+                  </div>
+                </div>
               </CardContent>
             </Card>
           );

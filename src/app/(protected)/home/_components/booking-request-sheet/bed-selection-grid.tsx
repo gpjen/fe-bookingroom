@@ -116,7 +116,7 @@ export function BedSelectionGrid({
       buildingName: room.buildingName,
       areaId: room.areaId,
       areaName: room.areaName,
-      roomType: room.type,
+      roomType: room.roomType.code,
       capacity: room.capacity,
     };
 
@@ -186,7 +186,7 @@ export function BedSelectionGrid({
                       <div>
                         <CardTitle className="text-base">{room.code}</CardTitle>
                         <p className="text-xs text-muted-foreground">
-                          {room.type.toUpperCase()} • Capacity: {room.capacity}
+                          {room.roomType.name} • Capacity: {room.capacity}
                         </p>
                       </div>
                     </div>

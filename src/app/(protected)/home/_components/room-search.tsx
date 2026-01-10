@@ -183,7 +183,15 @@ export function RoomSearch() {
     // Filter by Room Requirements (Types) - using APPLIED requirements
     if (appliedRoomRequirements.length > 0) {
       const requiredTypes = new Set(appliedRoomRequirements.map((r) => r.type));
-      result = result.filter((r) => requiredTypes.has(r.type));
+      result = result.filter((r) => requiredTypes.has(r.roomType.code));
+    }
+
+    // Filter by allocation based on occupant types
+    // - If only guests (guestCount > 0 && employeeCount === 0): hide EMPLOYEE_ONLY rooms
+    // - Employees can stay in both employee and guest rooms, so no filter needed for employees
+    if (guestCount > 0 && employeeCount === 0) {
+      // Guest-only: filter out EMPLOYEE_ONLY rooms (allocation === "employee")
+      result = result.filter((r) => r.allocation === "all");
     }
 
     result = result.sort((a, b) => b.availableBeds - a.availableBeds);
@@ -195,6 +203,8 @@ export function RoomSearch() {
     appliedRoomRequirements,
     clientFilterRooms,
     showAllRooms,
+    guestCount,
+    employeeCount,
   ]);
 
   const handleSearch = async () => {

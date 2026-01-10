@@ -251,15 +251,17 @@ export function RoomAvailabilityTimeline({
                           <span className="font-bold text-sm">{room.code}</span>
                           <Badge
                             variant={
-                              room.type === "vvip"
+                              room.roomType.code.toLowerCase().includes("vvip")
                                 ? "default"
-                                : room.type === "vip"
+                                : room.roomType.code
+                                    .toLowerCase()
+                                    .includes("vip")
                                 ? "secondary"
                                 : "outline"
                             }
-                            className="text-[9px] h-4 px-1.5 font-normal uppercase"
+                            className="text-[9px] h-4 px-1.5 font-normal"
                           >
-                            {room.type}
+                            {room.roomType.name}
                           </Badge>
                         </div>
 

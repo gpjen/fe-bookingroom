@@ -26,7 +26,12 @@ import { AllowedOccupantType } from "@prisma/client";
 // TYPES (UI Format - compatible with existing UI)
 // ========================================
 
-export type RoomType = "standard" | "vip" | "vvip";
+// RoomType info from database
+export interface RoomTypeInfo {
+  id: string;
+  code: string;
+  name: string;
+}
 export type RoomAllocation = "employee" | "all"; // employee = EMPLOYEE_ONLY, all = ALL (includes guests)
 export type RoomGender = "male" | "female" | "mix" | "flexible";
 export type RoomStatus = "available" | "partial" | "full" | "maintenance";
@@ -87,7 +92,7 @@ export interface RoomAvailability {
   areaId: string;
   areaName: string;
   floor: number;
-  type: RoomType;
+  roomType: RoomTypeInfo; // Full room type info from database
   allocation: RoomAllocation;
   gender: RoomGender;
   capacity: number;
@@ -106,14 +111,7 @@ export interface RoomTypeItem {
   description?: string | null;
 }
 
-/**
- * @deprecated Use useRoomTypes() hook instead for dynamic data from database
- */
-export const ROOM_TYPES: { value: RoomType; label: string }[] = [
-  { value: "standard", label: "Standard" },
-  { value: "vip", label: "VIP" },
-  { value: "vvip", label: "VVIP" },
-];
+// ROOM_TYPES removed - use useRoomTypes() hook for dynamic data from database
 
 // ========================================
 // MAPPERS (API → UI Format)
@@ -133,12 +131,7 @@ function mapGenderPolicy(policy: string): RoomGender {
   }
 }
 
-function mapRoomType(typeCode: string): RoomType {
-  const lower = typeCode.toLowerCase();
-  if (lower.includes("vvip")) return "vvip";
-  if (lower.includes("vip")) return "vip";
-  return "standard";
-}
+// mapRoomType removed - now using full roomType object from database
 
 function mapAllowedOccupantType(type: AllowedOccupantType): RoomAllocation {
   return type === AllowedOccupantType.EMPLOYEE_ONLY ? "employee" : "all";
@@ -232,7 +225,11 @@ function mapAPIToUIRoom(room: APIRoomAvailability): RoomAvailability {
     areaId: room.area.id,
     areaName: room.area.name,
     floor: room.floor,
-    type: mapRoomType(room.roomType.code),
+    roomType: {
+      id: room.roomType.id,
+      code: room.roomType.code,
+      name: room.roomType.name,
+    },
     allocation: mapAllowedOccupantType(room.allowedOccupantType),
     gender: mapGenderPolicy(room.genderPolicy),
     capacity: room.capacity,
@@ -387,7 +384,7 @@ export function useRoomAvailability() {
   const filterRooms = useCallback(
     (filters: {
       buildingId?: string;
-      type?: RoomType;
+      roomTypeCode?: string;
       onlyAvailable?: boolean;
     }) => {
       return rooms.filter((room) => {
@@ -397,7 +394,7 @@ export function useRoomAvailability() {
           room.buildingId !== filters.buildingId
         )
           return false;
-        if (filters.type && room.type !== filters.type) return false;
+        if (filters.roomTypeCode && room.roomType.code !== filters.roomTypeCode) return false;
         if (filters.onlyAvailable && room.availableBeds === 0) return false;
         return true;
       });

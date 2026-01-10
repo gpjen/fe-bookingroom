@@ -23,7 +23,7 @@ import {
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
 import { id as localeId } from "date-fns/locale";
-import type { RoomAvailability, RoomType } from "./room-search-api";
+import type { RoomAvailability, RoomTypeInfo } from "./room-search-api";
 
 interface RoomCardProps {
   room: RoomAvailability;
@@ -34,28 +34,30 @@ interface RoomCardProps {
 export function RoomCard({ room, totalPeople = 1, onSelect }: RoomCardProps) {
   const canFitAll = room.availableBeds >= totalPeople;
 
-  const getRoomTypeStyle = (type: RoomType) => {
-    const config = {
-      vvip: {
+  const getRoomTypeStyle = (roomType: RoomTypeInfo) => {
+    const code = roomType.code.toLowerCase();
+    if (code.includes("vvip")) {
+      return {
         icon: <Crown className="h-4 w-4" />,
         bg: "bg-gradient-to-r from-amber-500 to-yellow-400",
         text: "text-white",
-      },
-      vip: {
+      };
+    }
+    if (code.includes("vip")) {
+      return {
         icon: <Star className="h-4 w-4" />,
         bg: "bg-gradient-to-r from-violet-500 to-purple-400",
         text: "text-white",
-      },
-      standard: {
-        icon: null,
-        bg: "bg-slate-200 dark:bg-slate-700",
-        text: "text-slate-700 dark:text-slate-200",
-      },
+      };
+    }
+    return {
+      icon: null,
+      bg: "bg-slate-200 dark:bg-slate-700",
+      text: "text-slate-700 dark:text-slate-200",
     };
-    return config[type];
   };
 
-  const typeStyle = getRoomTypeStyle(room.type);
+  const typeStyle = getRoomTypeStyle(room.roomType);
 
   const getBedStatusStyle = (status: string) => {
     const config = {
@@ -105,7 +107,7 @@ export function RoomCard({ room, totalPeople = 1, onSelect }: RoomCardProps) {
                   <h3 className="text-xl font-bold">{room.code}</h3>
                   <Badge className={cn("gap-1", typeStyle.bg, typeStyle.text)}>
                     {typeStyle.icon}
-                    {room.type.toUpperCase()}
+                    {room.roomType.name}
                   </Badge>
                 </div>
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-muted-foreground">

@@ -146,7 +146,7 @@ export function RoomDetailDialog({
       buildingName: room.buildingName,
       areaId: room.areaId,
       areaName: room.areaName,
-      roomType: room.type,
+      roomType: room.roomType.code,
       capacity: room.capacity,
       roomGender: room.gender,
       roomAllocation: room.allocation,
@@ -176,15 +176,15 @@ export function RoomDetailDialog({
                 {room.code}
                 <Badge
                   variant={
-                    room.type === "vvip"
+                    room.roomType.code.toLowerCase().includes("vvip")
                       ? "default"
-                      : room.type === "vip"
+                      : room.roomType.code.toLowerCase().includes("vip")
                       ? "secondary"
                       : "outline"
                   }
                   className="text-sm"
                 >
-                  {room.type.toUpperCase()}
+                  {room.roomType.name}
                 </Badge>
               </DialogTitle>
               <DialogDescription className="flex items-center gap-3 mt-2 text-sm">

@@ -753,6 +753,12 @@ export async function getMyBookings(
               checkOutDate: true,
             },
           },
+          requestItems: {
+            select: {
+              checkInDate: true,
+              checkOutDate: true,
+            },
+          },
         },
         orderBy: { createdAt: "desc" },
         skip,
@@ -762,9 +768,15 @@ export async function getMyBookings(
     ]);
 
     const result: BookingListItem[] = bookings.map((b) => {
-      // Calculate dates from occupancies
-      const checkInDates = b.occupancies.map(o => o.checkInDate).filter(Boolean);
-      const checkOutDates = b.occupancies.map(o => o.checkOutDate).filter(Boolean) as Date[];
+      // Determine source of truth: Occupancies (if approved/active) or Request Items (if pending)
+      // If occupancies exist, use them. Otherwise fallback to request items.
+      const hasOccupancies = b.occupancies.length > 0;
+      const sourceItems = hasOccupancies ? b.occupancies : b.requestItems;
+
+      // Calculate dates
+      const checkInDates = sourceItems.map(o => o.checkInDate).filter(Boolean);
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const checkOutDates = sourceItems.map((o: any) => o.checkOutDate).filter(Boolean) as Date[];
       
       return {
         id: b.id,
@@ -776,7 +788,7 @@ export async function getMyBookings(
         projectCode: b.projectCode,
         requesterName: b.requesterName,
         requesterCompany: b.requesterCompany,
-        occupantCount: b.occupancies.length,
+        occupantCount: sourceItems.length, // Use source items count
         createdAt: b.createdAt,
       };
     });

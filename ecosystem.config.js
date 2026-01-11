@@ -28,7 +28,7 @@ module.exports = {
 
         // DB
         DATABASE_URL:
-          "postgresql://it-apps:TempPass123!@192.168.130.105:5433/booking-room?schema=public",
+          "postgresql://it-apps:TempPass123!@192.168.130.105:5433/booking-room-staging?schema=public",
 
         // Portal API form get user data
         IAM_PORTAL_API_URL:"https://portal.obi.com/api",

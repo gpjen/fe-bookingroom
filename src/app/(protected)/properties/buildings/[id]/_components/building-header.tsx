@@ -6,12 +6,15 @@ import {
   Building2,
   MapPin,
   Layers,
-  Edit,
   MoreVertical,
   Trash2,
   CheckCircle2,
   AlertCircle,
+  FileDown,
+  Loader2,
 } from "lucide-react";
+import { useState } from "react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -67,6 +70,53 @@ interface BuildingHeaderProps {
 // ========================================
 
 export function BuildingHeader({ initialData: data }: BuildingHeaderProps) {
+  // Export Logic
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleExport = async () => {
+    setIsExporting(true);
+    toast.info("Sedang menyiapkan laporan...", { duration: 2000 });
+
+    try {
+      const { exportBuildingData } = await import(
+        "../_actions/export-building.actions"
+      );
+      const res = await exportBuildingData(data.id);
+
+      if (res.success) {
+        // Convert Base64 to Blob
+        const byteCharacters = atob(res.data.base64);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], {
+          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        });
+
+        // Trigger Download
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = res.data.filename;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+
+        toast.success("Laporan berhasil diunduh");
+      } else {
+        toast.error("Gagal mengunduh laporan", { description: res.error });
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Terjadi kesalahan sistem");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   return (
     <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
       <div className="space-y-1">
@@ -104,8 +154,18 @@ export function BuildingHeader({ initialData: data }: BuildingHeaderProps) {
       </div>
 
       <div className="flex items-center gap-2">
-        <Button variant="outline" className="gap-2">
-          <Edit className="h-4 w-4" /> Edit
+        <Button
+          variant="outline"
+          className="gap-2"
+          onClick={handleExport}
+          disabled={isExporting}
+        >
+          {isExporting ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <FileDown className="h-4 w-4" />
+          )}
+          Export Excel
         </Button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

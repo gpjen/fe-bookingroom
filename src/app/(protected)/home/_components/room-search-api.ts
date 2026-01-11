@@ -7,7 +7,7 @@
  * from the booking APIs and map them to the UI format.
  */
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, useRef } from "react";
 import {
   getAreasForBooking,
   getBuildingsByArea,
@@ -250,7 +250,12 @@ export function useAreas() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const fetched = useRef(false);
+
   useEffect(() => {
+    if (fetched.current) return;
+    fetched.current = true;
+
     async function fetch() {
       setIsLoading(true);
       const result = await getAreasForBooking();
@@ -278,7 +283,12 @@ export function useRoomTypes() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const fetched = useRef(false);
+
   useEffect(() => {
+    if (fetched.current) return;
+    fetched.current = true;
+
     async function fetch() {
       setIsLoading(true);
       const result = await getRoomTypesForBooking();

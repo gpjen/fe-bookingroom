@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { startOfMonth, endOfMonth } from "date-fns";
 import { DateRange } from "react-day-picker";
 import {
   ClipboardList,
@@ -174,7 +175,7 @@ export default function BookingRequestPage() {
     isLoading: permissionsLoading,
     hasPermission,
   } = usePermissions();
-  const buildingIds = buildings.map((b) => b.id);
+  const buildingIds = useMemo(() => buildings.map((b) => b.id), [buildings]);
 
   // Check if user can approve/reject bookings
   const canApproveBookings = hasPermission(["booking-request:approve"]);
@@ -189,7 +190,13 @@ export default function BookingRequestPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
-  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>({
+    from: startOfMonth(new Date()),
+    to: endOfMonth(new Date()),
+  });
+
+  // Export State
+  const [isExporting, setIsExporting] = useState(false);
 
   // Dialog state
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -370,17 +377,64 @@ export default function BookingRequestPage() {
     fetchBookings();
   };
 
-  const handleExport = () => {
-    toast.success("Export dimulai", {
-      description: `Mengekspor ${bookings.length} data`,
-    });
+  const handleExport = async () => {
+    setIsExporting(true);
+    toast.info("Menyiapkan laporan...", { duration: 2000 });
+
+    try {
+      const { exportBookingRequests } = await import(
+        "../_actions/booking-export.actions"
+      );
+      const res = await exportBookingRequests({
+        search: searchQuery,
+        status: statusFilter,
+        dateFrom: dateRange?.from,
+        dateTo: dateRange?.to,
+        buildingIds,
+      });
+
+      if (res.success) {
+        // Convert Base64 to Blob
+        const byteCharacters = atob(res.data.base64);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) {
+          byteNumbers[i] = byteCharacters.charCodeAt(i);
+        }
+        const byteArray = new Uint8Array(byteNumbers);
+        const blob = new Blob([byteArray], {
+          type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        });
+
+        // Trigger Download
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = res.data.filename;
+        document.body.appendChild(a);
+        a.click();
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+
+        toast.success("Laporan berhasil diunduh");
+      } else {
+        toast.error("Gagal export", { description: res.error });
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Terjadi kesalahan sistem");
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const clearFilters = () => {
     setSearchQuery("");
     setStatusFilter("all");
 
-    setDateRange(undefined);
+    setDateRange({
+      from: startOfMonth(new Date()),
+      to: endOfMonth(new Date()),
+    });
     toast.info("Filter telah direset");
   };
 
@@ -432,9 +486,14 @@ export default function BookingRequestPage() {
               variant="outline"
               size="sm"
               onClick={handleExport}
+              disabled={isExporting}
               className="flex-1 sm:flex-none"
             >
-              <Download className="h-4 w-4 mr-2" />
+              {isExporting ? (
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4 mr-2" />
+              )}
               Export
             </Button>
           </div>

@@ -709,6 +709,7 @@ export async function getMyBookings(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const where: any = {
       requesterUserId: userId,
+      AND: [],
     };
 
     if (params?.status) {
@@ -717,22 +718,27 @@ export async function getMyBookings(
 
     // Date range filter
     if (params?.dateFrom || params?.dateTo) {
-      where.checkInDate = {};
-      if (params.dateFrom) {
-        where.checkInDate.gte = params.dateFrom;
-      }
-      if (params.dateTo) {
-        where.checkInDate.lte = params.dateTo;
-      }
+      const dateFilter: any = {};
+      if (params.dateFrom) dateFilter.gte = params.dateFrom;
+      if (params.dateTo) dateFilter.lte = params.dateTo;
+      
+      where.AND.push({
+        OR: [
+          { requestItems: { some: { checkInDate: dateFilter } } },
+          { occupancies: { some: { checkInDate: dateFilter } } },
+        ],
+      });
     }
 
     // Search filter
     if (params?.search && params.search.trim()) {
       const searchTerm = params.search.trim();
-      where.OR = [
-        { code: { contains: searchTerm, mode: "insensitive" } },
-        { purpose: { contains: searchTerm, mode: "insensitive" } },
-      ];
+      where.AND.push({
+        OR: [
+          { code: { contains: searchTerm, mode: "insensitive" } },
+          { purpose: { contains: searchTerm, mode: "insensitive" } },
+        ],
+      });
     }
 
     const [bookings, total] = await Promise.all([
@@ -837,71 +843,75 @@ export async function getAllBookings(
     const skip = (page - 1) * limit;
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const where: any = {};
+    const where: any = {
+      AND: [],
+    };
 
     // Status filter
     if (params?.status && params.status !== "all") {
-      where.status = params.status;
+      where.AND.push({ status: params.status });
     }
 
     // Date range filter (check-in date)
     if (params?.dateFrom || params?.dateTo) {
-      where.checkInDate = {};
-      if (params.dateFrom) {
-        where.checkInDate.gte = params.dateFrom;
-      }
-      if (params.dateTo) {
-        where.checkInDate.lte = params.dateTo;
-      }
+      const dateFilter: any = {};
+      if (params.dateFrom) dateFilter.gte = params.dateFrom;
+      if (params.dateTo) dateFilter.lte = params.dateTo;
+      
+      where.AND.push({
+        OR: [
+          { requestItems: { some: { checkInDate: dateFilter } } },
+          { occupancies: { some: { checkInDate: dateFilter } } },
+        ],
+      });
     }
 
     // Search filter
     if (params?.search && params.search.trim()) {
       const searchTerm = params.search.trim();
-      where.OR = [
-        { code: { contains: searchTerm, mode: "insensitive" } },
-        { requesterName: { contains: searchTerm, mode: "insensitive" } },
-        { requesterNik: { contains: searchTerm, mode: "insensitive" } },
-        { purpose: { contains: searchTerm, mode: "insensitive" } },
-        { projectCode: { contains: searchTerm, mode: "insensitive" } },
-        { companionName: { contains: searchTerm, mode: "insensitive" } },
-      ];
+      where.AND.push({
+        OR: [
+          { code: { contains: searchTerm, mode: "insensitive" } },
+          { requesterName: { contains: searchTerm, mode: "insensitive" } },
+          { requesterNik: { contains: searchTerm, mode: "insensitive" } },
+          { purpose: { contains: searchTerm, mode: "insensitive" } },
+          { projectCode: { contains: searchTerm, mode: "insensitive" } },
+          { companionName: { contains: searchTerm, mode: "insensitive" } },
+        ],
+      });
     }
 
     // Building access filter - only show bookings for accessible buildings
     if (params?.buildingIds && params.buildingIds.length > 0) {
       // Filter bookings where at least one requestItem OR occupancy is in accessible buildings
-      where.AND = [
-        ...(where.AND || []),
-        {
-          OR: [
-            // Check requestItems (pending bookings)
-            {
-              requestItems: {
-                some: {
-                  bed: {
-                    room: {
-                      buildingId: { in: params.buildingIds },
-                    },
+      where.AND.push({
+        OR: [
+          // Check requestItems (pending bookings)
+          {
+            requestItems: {
+              some: {
+                bed: {
+                  room: {
+                    buildingId: { in: params.buildingIds },
                   },
                 },
               },
             },
-            // Check occupancies (approved bookings)
-            {
-              occupancies: {
-                some: {
-                  bed: {
-                    room: {
-                      buildingId: { in: params.buildingIds },
-                    },
+          },
+          // Check occupancies (approved bookings)
+          {
+            occupancies: {
+              some: {
+                bed: {
+                  room: {
+                    buildingId: { in: params.buildingIds },
                   },
                 },
               },
             },
-          ],
-        },
-      ];
+          },
+        ],
+      });
     }
 
     const [bookings, total] = await Promise.all([

@@ -105,7 +105,9 @@ export interface BedWithOccupancy {
 
   notes: string | null;
   activeOccupancy: ActiveOccupancyInfo | null;
-  pendingRequest: PendingRequestInfo | null; // Booking request waiting for approval
+  upcomingOccupancies: ActiveOccupancyInfo[];
+  pendingRequests: PendingRequestInfo[]; // List of ALL pending requests
+  pendingRequest: PendingRequestInfo | null; // Keep for backward compat / primary status
 }
 
 // ========================================

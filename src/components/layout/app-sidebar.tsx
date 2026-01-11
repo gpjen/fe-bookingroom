@@ -498,13 +498,13 @@ export function AppSidebar({ userName, email }: AppSidebarProps) {
               asChild
               className="hover:bg-sidebar-accent"
             >
-              <Link href="/" className="flex items-center gap-3">
+              <Link href="/" className="flex items-center gap-1">
                 <div className="flex items-center justify-center">
                   <Image
                     src="/logo-1.png"
                     alt="Logo"
-                    width={40}
-                    height={40}
+                    width={60}
+                    height={60}
                     priority
                     className="object-contain"
                   />

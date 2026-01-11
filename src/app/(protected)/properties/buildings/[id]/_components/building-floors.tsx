@@ -488,7 +488,7 @@ export function BuildingFloors({
                 </AccordionTrigger>
                 <AccordionContent className="pb-3">
                   {/* Grid untuk ruangan dengan ukuran tetap */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 pt-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3 pt-1">
                     {floor.rooms.map((room) => (
                       <div key={room.id} className="min-w-0">
                         <RoomCard

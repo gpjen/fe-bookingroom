@@ -58,9 +58,14 @@ export async function getBedsWithOccupancy(
         occupancies: {
           where: {
             status: { in: ["PENDING", "RESERVED", "CHECKED_IN"] },
+            // Filter out past occupancies
+            OR: [
+              { checkOutDate: null },                 // Indefinite stay
+              { checkOutDate: { gte: new Date() } }   // Ends today or future
+            ]
           },
-          orderBy: { checkInDate: "desc" },
-          take: 1,
+          orderBy: { checkInDate: "asc" }, // Show timeline order
+          // take: 1, // REMOVED: Fetch all overlapping/future occupancies
           select: {
             id: true,
             checkInDate: true,
@@ -86,8 +91,8 @@ export async function getBedsWithOccupancy(
               status: "PENDING", // Only pending bookings
             },
           },
-          orderBy: { createdAt: "desc" },
-          take: 1,
+          orderBy: { checkInDate: "asc" },
+          take: 10, // Show multiple pending requests if any
           select: {
             id: true,
             bookingId: true,
@@ -107,45 +112,75 @@ export async function getBedsWithOccupancy(
       },
     });
 
-    const result: BedWithOccupancy[] = beds.map((bed) => ({
-      id: bed.id,
-      code: bed.code,
-      label: bed.label,
-      position: bed.position,
-      bedType: bed.bedType,
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
 
-      notes: bed.notes,
-      activeOccupancy: bed.occupancies[0]
-        ? {
-            id: bed.occupancies[0].id,
-            occupant: {
-              id: bed.occupancies[0].occupant.id,
-              name: bed.occupancies[0].occupant.name,
-              type: bed.occupancies[0].occupant.type,
-              gender: bed.occupancies[0].occupant.gender,
-              company: bed.occupancies[0].occupant.company,
-              nik: bed.occupancies[0].occupant.nik,
-            },
-            checkInDate: bed.occupancies[0].checkInDate,
-            checkOutDate: bed.occupancies[0].checkOutDate,
-            actualCheckIn: bed.occupancies[0].actualCheckIn,
-            status: bed.occupancies[0].status,
-          }
-        : null,
-      pendingRequest: bed.requestItems[0]
-        ? {
-            id: bed.requestItems[0].id,
-            bookingId: bed.requestItems[0].bookingId,
-            bookingCode: bed.requestItems[0].booking.code,
-            name: bed.requestItems[0].name,
-            gender: bed.requestItems[0].gender,
-            type: bed.requestItems[0].type,
-            checkInDate: bed.requestItems[0].checkInDate,
-            checkOutDate: bed.requestItems[0].checkOutDate,
-            createdAt: bed.requestItems[0].createdAt,
-          }
-        : null,
-    }));
+    const result: BedWithOccupancy[] = beds.map((bed) => {
+      // Process occupancies to find active vs active
+      // Active = checkInDate <= today
+      // Upcoming = checkInDate > today
+      
+      const allOccupancies = bed.occupancies.map(occ => ({
+        id: occ.id,
+        occupant: {
+          id: occ.occupant.id,
+          name: occ.occupant.name,
+          type: occ.occupant.type,
+          gender: occ.occupant.gender,
+          company: occ.occupant.company,
+          nik: occ.occupant.nik,
+        },
+        checkInDate: occ.checkInDate,
+        checkOutDate: occ.checkOutDate,
+        actualCheckIn: occ.actualCheckIn,
+        status: occ.status,
+      }));
+
+      // Find the currently active occupancy (if any)
+      // Logic: Started on or before today, and hasn't ended before today
+      // Priority to CHECKED_IN status, then earliest check-in
+      const activeOccupancy = allOccupancies.find(occ => {
+        const checkIn = new Date(occ.checkInDate);
+        checkIn.setHours(0,0,0,0);
+        return checkIn <= today;
+      }) || null;
+
+      // Filter upcoming (start date > today)
+      // If we have an active occupancy, verify upcoming doesn't include it
+      const upcomingOccupancies = allOccupancies.filter(occ => {
+        if (activeOccupancy && occ.id === activeOccupancy.id) return false;
+        
+        const checkIn = new Date(occ.checkInDate);
+        checkIn.setHours(0,0,0,0);
+        return checkIn > today;
+      });
+
+      // Map pending requests
+      const pendingRequests = bed.requestItems.map(item => ({
+        id: item.id,
+        bookingId: item.bookingId,
+        bookingCode: item.booking.code,
+        name: item.name,
+        gender: item.gender,
+        type: item.type,
+        checkInDate: item.checkInDate,
+        checkOutDate: item.checkOutDate,
+        createdAt: item.createdAt,
+      }));
+
+      return {
+        id: bed.id,
+        code: bed.code,
+        label: bed.label,
+        position: bed.position,
+        bedType: bed.bedType,
+        notes: bed.notes,
+        activeOccupancy,
+        upcomingOccupancies,
+        pendingRequests,
+        pendingRequest: pendingRequests.length > 0 ? pendingRequests[0] : null,
+      };
+    });
 
     return { success: true, data: result };
   } catch (error) {

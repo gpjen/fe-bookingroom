@@ -123,6 +123,8 @@ export async function getBuildingStats(
         requestItems: {
           where: {
             booking: { status: "PENDING" },
+            // Only count requests that are not in the past
+            checkOutDate: { gte: new Date() },
           },
           select: { id: true },
         },
@@ -255,6 +257,7 @@ export async function getRoomsGroupedByFloor(
             requestItems: {
               where: {
                 booking: { status: "PENDING" },
+                checkOutDate: { gte: new Date() },
               },
               select: { id: true, bookingId: true },
             },
@@ -436,6 +439,7 @@ export async function getAllBuildingPageData(
           requestItems: {
             where: {
               booking: { status: "PENDING" },
+              checkOutDate: { gte: new Date() },
             },
             select: { id: true },
           },
@@ -486,6 +490,7 @@ export async function getAllBuildingPageData(
               requestItems: {
                 where: {
                   booking: { status: "PENDING" },
+                  checkOutDate: { gte: new Date() },
                 },
                 select: { id: true, bookingId: true },
               },
